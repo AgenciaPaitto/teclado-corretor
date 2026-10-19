@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  res/xml/method.xml — Metadados do Input Method para o sistema Android.
+
+  • settingsActivity: tela aberta quando o usuário toca em "Configurações"
+    do teclado em Ajustes > Sistema > Teclados.
+  • supportsSwitchingToNextInputMethod: habilita a tecla 🌐 para alternar
+    de volta ao teclado de digitação padrão (Gboard/Samsung).
+  • subtype: idioma/modo anunciado ao sistema.
+-->
+<input-method xmlns:android="http://schemas.android.com/apk/res/android"
+    android:settingsActivity="com.corretorkeyboard.MainActivity"
+    android:supportsSwitchingToNextInputMethod="true"
+    android:isDefault="false">
+
+    <subtype
+        android:label="@string/subtype_pt_br"
+        android:imeSubtypeLocale="pt_BR"
+        android:languageTag="pt-BR"
+        android:imeSubtypeMode="keyboard"
+        android:isAsciiCapable="true" />
+
+</input-method>

@@ -1,0 +1,33 @@
+{
+  "name": "corretor-keyboard",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "android": "react-native run-android",
+    "ios": "react-native run-ios",
+    "start": "react-native start",
+    "typecheck": "tsc --noEmit",
+    "backend": "tsx backend/server.ts",
+    "simulator": "node simulator/serve.js",
+    "bundle:android": "react-native bundle --platform android --dev false --entry-file index.js --bundle-output android/app/src/main/assets/index.android.bundle --assets-dest android/app/src/main/res"
+  },
+
+  "dependencies": {
+    "@react-native-clipboard/clipboard": "^1.14.1",
+    "react": "18.2.0",
+    "react-native": "0.74.5",
+    "react-native-mmkv": "^2.12.2"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.24.0",
+    "@react-native/babel-preset": "0.74.87",
+    "@react-native/metro-config": "0.74.87",
+    "@react-native/typescript-config": "0.74.87",
+    "@types/express": "^4.17.21",
+    "@types/jest": "^30.0.0",
+    "@types/react": "^18.2.6",
+    "express": "^4.19.2",
+    "tsx": "^4.16.0",
+    "typescript": "5.0.4"
+  }
+}

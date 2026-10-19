@@ -1,0 +1,104 @@
+import React, { useState } from 'react';
+import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import type { AudioShortcut, ShortcutsData, TextShortcut } from '../../types';
+import { colors, radius, spacing } from '../theme';
+import { ItemCard } from './ItemCard';
+
+interface Props {
+  shortcuts: ShortcutsData;
+  onInsert: (text: string) => void;
+}
+
+type ShortcutFilter = 'text' | 'audio';
+
+/**
+ * Atalhos — Mensagens criadas pelo próprio usuário para envio rápido (Texto e Áudio).
+ */
+export function ShortcutsTab({ shortcuts, onInsert }: Props) {
+  const [filter, setFilter] = useState<ShortcutFilter>('text');
+
+  return (
+    <View style={styles.container}>
+      <View style={styles.filterBar}>
+        <Pressable
+          style={[styles.filterBtn, filter === 'text' && styles.filterBtnActive]}
+          onPress={() => setFilter('text')}>
+          <Text style={[styles.filterLabel, filter === 'text' && styles.filterLabelActive]}>
+            Mensagens de Texto ({shortcuts.texts.length})
+          </Text>
+        </Pressable>
+        <Pressable
+          style={[styles.filterBtn, filter === 'audio' && styles.filterBtnActive]}
+          onPress={() => setFilter('audio')}>
+          <Text style={[styles.filterLabel, filter === 'audio' && styles.filterLabelActive]}>
+            Áudios Rápidos ({shortcuts.audios.length})
+          </Text>
+        </Pressable>
+      </View>
+
+      {filter === 'text' ? (
+        <FlatList
+          data={shortcuts.texts}
+          keyExtractor={item => item.id}
+          contentContainerStyle={styles.list}
+          keyboardShouldPersistTaps="always"
+          renderItem={({ item }: { item: TextShortcut }) => (
+            <ItemCard
+              testID={`shortcut-text-${item.id}`}
+              title={item.title}
+              subtitle={item.text}
+              onPress={() => onInsert(item.text)}
+            />
+          )}
+        />
+      ) : (
+        <FlatList
+          data={shortcuts.audios}
+          keyExtractor={item => item.id}
+          contentContainerStyle={styles.list}
+          keyboardShouldPersistTaps="always"
+          renderItem={({ item }: { item: AudioShortcut }) => (
+            <ItemCard
+              testID={`shortcut-audio-${item.id}`}
+              title={item.title}
+              subtitle={`"${item.transcript}"`}
+              meta={item.duration}
+              onPress={() => onInsert(`[Áudio ${item.duration}] ${item.title}: ${item.audioUrl}`)}
+            />
+          )}
+        />
+      )}
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: { flex: 1 },
+  filterBar: {
+    flexDirection: 'row',
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 6,
+    gap: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.surfaceAlt,
+  },
+  filterBtn: {
+    flex: 1,
+    paddingVertical: 6,
+    alignItems: 'center',
+    borderRadius: radius.sm,
+  },
+  filterBtnActive: {
+    backgroundColor: colors.surfaceAlt,
+  },
+  filterLabel: {
+    fontSize: 11,
+    color: colors.textMuted,
+    fontWeight: '500',
+  },
+  filterLabelActive: {
+    color: colors.text,
+    fontWeight: '600',
+  },
+  list: { padding: spacing.sm },
+});

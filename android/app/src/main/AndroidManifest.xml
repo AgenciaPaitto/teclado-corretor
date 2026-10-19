@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  AndroidManifest.xml — Corretor Keyboard
+  ------------------------------------------------------------------
+  Arquitetura:
+  • MainActivity  → App "host" (login + configuração de catálogo/templates).
+  • CustomKeyboardService → InputMethodService (IME). É o processo que o
+    Android instancia quando o usuário escolhe nosso teclado em qualquer app
+    (WhatsApp, Instagram, Gmail...). Ele roda NO MESMO PROCESSO do app,
+    portanto compartilha o mesmo ReactInstanceManager, MMKV e JS bundle.
+
+  Obs.: em AGP 8+ o atributo `package` foi movido para `namespace`
+  no build.gradle (namespace "com.corretorkeyboard").
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <!-- Necessária para o AI Copilot falar com o backend. -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
+    <application
+        android:name=".MainApplication"
+        android:label="@string/app_name"
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:allowBackup="false"
+        android:theme="@style/AppTheme"
+        android:supportsRtl="true">
+
+        <!-- =========================================================
+             1) App principal (login / configurações)
+             ========================================================= -->
+        <activity
+            android:name=".MainActivity"
+            android:label="@string/app_name"
+            android:configChanges="keyboard|keyboardHidden|orientation|screenLayout|screenSize|smallestScreenSize|uiMode"
+            android:launchMode="singleTask"
+            android:windowSoftInputMode="adjustResize"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <!-- =========================================================
+             2) Serviço de Método de Entrada (o TECLADO)
+             • BIND_INPUT_METHOD: garante que SOMENTE o sistema
+               (InputMethodManagerService) possa se conectar ao serviço.
+             • intent-filter android.view.InputMethod: é assim que o
+               Android descobre que este APK fornece um teclado.
+             • meta-data android.view.im → res/xml/method.xml
+             ========================================================= -->
+        <service
+            android:name=".keyboard.CustomKeyboardService"
+            android:label="@string/ime_name"
+            android:permission="android.permission.BIND_INPUT_METHOD"
+            android:exported="true"
+            tools:ignore="ExportedService">
+            <intent-filter>
+                <action android:name="android.view.InputMethod" />
+            </intent-filter>
+            <meta-data
+                android:name="android.view.im"
+                android:resource="@xml/method" />
+        </service>
+
+    </application>
+</manifest>

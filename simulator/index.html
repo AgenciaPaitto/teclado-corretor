@@ -1,0 +1,2243 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Simulador Completo — App Container & Teclado do Corretor</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Roboto:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+      user-select: none;
+      border: none;
+      outline: none;
+    }
+
+    body {
+      background: #090a0d;
+      color: #e2e8f0;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 20px 16px;
+    }
+
+    .header-banner {
+      text-align: center;
+      margin-bottom: 14px;
+      max-width: 620px;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 3px 10px;
+      border-radius: 999px;
+      background: #181b22;
+      color: #94a3b8;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.4px;
+      text-transform: uppercase;
+      margin-bottom: 6px;
+    }
+
+    h1 {
+      font-size: 22px;
+      font-weight: 700;
+      color: #f8fafc;
+      margin-bottom: 4px;
+      letter-spacing: -0.3px;
+    }
+
+    p.subtitle {
+      font-size: 13px;
+      color: #64748b;
+      line-height: 1.5;
+    }
+
+    /* SELETOR SUPERIOR DE MODO (APP PRINCIPAL vs TECLADO NO WHATSAPP) */
+    .view-mode-bar {
+      display: flex;
+      background: #12141a;
+      border: 1px solid #1e222d;
+      border-radius: 999px;
+      padding: 4px;
+      gap: 4px;
+      margin-bottom: 16px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+    }
+
+    .view-mode-btn {
+      padding: 8px 18px;
+      border-radius: 999px;
+      background: transparent;
+      color: #94a3b8;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s;
+    }
+
+    .view-mode-btn:hover {
+      color: #f1f5f9;
+    }
+
+    .view-mode-btn.active {
+      background: #232834;
+      color: #f8fafc;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+    }
+
+    /* MOLDURA DO SMARTPHONE */
+    .phone-wrapper {
+      width: 380px;
+      height: 770px;
+      background: #0f1116;
+      border-radius: 40px;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.7);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      position: relative;
+      border: 1px solid #1a1e27;
+      transition: all 0.25s ease;
+    }
+
+    .notch {
+      position: absolute;
+      top: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 120px;
+      height: 20px;
+      background: #0f1116;
+      border-bottom-left-radius: 12px;
+      border-bottom-right-radius: 12px;
+      z-index: 100;
+    }
+
+    /* =========================================================
+       1) AMBIENTE: APP PRINCIPAL (CONTAINER HOST)
+       ========================================================= */
+    .app-container-view {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      background: #0c0e12;
+      overflow: hidden;
+    }
+
+    .app-top-header {
+      padding: 30px 16px 12px 16px;
+      background: #14171e;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      z-index: 10;
+    }
+
+    .app-brand-title {
+      font-size: 15px;
+      font-weight: 700;
+      color: #f1f5f9;
+      letter-spacing: -0.2px;
+    }
+
+    .app-brand-sub {
+      font-size: 11px;
+      color: #64748b;
+    }
+
+    .app-launch-wa-btn {
+      background: #10b981;
+      color: #ffffff;
+      padding: 5px 12px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+
+    .app-launch-wa-btn:hover {
+      background: #059669;
+    }
+
+    .app-screen-body {
+      flex: 1;
+      overflow-y: auto;
+      padding: 14px 12px;
+    }
+
+    .app-screen-body::-webkit-scrollbar {
+      display: none;
+    }
+
+    /* BARRA INFERIOR DE NAVEGAÇÃO DO APP CONTAINER */
+    .app-nav-bar {
+      height: 52px;
+      background: #111318;
+      display: flex;
+      align-items: center;
+      padding: 4px 6px;
+      gap: 4px;
+      border-top: 1px solid #1c1f28;
+    }
+
+    .app-nav-btn {
+      flex: 1;
+      height: 42px;
+      border-radius: 8px;
+      background: transparent;
+      color: #64748b;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 2px;
+      font-size: 10px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .app-nav-btn:hover {
+      color: #94a3b8;
+    }
+
+    .app-nav-btn.active {
+      background: #1c2028;
+      color: #f1f5f9;
+      font-weight: 700;
+    }
+
+    /* CARDS DO APP PRINCIPAL */
+    .app-card {
+      background: #161922;
+      border-radius: 12px;
+      padding: 14px;
+      margin-bottom: 12px;
+      border: 1px solid #202430;
+    }
+
+    .app-card-title {
+      font-size: 14px;
+      font-weight: 700;
+      color: #f1f5f9;
+      margin-bottom: 4px;
+    }
+
+    .app-card-desc {
+      font-size: 12px;
+      color: #94a3b8;
+      line-height: 1.5;
+      margin-bottom: 10px;
+    }
+
+    .app-btn-primary {
+      width: 100%;
+      background: #2563eb;
+      color: #ffffff;
+      padding: 10px;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 600;
+      text-align: center;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+
+    .app-btn-primary:hover {
+      background: #1d4ed8;
+    }
+
+    .app-btn-secondary {
+      width: 100%;
+      background: #1c202a;
+      color: #cbd5e1;
+      padding: 9px;
+      border-radius: 8px;
+      font-size: 11px;
+      font-weight: 600;
+      text-align: center;
+      cursor: pointer;
+      margin-top: 6px;
+      border: 1px solid #282e3c;
+    }
+
+    .app-btn-secondary:hover {
+      background: #242936;
+      color: #f8fafc;
+    }
+
+    .step-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-top: 8px;
+    }
+
+    .step-item {
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+    }
+
+    .step-badge {
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      background: #2563eb;
+      color: #ffffff;
+      font-size: 11px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+
+    .step-info {
+      flex: 1;
+    }
+
+    .step-info-title {
+      font-size: 12px;
+      font-weight: 600;
+      color: #f1f5f9;
+      margin-bottom: 2px;
+    }
+
+    .step-info-desc {
+      font-size: 11px;
+      color: #8392a5;
+      line-height: 1.45;
+    }
+
+    /* FORMULÁRIOS NO APP PRINCIPAL */
+    .app-form-group {
+      margin-bottom: 10px;
+    }
+
+    .app-label {
+      font-size: 11px;
+      font-weight: 600;
+      color: #94a3b8;
+      margin-bottom: 4px;
+      display: block;
+    }
+
+    .app-input {
+      width: 100%;
+      background: #101217;
+      border: 1px solid #232733;
+      color: #f1f5f9;
+      padding: 9px 12px;
+      border-radius: 8px;
+      font-size: 12px;
+    }
+
+    .app-input:focus {
+      border-color: #3b82f6;
+    }
+
+    .app-textarea {
+      min-height: 60px;
+      resize: none;
+    }
+
+    /* =========================================================
+       2) AMBIENTE: WHATSAPP INTERFACE & TECLADO
+       ========================================================= */
+    .whatsapp-container {
+      flex: 1;
+      background: #0c0e12;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      transition: background 0.25s ease;
+    }
+
+    .wa-header {
+      padding: 30px 16px 10px 16px;
+      background: #14171e;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      z-index: 10;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .wa-avatar {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: #242936;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      font-weight: 600;
+      color: #94a3b8;
+    }
+
+    .wa-title-area {
+      flex: 1;
+    }
+
+    .wa-contact-name {
+      font-size: 14px;
+      font-weight: 600;
+      color: #f1f5f9;
+    }
+
+    .wa-contact-status {
+      font-size: 11px;
+      color: #64748b;
+      font-weight: 500;
+    }
+
+    .wa-return-app-btn {
+      background: #1c202a;
+      color: #94a3b8;
+      border: 1px solid #282e3c;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .wa-return-app-btn:hover {
+      color: #f1f5f9;
+      background: #242936;
+    }
+
+    .chat-messages {
+      flex: 1;
+      padding: 14px 12px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .chat-messages::-webkit-scrollbar {
+      display: none;
+    }
+
+    .msg-bubble {
+      max-width: 82%;
+      padding: 9px 13px;
+      border-radius: 10px;
+      font-size: 13px;
+      line-height: 1.45;
+      word-break: break-word;
+      user-select: text;
+    }
+
+    .msg-client {
+      background: #181b23;
+      color: #cbd5e1;
+      align-self: flex-start;
+      border-top-left-radius: 2px;
+    }
+
+    .msg-broker {
+      background: #232834;
+      color: #f8fafc;
+      align-self: flex-end;
+      border-top-right-radius: 2px;
+    }
+
+    .msg-time {
+      font-size: 10px;
+      color: #64748b;
+      text-align: right;
+      margin-top: 4px;
+    }
+
+    .wa-input-bar {
+      padding: 8px 10px;
+      background: #14171e;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      border-top: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .wa-input-box {
+      flex: 1;
+      background: #1a1e27;
+      border-radius: 18px;
+      padding: 8px 14px;
+      color: #f1f5f9;
+      font-size: 13px;
+      min-height: 36px;
+      max-height: 76px;
+      overflow-y: auto;
+      user-select: text;
+      white-space: pre-wrap;
+    }
+
+    .wa-input-box:empty:before {
+      content: attr(placeholder);
+      color: #475569;
+    }
+
+    .wa-send-btn {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: #232834;
+      color: #cbd5e1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 600;
+      transition: background 0.15s;
+    }
+
+    .wa-send-btn:hover {
+      background: #2d3342;
+      color: #f8fafc;
+    }
+
+    /* =========================================================
+       CONTAINER DO TECLADO (335px) COM MENU INFERIOR FIXO
+       ========================================================= */
+    .keyboard-container {
+      height: 335px;
+      background: var(--kb-bg, #111318);
+      color: var(--kb-text, #f1f5f9);
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      overflow: hidden;
+      transition: background 0.2s, color 0.2s;
+    }
+
+    /* VARIAVEIS DE TEMA */
+    :root {
+      --kb-bg: #111318;
+      --kb-text: #f1f5f9;
+      --kb-muted: #64748b;
+      --kb-card-bg: #181b22;
+      --kb-card-hover: #222632;
+      --kb-border: #1c1f28;
+      --kb-menu-bg: #0e1014;
+      --kb-menu-active: #212530;
+      --kb-menu-text: #94a3b8;
+      --kb-key-bg: #242731;
+      --kb-key-hover: #2f3442;
+      --kb-key-func: #181a22;
+      --kb-toast-bg: #1c202a;
+    }
+
+    .theme-light {
+      --kb-bg: #eceff3;
+      --kb-text: #1e293b;
+      --kb-muted: #64748b;
+      --kb-card-bg: #ffffff;
+      --kb-card-hover: #f8fafc;
+      --kb-border: #e2e8f0;
+      --kb-menu-bg: #e2e6eb;
+      --kb-menu-active: #ffffff;
+      --kb-menu-text: #475569;
+      --kb-key-bg: #ffffff;
+      --kb-key-hover: #f1f5f9;
+      --kb-key-func: #d9dfe6;
+      --kb-toast-bg: #334155;
+    }
+
+    .theme-light .phone-wrapper {
+      background: #f1f5f9;
+      border-color: #cbd5e1;
+    }
+
+    .theme-light .whatsapp-container,
+    .theme-light .app-container-view {
+      background: #e5e9ee;
+    }
+
+    .theme-light .wa-header,
+    .theme-light .app-top-header {
+      background: #ffffff;
+      border-bottom-color: #e2e8f0;
+    }
+
+    .theme-light .wa-contact-name,
+    .theme-light .app-brand-title {
+      color: #0f172a;
+    }
+
+    .theme-light .app-nav-bar {
+      background: #ffffff;
+      border-top-color: #e2e8f0;
+    }
+
+    .theme-light .app-nav-btn.active {
+      background: #f1f5f9;
+      color: #0f172a;
+    }
+
+    .theme-light .app-card {
+      background: #ffffff;
+      border-color: #e2e8f0;
+    }
+
+    .theme-light .app-card-title {
+      color: #0f172a;
+    }
+
+    .theme-light .app-input {
+      background: #f8fafc;
+      border-color: #cbd5e1;
+      color: #0f172a;
+    }
+
+    .theme-light .wa-input-bar {
+      background: #ffffff;
+      border-top-color: #e2e8f0;
+    }
+
+    .theme-light .wa-input-box {
+      background: #f1f5f9;
+      color: #0f172a;
+    }
+
+    .theme-light .msg-client {
+      background: #ffffff;
+      color: #1e293b;
+    }
+
+    .theme-light .msg-broker {
+      background: #dcf8c6;
+      color: #0f172a;
+    }
+
+    /* ÁREA PRINCIPAL DO TECLADO */
+    .kb-main-body {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      position: relative;
+    }
+
+    /* MENU DO SISTEMA (SEMPRE VISÍVEL ABAIXO DO TECLADO) */
+    .kb-system-menu {
+      height: 48px;
+      background: var(--kb-menu-bg);
+      display: flex;
+      align-items: center;
+      padding: 4px 6px;
+      gap: 5px;
+      border-top: 1px solid var(--kb-border);
+      z-index: 40;
+    }
+
+    .kb-sys-btn {
+      flex: 1;
+      height: 38px;
+      border-radius: 8px;
+      background: transparent;
+      color: var(--kb-menu-text);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .kb-sys-btn:hover {
+      color: var(--kb-text);
+      background: rgba(255, 255, 255, 0.04);
+    }
+
+    .kb-sys-btn.active {
+      background: var(--kb-menu-active);
+      color: var(--kb-text);
+      font-weight: 600;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.12);
+    }
+
+    .kb-sys-btn.btn-keyboard-mode {
+      flex: 0 0 38px;
+    }
+
+    .kb-view-panel {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      width: 100%;
+      overflow-y: auto;
+      padding: 10px 10px 6px;
+    }
+
+    .kb-view-panel::-webkit-scrollbar {
+      display: none;
+    }
+
+    .kb-card {
+      background: var(--kb-card-bg);
+      border-radius: 8px;
+      padding: 10px 12px;
+      margin-bottom: 7px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      cursor: pointer;
+      transition: background 0.15s;
+      border: 1px solid var(--kb-border);
+    }
+
+    .kb-card:hover {
+      background: var(--kb-card-hover);
+    }
+
+    .kb-card-info {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .kb-card-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--kb-text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .kb-card-sub {
+      font-size: 11px;
+      color: var(--kb-muted);
+      margin-top: 2px;
+      line-height: 1.4;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .kb-card-meta {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--kb-muted);
+      white-space: nowrap;
+    }
+
+    .kb-breadcrumb {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 8px;
+      padding: 4px 2px;
+      cursor: pointer;
+    }
+
+    .kb-breadcrumb-back {
+      color: var(--kb-muted);
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .kb-breadcrumb-title {
+      color: var(--kb-text);
+      font-size: 12px;
+      font-weight: 600;
+      flex: 1;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .sub-tabs-bar {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 8px;
+      border-bottom: 1px solid var(--kb-border);
+      padding-bottom: 6px;
+    }
+
+    .sub-tab-btn {
+      flex: 1;
+      background: transparent;
+      color: var(--kb-muted);
+      font-size: 11px;
+      font-weight: 500;
+      padding: 6px 4px;
+      border-radius: 6px;
+      cursor: pointer;
+      text-align: center;
+      transition: all 0.15s;
+    }
+
+    .sub-tab-btn.active {
+      background: var(--kb-card-bg);
+      color: var(--kb-text);
+      font-weight: 600;
+    }
+
+    .cloud-pill {
+      font-size: 10px;
+      padding: 2px 7px;
+      border-radius: 999px;
+      background: rgba(99, 102, 241, 0.12);
+      color: #818cf8;
+      font-weight: 600;
+      display: inline-block;
+      margin-top: 4px;
+    }
+
+    .kb-action-btn {
+      width: 100%;
+      background: var(--kb-card-bg);
+      color: var(--kb-text);
+      border: 1px solid var(--kb-border);
+      border-radius: 6px;
+      padding: 8px;
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      margin-top: 8px;
+      text-align: center;
+      transition: background 0.15s;
+    }
+
+    .kb-action-btn:hover {
+      background: var(--kb-card-hover);
+    }
+
+    .media-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+      margin-top: 4px;
+    }
+
+    .media-thumbnail-card {
+      background: var(--kb-card-bg);
+      border-radius: 8px;
+      border: 1px solid var(--kb-border);
+      overflow: hidden;
+      cursor: pointer;
+      transition: border-color 0.15s;
+    }
+
+    .media-thumbnail-card:hover {
+      border-color: #64748b;
+    }
+
+    .media-thumb-img {
+      width: 100%;
+      height: 64px;
+      object-fit: cover;
+      display: block;
+      background: #1a1e27;
+    }
+
+    .media-thumb-info {
+      padding: 6px 8px;
+    }
+
+    .media-thumb-title {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--kb-text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .media-thumb-badge {
+      font-size: 9px;
+      color: var(--kb-muted);
+      margin-top: 2px;
+    }
+
+    /* TECLADO GBOARD ANDROID */
+    .standard-keyboard-view {
+      display: none;
+      flex-direction: column;
+      height: 100%;
+      width: 100%;
+      padding: 6px 4px 4px 4px;
+      box-sizing: border-box;
+      justify-content: flex-end;
+      gap: 5px;
+    }
+
+    .gb-rows-container {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      width: 100%;
+    }
+
+    .gb-row {
+      display: flex;
+      justify-content: center;
+      gap: 5px;
+      width: 100%;
+    }
+
+    .gb-key {
+      height: 48px;
+      background: var(--kb-key-bg);
+      color: var(--kb-text);
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 17px;
+      font-family: 'Roboto', -apple-system, sans-serif;
+      font-weight: 400;
+      flex: 1;
+      max-width: 33px;
+      cursor: pointer;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.15);
+      transition: background 0.08s;
+    }
+
+    .gb-key:hover {
+      background: var(--kb-key-hover);
+    }
+
+    .gb-key.func {
+      background: var(--kb-key-func);
+      color: var(--kb-text);
+      font-size: 13px;
+      font-weight: 500;
+      max-width: 46px;
+    }
+
+    .gb-key.space-bar {
+      max-width: none;
+      flex: 4;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      color: var(--kb-muted);
+    }
+
+    .gb-key.enter-action {
+      background: #2d3342;
+      color: #ffffff;
+      max-width: 48px;
+    }
+
+    .g-icon {
+      width: 18px;
+      height: 18px;
+      fill: currentColor;
+      display: inline-block;
+      vertical-align: middle;
+    }
+
+    .kb-toast {
+      position: absolute;
+      bottom: 58px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--kb-toast-bg);
+      color: #f1f5f9;
+      font-size: 11px;
+      font-weight: 500;
+      padding: 5px 14px;
+      border-radius: 999px;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.15s;
+      z-index: 60;
+    }
+
+    .kb-toast.show {
+      opacity: 1;
+    }
+
+    .info-footer {
+      margin-top: 16px;
+      max-width: 620px;
+      background: #101217;
+      border: 1px solid #1e222d;
+      border-radius: 12px;
+      padding: 14px 18px;
+      font-size: 12px;
+      color: #94a3b8;
+      line-height: 1.5;
+    }
+
+    .info-footer strong {
+      color: #e2e8f0;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="header-banner">
+    <div class="badge">Simulador Unificado</div>
+    <h1>App Container & Teclado do Corretor</h1>
+    <p class="subtitle">
+      Alterne entre a experiência do <strong>Aplicativo Principal</strong> (onboarding, criação de conta, upload de fotos na nuvem) e o <strong>Teclado no WhatsApp</strong>.
+    </p>
+  </div>
+
+  <!-- SELETOR PRINCIPAL DE AMBIENTE -->
+  <div class="view-mode-bar">
+    <button class="view-mode-btn active" id="btnModeApp" onclick="switchMainEnvironment('app')">
+      📱 App Principal (Configuração & Instalação)
+    </button>
+    <button class="view-mode-btn" id="btnModeKeyboard" onclick="switchMainEnvironment('keyboard')">
+      💬 Teclado no WhatsApp (Uso Diário)
+    </button>
+  </div>
+
+  <!-- SMARTPHONE FRAME -->
+  <div class="phone-wrapper" id="phoneWrapper">
+    <div class="notch"></div>
+
+    <!-- =========================================================
+         1) AMBIENTE A: APP PRINCIPAL (CONTAINER)
+         ========================================================= -->
+    <div class="app-container-view" id="appContainerView">
+      <div class="app-top-header">
+        <div>
+          <div class="app-brand-title">Corretor Keyboard</div>
+          <div class="app-brand-sub" id="appHeaderBrokerName">Ana Souza • Prime Imóveis</div>
+        </div>
+        <button class="app-launch-wa-btn" onclick="switchMainEnvironment('keyboard')" title="Abrir WhatsApp com Teclado">
+          Testar no WhatsApp →
+        </button>
+      </div>
+
+      <!-- CORPO DA TELA ATIVA DO APP PRINCIPAL -->
+      <div class="app-screen-body" id="appScreenBody"></div>
+
+      <!-- MENU DE NAVEGAÇÃO DO APP PRINCIPAL -->
+      <div class="app-nav-bar">
+        <button class="app-nav-btn active" id="appNavInstall" onclick="switchAppTab('install')">
+          <span>⚙️</span>
+          <span>Instalação</span>
+        </button>
+        <button class="app-nav-btn" id="appNavProducts" onclick="switchAppTab('products')">
+          <span>📂</span>
+          <span>Produtos & Fotos</span>
+        </button>
+        <button class="app-nav-btn" id="appNavShortcuts" onclick="switchAppTab('shortcuts')">
+          <span>⚡</span>
+          <span>Atalhos</span>
+        </button>
+        <button class="app-nav-btn" id="appNavAccount" onclick="switchAppTab('account')">
+          <span>👤</span>
+          <span>Conta</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- =========================================================
+         2) AMBIENTE B: WHATSAPP INTERFACE & TECLADO DO SISTEMA
+         ========================================================= -->
+    <div class="whatsapp-container" id="whatsappView" style="display: none;">
+      <div class="wa-header">
+        <div class="wa-avatar">CO</div>
+        <div class="wa-title-area">
+          <div class="wa-contact-name">Carlos Oliveira</div>
+          <div class="wa-contact-status">online</div>
+        </div>
+        <button class="wa-return-app-btn" onclick="switchMainEnvironment('app')">
+          ← App Principal
+        </button>
+      </div>
+
+      <!-- MENSAGENS DO CHAT -->
+      <div class="chat-messages" id="chatMessages">
+        <div class="msg-bubble msg-client">
+          Olá! Vi o anúncio da imobiliária e tenho interesse no Condomínio Villa Bella. Você teria fotos e opções de 3 suítes para venda?
+          <div class="msg-time">14:32</div>
+        </div>
+      </div>
+
+      <!-- INPUT DO WHATSAPP -->
+      <div class="wa-input-bar">
+        <div class="wa-input-box" id="waInput" contenteditable="true" placeholder="Mensagem"></div>
+        <button class="wa-send-btn" id="btnSend" title="Enviar Mensagem">Enviar</button>
+      </div>
+
+      <!-- TECLADO CUSTOMIZADO -->
+      <div class="keyboard-container" id="kbContainer">
+        <div class="kb-toast" id="kbToast">Inserido</div>
+
+        <!-- ÁREA SUPERIOR DO TECLADO -->
+        <div class="kb-main-body">
+          <div class="kb-view-panel" id="kbPanelContent"></div>
+
+          <!-- GBOARD OFICIAL -->
+          <div class="standard-keyboard-view" id="gboardView">
+            <div class="gb-rows-container">
+              <div class="gb-row" id="gbRow1"></div>
+              <div class="gb-row" id="gbRow2"></div>
+              <div class="gb-row" id="gbRow3"></div>
+              <div class="gb-row" id="gbRow4"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- MENU INFERIOR FIXO DO SISTEMA -->
+        <div class="kb-system-menu">
+          <button class="kb-sys-btn btn-keyboard-mode" id="btnToggleGboard" title="Digitar / Teclado Gboard">
+            <svg class="g-icon" viewBox="0 0 24 24"><path d="M20 5H4c-1.1 0-1.99.9-1.99 2L2 17c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm-9 3h2v2h-2V8zm0 3h2v2h-2v-2zM8 8h2v2H8V8zm0 3h2v2H8v-2zm-1 2H5v-2h2v2zm0-3H5V8h2v2zm9 7H8v-2h8v2zm0-4h-2v-2h2v2zm0-3h-2V8h2v2zm3 3h-2v-2h2v2zm0-3h-2V8h2v2z"/></svg>
+          </button>
+          <button class="kb-sys-btn active" id="btnTabProducts" onclick="switchKbTab('products')">Produtos</button>
+          <button class="kb-sys-btn" id="btnTabShortcuts" onclick="switchKbTab('shortcuts')">Atalhos</button>
+          <button class="kb-sys-btn" id="btnTabCopilot" onclick="switchKbTab('copilot')">Copilot</button>
+          <button class="kb-sys-btn" id="btnTabMore" onclick="switchKbTab('more')">Mais</button>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <div class="info-footer">
+    💡 <strong>Container & Teclado Integrados:</strong> Todas as alterações feitas no <strong>App Principal</strong> (como criar novos produtos, adicionar fotos em nuvem ou cadastrar atalhos) são refletidas em tempo real dentro do <strong>Teclado no WhatsApp</strong>.
+  </div>
+
+  <script>
+    // =========================================================
+    // BANCO DE DADOS GLOBAL COMPARTILHADO (MEMÓRIA COMPARTILHADA)
+    // =========================================================
+    const APP_DATABASE = {
+      broker: {
+        name: 'Ana Souza',
+        creci: '123456-F',
+        agency: 'Prime Imóveis',
+        phone: '(11) 98888-7777',
+      },
+      folders: [
+        {
+          id: 'villa-bella',
+          name: 'Condomínio Villa Bella',
+          neighborhood: 'Alphaville',
+          products: [
+            {
+              id: 'vb-01',
+              title: 'Casa térrea 3 suítes com piscina',
+              price: 1850000,
+              dealType: 'venda',
+              bedrooms: 3,
+              areaM2: 320,
+              shortDescription: '320 m², piscina aquecida, espaço gourmet integrado, 4 vagas cobertas.',
+              datasheetUrl: 'https://cdn.primeimoveis.com.br/imovel/vb-01',
+              photos: [
+                {
+                  id: 'p1',
+                  title: 'Fachada Moderna e Jardim',
+                  url: 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=1200&q=80',
+                  thumbnailUrl: 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=180&q=60',
+                },
+                {
+                  id: 'p2',
+                  title: 'Área Gourmet e Piscina',
+                  url: 'https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?w=1200&q=80',
+                  thumbnailUrl: 'https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?w=180&q=60',
+                },
+              ],
+              videos: [
+                {
+                  id: 'v1',
+                  title: 'Tour Virtual Completo',
+                  duration: '1:45 min',
+                  url: 'https://cdn.primeimoveis.com.br/videos/vb-01-tour.mp4',
+                },
+              ],
+            },
+          ],
+        },
+        {
+          id: 'residencial-central',
+          name: 'Residencial Central',
+          neighborhood: 'Centro',
+          products: [
+            {
+              id: 'rc-01',
+              title: 'Apartamento 2 dormitórios mobiliado',
+              price: 3200,
+              dealType: 'locacao',
+              bedrooms: 2,
+              areaM2: 68,
+              shortDescription: '68 m², varanda integrada, 1 vaga, totalmente mobiliado.',
+              datasheetUrl: 'https://cdn.primeimoveis.com.br/imovel/rc-01',
+              photos: [
+                {
+                  id: 'p3',
+                  title: 'Sala de Estar Mobiliada',
+                  url: 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=1200&q=80',
+                  thumbnailUrl: 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=180&q=60',
+                },
+              ],
+              videos: [],
+            },
+          ],
+        },
+      ],
+      shortcuts: {
+        texts: [
+          {
+            id: 'st-1',
+            title: 'Chave Pix da Imobiliária',
+            text: 'Dados bancários para reserva:\nChave Pix (CNPJ): 12.345.678/0001-90\nFavorecido: Prime Imóveis Ltda',
+          },
+          {
+            id: 'st-2',
+            title: 'Endereço do Escritório',
+            text: 'Nosso escritório fica na Av. das Américas, 1500, Sala 402. Estacionamento gratuito no local.',
+          },
+        ],
+        audios: [
+          {
+            id: 'sa-1',
+            title: 'Apresentação Inicial & Boas-Vindas',
+            duration: '0:38',
+            audioUrl: 'https://cdn.primeimoveis.com.br/audios/apresentacao.mp3',
+            transcript: 'Olá! Tudo bem? Sou a Ana Souza da Prime Imóveis. É um prazer falar com você!',
+          },
+        ],
+      },
+      agenda: [
+        {
+          id: 'ag-1',
+          client: 'Carlos Oliveira',
+          productTitle: 'Casa térrea 3 suítes Villa Bella',
+          datetime: 'Amanhã às 15:00',
+          status: 'confirmada',
+        },
+      ],
+      crm: [
+        {
+          id: 'crm-1',
+          clientName: 'Carlos Oliveira',
+          phone: '(11) 99111-2233',
+          stage: 'Visita Agendada',
+          lastContact: 'Hoje às 14:32',
+        },
+      ],
+      theme: 'dark',
+    };
+
+    // =========================================================
+    // CONTROLE DE NAVEGAÇÃO DE AMBIENTE (APP vs WHATSAPP)
+    // =========================================================
+    let currentEnvironment = 'app'; // 'app' | 'keyboard'
+    let currentAppTab = 'install'; // 'install' | 'products' | 'shortcuts' | 'account'
+    let currentInstallPlatform = 'android'; // 'android' | 'ios'
+
+    const appContainerView = document.getElementById('appContainerView');
+    const whatsappView = document.getElementById('whatsappView');
+    const btnModeApp = document.getElementById('btnModeApp');
+    const btnModeKeyboard = document.getElementById('btnModeKeyboard');
+    const appScreenBody = document.getElementById('appScreenBody');
+
+    window.switchMainEnvironment = function(env) {
+      currentEnvironment = env;
+      if (env === 'app') {
+        appContainerView.style.display = 'flex';
+        whatsappView.style.display = 'none';
+        btnModeApp.classList.add('active');
+        btnModeKeyboard.classList.remove('active');
+        renderAppScreen();
+      } else {
+        appContainerView.style.display = 'none';
+        whatsappView.style.display = 'flex';
+        btnModeApp.classList.remove('active');
+        btnModeKeyboard.classList.add('active');
+        switchKbTab('products');
+      }
+    };
+
+    window.switchAppTab = function(tab) {
+      currentAppTab = tab;
+      document.querySelectorAll('.app-nav-btn').forEach(b => b.classList.remove('active'));
+      if (tab === 'install') document.getElementById('appNavInstall').classList.add('active');
+      if (tab === 'products') document.getElementById('appNavProducts').classList.add('active');
+      if (tab === 'shortcuts') document.getElementById('appNavShortcuts').classList.add('active');
+      if (tab === 'account') document.getElementById('appNavAccount').classList.add('active');
+      renderAppScreen();
+    };
+
+    // =========================================================
+    // RENDERIZADOR DAS TELAS DO APP PRINCIPAL
+    // =========================================================
+    function renderAppScreen() {
+      document.getElementById('appHeaderBrokerName').innerText = `${APP_DATABASE.broker.name} • ${APP_DATABASE.broker.agency}`;
+
+      if (currentAppTab === 'install') {
+        renderInstallScreen();
+      } else if (currentAppTab === 'products') {
+        renderProductsManagerScreen();
+      } else if (currentAppTab === 'shortcuts') {
+        renderShortcutsManagerScreen();
+      } else if (currentAppTab === 'account') {
+        renderAccountScreen();
+      }
+    }
+
+    // 1. TELA: INSTALAÇÃO & ATIVAÇÃO (ANDROID & IOS)
+    function renderInstallScreen() {
+      appScreenBody.innerHTML = `
+        <div class="app-card">
+          <div style="font-size: 10px; font-weight: 700; color: #38bdf8; text-transform: uppercase; margin-bottom: 2px;">
+            Guia de Ativação
+          </div>
+          <div class="app-card-title">Como Instalar o Teclado</div>
+          <div class="app-card-desc">
+            O Teclado do Corretor precisa ser ativado uma única vez nas configurações do sistema operacional para funcionar dentro do WhatsApp.
+          </div>
+
+          <div style="display: flex; gap: 6px; margin-bottom: 12px;">
+            <button class="view-mode-btn ${currentInstallPlatform === 'android' ? 'active' : ''}" style="flex: 1; padding: 6px;" onclick="setInstallPlatform('android')">
+              Android
+            </button>
+            <button class="view-mode-btn ${currentInstallPlatform === 'ios' ? 'active' : ''}" style="flex: 1; padding: 6px;" onclick="setInstallPlatform('ios')">
+              iPhone (iOS)
+            </button>
+          </div>
+
+          ${currentInstallPlatform === 'android' ? `
+            <div class="step-list">
+              <div class="step-item">
+                <div class="step-badge">1</div>
+                <div class="step-info">
+                  <div class="step-info-title">Abra os Ajustes de Teclado</div>
+                  <div class="step-info-desc">Vá em <strong>Configurações &gt; Sistema &gt; Idiomas e Entrada &gt; Gerenciar Teclados</strong>.</div>
+                </div>
+              </div>
+              <div class="step-item">
+                <div class="step-badge">2</div>
+                <div class="step-info">
+                  <div class="step-info-title">Ative o 'Teclado do Corretor'</div>
+                  <div class="step-info-desc">Ligue a chave seletora ao lado do <strong>Teclado do Corretor</strong> e confirme.</div>
+                </div>
+              </div>
+              <div class="step-item">
+                <div class="step-badge">3</div>
+                <div class="step-info">
+                  <div class="step-info-title">Selecione no WhatsApp</div>
+                  <div class="step-info-desc">Ao abrir o WhatsApp, toque no ícone de teclado na barra inferior e escolha o Teclado do Corretor.</div>
+                </div>
+              </div>
+            </div>
+            <button class="app-btn-primary" style="margin-top: 14px;" onclick="switchMainEnvironment('keyboard')">
+              Simular Abertura no WhatsApp
+            </button>
+          ` : `
+            <div class="step-list">
+              <div class="step-item">
+                <div class="step-badge">1</div>
+                <div class="step-info">
+                  <div class="step-info-title">Adicionar Novo Teclado</div>
+                  <div class="step-info-desc">Acesse <strong>Ajustes &gt; Geral &gt; Teclado &gt; Teclados &gt; Adicionar Novo Teclado...</strong></div>
+                </div>
+              </div>
+              <div class="step-item">
+                <div class="step-badge">2</div>
+                <div class="step-info">
+                  <div class="step-info-title">Selecione 'Teclado do Corretor'</div>
+                  <div class="step-info-desc">Escolha o aplicativo na lista de teclados de terceiros.</div>
+                </div>
+              </div>
+              <div class="step-item">
+                <div class="step-badge">3</div>
+                <div class="step-info">
+                  <div class="step-info-title">ATIVAR 'Permitir Acesso Total'</div>
+                  <div class="step-info-desc">Toque no teclado adicionado e ative <strong>Permitir Acesso Total</strong> (obrigatório para Copilot e fotos na nuvem).</div>
+                </div>
+              </div>
+              <div class="step-item">
+                <div class="step-badge">4</div>
+                <div class="step-info">
+                  <div class="step-info-title">Alternar no WhatsApp</div>
+                  <div class="step-info-desc">Toque e segure no ícone do Globo (🌐) no WhatsApp para alternar.</div>
+                </div>
+              </div>
+            </div>
+            <button class="app-btn-primary" style="margin-top: 14px;" onclick="switchMainEnvironment('keyboard')">
+              Simular Abertura no WhatsApp
+            </button>
+          `}
+        </div>
+
+        <div class="app-card">
+          <div class="app-card-title">Testar Campo de Digitação</div>
+          <div class="app-card-desc">Digite abaixo para testar a entrada de texto do teclado:</div>
+          <input type="text" class="app-input" placeholder="Toque e digite aqui para testar..." />
+        </div>
+      `;
+    }
+
+    window.setInstallPlatform = function(plat) {
+      currentInstallPlatform = plat;
+      renderInstallScreen();
+    };
+
+    // 2. TELA: GERENCIADOR DE PRODUTOS & UPLOAD DE FOTOS NA NUVEM
+    let appSelectedFolderId = null;
+
+    function renderProductsManagerScreen() {
+      if (!appSelectedFolderId) {
+        appScreenBody.innerHTML = `
+          <div class="app-card">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+              <div class="app-card-title" style="margin: 0;">Pastas de Imóveis</div>
+              <button class="app-launch-wa-btn" style="padding: 4px 10px; font-size: 11px;" onclick="showNewFolderForm()">+ Nova Pasta</button>
+            </div>
+            <div class="app-card-desc">
+              Organize os produtos por condomínio ou empreendimento. Todas as mídias sobem direto para o Cloud Storage.
+            </div>
+
+            <div id="newFolderFormArea" style="display: none; margin-bottom: 12px; background: #12141c; padding: 10px; border-radius: 8px;">
+              <div class="app-form-group">
+                <label class="app-label">Nome da Pasta</label>
+                <input type="text" id="inputNewFolderName" class="app-input" placeholder="Ex: Residencial Jardins" />
+              </div>
+              <div class="app-form-group">
+                <label class="app-label">Bairro / Localização</label>
+                <input type="text" id="inputNewFolderNeigh" class="app-input" placeholder="Ex: Barra da Tijuca" />
+              </div>
+              <div style="display: flex; gap: 6px;">
+                <button class="app-btn-secondary" style="flex: 1;" onclick="hideNewFolderForm()">Cancelar</button>
+                <button class="app-btn-primary" style="flex: 1;" onclick="saveNewFolder()">Salvar Pasta</button>
+              </div>
+            </div>
+
+            ${APP_DATABASE.folders.map(f => `
+              <div class="kb-card" onclick="openAppFolder('${f.id}')">
+                <div class="kb-card-info">
+                  <div class="kb-card-title">${f.name}</div>
+                  <div class="kb-card-sub">${f.neighborhood} • ☁️ Nuvem Ativa</div>
+                </div>
+                <span class="kb-card-meta">${f.products.length} imóveis →</span>
+              </div>
+            `).join('')}
+          </div>
+        `;
+      } else {
+        const folder = APP_DATABASE.folders.find(f => f.id === appSelectedFolderId);
+        appScreenBody.innerHTML = `
+          <div class="app-card">
+            <div class="kb-breadcrumb" onclick="openAppFolder(null)">
+              <span class="kb-breadcrumb-back">← Todas as Pastas</span>
+              <span class="kb-breadcrumb-title">${folder.name}</span>
+            </div>
+
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+              <div class="app-card-title" style="margin: 0;">Imóveis na Pasta</div>
+              <button class="app-launch-wa-btn" style="padding: 4px 10px; font-size: 11px;" onclick="showNewProductForm()">+ Novo Imóvel</button>
+            </div>
+
+            <div id="newProductFormArea" style="display: none; margin-bottom: 12px; background: #12141c; padding: 10px; border-radius: 8px;">
+              <div class="app-form-group">
+                <label class="app-label">Título do Imóvel</label>
+                <input type="text" id="inputProdTitle" class="app-input" placeholder="Ex: Casa térrea 3 suítes" />
+              </div>
+              <div class="app-form-group">
+                <label class="app-label">Preço (R$)</label>
+                <input type="number" id="inputProdPrice" class="app-input" placeholder="Ex: 1850000" />
+              </div>
+              <div class="app-form-group">
+                <label class="app-label">Descrição</label>
+                <textarea id="inputProdDesc" class="app-input app-textarea" placeholder="Resumo do imóvel..."></textarea>
+              </div>
+              <div style="display: flex; gap: 6px;">
+                <button class="app-btn-secondary" style="flex: 1;" onclick="hideNewProductForm()">Cancelar</button>
+                <button class="app-btn-primary" style="flex: 1;" onclick="saveNewProduct()">Adicionar</button>
+              </div>
+            </div>
+
+            ${folder.products.map(p => `
+              <div style="background: #11131a; border: 1px solid #1f2330; border-radius: 8px; padding: 10px; margin-bottom: 8px;">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                  <div>
+                    <div style="font-size: 13px; font-weight: 700; color: #f1f5f9;">${p.title}</div>
+                    <div style="font-size: 12px; color: #10b981; font-weight: 600; margin-top: 2px;">${formatBRL(p.price)}</div>
+                  </div>
+                  <button class="app-launch-wa-btn" style="padding: 3px 8px; font-size: 10px;" onclick="uploadPhotoToProduct('${folder.id}', '${p.id}')">+ Foto Nuvem</button>
+                </div>
+                <div style="font-size: 11px; color: #94a3b8; margin-top: 4px;">${p.shortDescription}</div>
+
+                <div style="margin-top: 8px; border-top: 1px solid #1e222d; padding-top: 6px;">
+                  <div style="font-size: 10px; font-weight: 600; color: #818cf8;">☁️ FOTOS NA NUVEM (${p.photos.length}):</div>
+                  <div class="media-grid" style="margin-top: 4px;">
+                    ${p.photos.map(ph => `
+                      <div class="media-thumbnail-card">
+                        <img class="media-thumb-img" src="${ph.thumbnailUrl}" alt="${ph.title}" />
+                        <div class="media-thumb-info">
+                          <div class="media-thumb-title">${ph.title}</div>
+                          <div class="media-thumb-badge">CDN WebP (&lt;10KB)</div>
+                        </div>
+                      </div>
+                    `).join('')}
+                  </div>
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        `;
+      }
+    }
+
+    window.openAppFolder = function(id) {
+      appSelectedFolderId = id;
+      renderProductsManagerScreen();
+    };
+
+    window.showNewFolderForm = function() {
+      document.getElementById('newFolderFormArea').style.display = 'block';
+    };
+
+    window.hideNewFolderForm = function() {
+      document.getElementById('newFolderFormArea').style.display = 'none';
+    };
+
+    window.saveNewFolder = function() {
+      const name = document.getElementById('inputNewFolderName').value.trim();
+      const neigh = document.getElementById('inputNewFolderNeigh').value.trim();
+      if (!name) return alert('Informe o nome da pasta.');
+
+      APP_DATABASE.folders.push({
+        id: 'f-' + Date.now(),
+        name,
+        neighborhood: neigh || 'Região',
+        products: [],
+      });
+      renderProductsManagerScreen();
+      showToast('Pasta sincronizada com o teclado!');
+    };
+
+    window.showNewProductForm = function() {
+      document.getElementById('newProductFormArea').style.display = 'block';
+    };
+
+    window.hideNewProductForm = function() {
+      document.getElementById('newProductFormArea').style.display = 'none';
+    };
+
+    window.saveNewProduct = function() {
+      const title = document.getElementById('inputProdTitle').value.trim();
+      const price = parseFloat(document.getElementById('inputProdPrice').value) || 500000;
+      const desc = document.getElementById('inputProdDesc').value.trim() || 'Excelente imóvel.';
+      if (!title) return alert('Informe o título.');
+
+      const folder = APP_DATABASE.folders.find(f => f.id === appSelectedFolderId);
+      folder.products.push({
+        id: 'p-' + Date.now(),
+        title,
+        price,
+        dealType: 'venda',
+        shortDescription: desc,
+        datasheetUrl: `https://cdn.primeimoveis.com.br/imovel/${Date.now()}`,
+        photos: [],
+        videos: [],
+      });
+
+      renderProductsManagerScreen();
+      showToast('Imóvel adicionado ao teclado!');
+    };
+
+    window.uploadPhotoToProduct = function(folderId, prodId) {
+      const title = prompt('Título / Cômodo da Foto (ex: Fachada, Suíte, Piscina):', 'Fachada Principal');
+      if (!title) return;
+
+      const folder = APP_DATABASE.folders.find(f => f.id === folderId);
+      const prod = folder.products.find(p => p.id === prodId);
+
+      const samplePhotos = [
+        'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=1200&q=80',
+        'https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?w=1200&q=80',
+        'https://images.unsplash.com/photo-1600566753190-17f0baa2a6c3?w=1200&q=80',
+      ];
+      const url = samplePhotos[Math.floor(Math.random() * samplePhotos.length)];
+
+      prod.photos.push({
+        id: 'ph-' + Date.now(),
+        type: 'image',
+        title,
+        url,
+        thumbnailUrl: url.replace('w=1200', 'w=180'),
+      });
+
+      renderProductsManagerScreen();
+      showToast('☁️ Foto enviada para o Cloud Storage!');
+    };
+
+    // 3. TELA: GERENCIADOR DE ATALHOS (TEXTO E ÁUDIO)
+    function renderShortcutsManagerScreen() {
+      appScreenBody.innerHTML = `
+        <div class="app-card">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+            <div class="app-card-title" style="margin: 0;">Atalhos de Mensagem</div>
+            <button class="app-launch-wa-btn" style="padding: 4px 10px; font-size: 11px;" onclick="showNewShortcutModal()">+ Novo Atalho</button>
+          </div>
+          <div class="app-card-desc">
+            Mensagens de envio rápido salvas para acesso imediato no teclado.
+          </div>
+
+          <div style="font-size: 11px; font-weight: 700; color: #f1f5f9; text-transform: uppercase; margin: 10px 0 4px;">
+            Atalhos de Texto (${APP_DATABASE.shortcuts.texts.length}):
+          </div>
+          ${APP_DATABASE.shortcuts.texts.map(t => `
+            <div style="background: #11131a; border: 1px solid #1e222e; padding: 10px; border-radius: 8px; margin-bottom: 6px;">
+              <div style="font-size: 12px; font-weight: 700; color: #f1f5f9;">${t.title}</div>
+              <div style="font-size: 11px; color: #94a3b8; margin-top: 3px; line-height: 1.4;">${t.text.replace(/\n/g, ' ')}</div>
+            </div>
+          `).join('')}
+
+          <div style="font-size: 11px; font-weight: 700; color: #f1f5f9; text-transform: uppercase; margin: 14px 0 4px;">
+            Áudios Rápidos Pré-Gravados (${APP_DATABASE.shortcuts.audios.length}):
+          </div>
+          ${APP_DATABASE.shortcuts.audios.map(a => `
+            <div style="background: #11131a; border: 1px solid #1e222e; padding: 10px; border-radius: 8px; margin-bottom: 6px;">
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <div style="font-size: 12px; font-weight: 700; color: #f1f5f9;">${a.title}</div>
+                <span class="cloud-pill">${a.duration}</span>
+              </div>
+              <div style="font-size: 11px; color: #94a3b8; font-style: italic; margin-top: 3px;">"${a.transcript}"</div>
+            </div>
+          `).join('')}
+        </div>
+      `;
+    }
+
+    window.showNewShortcutModal = function() {
+      const title = prompt('Título do Atalho (ex: Chave Pix, Endereço):');
+      if (!title) return;
+      const text = prompt('Texto da mensagem rápida:');
+      if (!text) return;
+
+      APP_DATABASE.shortcuts.texts.push({
+        id: 'st-' + Date.now(),
+        title,
+        text,
+      });
+      renderShortcutsManagerScreen();
+      showToast('Atalho sincronizado com o teclado!');
+    };
+
+    // 4. TELA: CONTA & CONFIGURAÇÕES DO CORRETOR
+    function renderAccountScreen() {
+      appScreenBody.innerHTML = `
+        <div class="app-card">
+          <div class="app-card-title">Perfil do Corretor</div>
+          <div class="app-card-desc">Estes dados são usados automaticamente pelo teclado para preencher suas respostas.</div>
+
+          <div class="app-form-group">
+            <label class="app-label">Nome Completo</label>
+            <input type="text" id="accName" class="app-input" value="${APP_DATABASE.broker.name}" />
+          </div>
+          <div class="app-form-group">
+            <label class="app-label">Número do CRECI</label>
+            <input type="text" id="accCreci" class="app-input" value="${APP_DATABASE.broker.creci}" />
+          </div>
+          <div class="app-form-group">
+            <label class="app-label">Imobiliária / Agência</label>
+            <input type="text" id="accAgency" class="app-input" value="${APP_DATABASE.broker.agency}" />
+          </div>
+          <div class="app-form-group">
+            <label class="app-label">WhatsApp</label>
+            <input type="text" id="accPhone" class="app-input" value="${APP_DATABASE.broker.phone}" />
+          </div>
+          <button class="app-btn-primary" onclick="saveAccountSettings()">Salvar Perfil</button>
+        </div>
+
+        <div class="app-card">
+          <div class="app-card-title">Aparência do Teclado</div>
+          <div style="display: flex; gap: 6px; margin-top: 6px;">
+            <button class="view-mode-btn ${APP_DATABASE.theme === 'light' ? 'active' : ''}" style="flex: 1;" onclick="setSimulatorTheme('light')">☀️ Claro</button>
+            <button class="view-mode-btn ${APP_DATABASE.theme === 'dark' ? 'active' : ''}" style="flex: 1;" onclick="setSimulatorTheme('dark')">🌙 Escuro</button>
+          </div>
+        </div>
+      `;
+    }
+
+    window.saveAccountSettings = function() {
+      APP_DATABASE.broker.name = document.getElementById('accName').value.trim();
+      APP_DATABASE.broker.creci = document.getElementById('accCreci').value.trim();
+      APP_DATABASE.broker.agency = document.getElementById('accAgency').value.trim();
+      APP_DATABASE.broker.phone = document.getElementById('accPhone').value.trim();
+      showToast('Perfil atualizado com sucesso!');
+      renderAppScreen();
+    };
+
+    window.setSimulatorTheme = function(t) {
+      APP_DATABASE.theme = t;
+      if (t === 'light') {
+        document.body.classList.add('theme-light');
+      } else {
+        document.body.classList.remove('theme-light');
+      }
+      renderAppScreen();
+      showToast(`Tema alterado para: ${t}`);
+    };
+
+    // =========================================================
+    // LÓGICA DO TECLADO NO WHATSAPP
+    // =========================================================
+    let kbCurrentTab = 'products';
+    let kbSelectedFolderId = null;
+    let kbSelectedProductId = null;
+    let kbProductDetailSubTab = 'details';
+    let kbShortcutsFilter = 'text';
+    let kbMoreSubMenu = null;
+
+    let gboardMode = 'alpha';
+    let isShiftActive = false;
+    let isCapsLock = false;
+    let lastShiftClickTime = 0;
+
+    const waInput = document.getElementById('waInput');
+    const chatMessages = document.getElementById('chatMessages');
+    const kbToast = document.getElementById('kbToast');
+    const kbPanelContent = document.getElementById('kbPanelContent');
+    const gboardView = document.getElementById('gboardView');
+    const btnSend = document.getElementById('btnSend');
+
+    function showToast(msg = 'Inserido') {
+      kbToast.textContent = msg;
+      kbToast.classList.add('show');
+      setTimeout(() => kbToast.classList.remove('show'), 1200);
+    }
+
+    function injectText(text) {
+      const current = waInput.innerText;
+      if (current && !current.endsWith('\n') && !current.endsWith(' ')) {
+        waInput.innerText = current + '\n\n' + text;
+      } else {
+        waInput.innerText = current + text;
+      }
+      showToast('Inserido no WhatsApp');
+      waInput.scrollTop = waInput.scrollHeight;
+    }
+
+    function typeChar(char) {
+      waInput.innerText += char;
+      waInput.scrollTop = waInput.scrollHeight;
+      if (isShiftActive && !isCapsLock && gboardMode === 'alpha') {
+        isShiftActive = false;
+        renderGboard();
+      }
+    }
+
+    function deleteChar() {
+      waInput.innerText = waInput.innerText.slice(0, -1);
+    }
+
+    function formatBRL(value) {
+      return 'R$ ' + value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    function formatPrice(p) {
+      const base = formatBRL(p.price);
+      return p.dealType === 'locacao' ? `${base}/mês` : base;
+    }
+
+    window.switchKbTab = function(tab) {
+      kbCurrentTab = tab;
+      document.querySelectorAll('.kb-sys-btn').forEach(b => b.classList.remove('active'));
+
+      if (tab === 'keyboard') {
+        document.getElementById('btnToggleGboard').classList.add('active');
+        kbPanelContent.style.display = 'none';
+        gboardView.style.display = 'flex';
+        renderGboard();
+      } else {
+        kbPanelContent.style.display = 'flex';
+        gboardView.style.display = 'none';
+
+        if (tab === 'products') {
+          document.getElementById('btnTabProducts').classList.add('active');
+          renderKbProductsView();
+        } else if (tab === 'shortcuts') {
+          document.getElementById('btnTabShortcuts').classList.add('active');
+          renderKbShortcutsView();
+        } else if (tab === 'copilot') {
+          document.getElementById('btnTabCopilot').classList.add('active');
+          renderKbCopilotView();
+        } else if (tab === 'more') {
+          document.getElementById('btnTabMore').classList.add('active');
+          renderKbMoreView();
+        }
+      }
+    };
+
+    document.getElementById('btnToggleGboard').addEventListener('click', () => {
+      if (kbCurrentTab === 'keyboard') {
+        switchKbTab('products');
+      } else {
+        switchKbTab('keyboard');
+      }
+    });
+
+    // TECLADO: PRODUTOS
+    function renderKbProductsView() {
+      if (!kbSelectedFolderId) {
+        kbPanelContent.innerHTML = `
+          <div style="font-size: 11px; font-weight: 600; color: var(--kb-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px;">
+            Pastas de Imóveis & Empreendimentos
+          </div>
+          ${APP_DATABASE.folders.map(f => `
+            <div class="kb-card" onclick="openKbFolder('${f.id}')">
+              <div class="kb-card-info">
+                <div class="kb-card-title">${f.name}</div>
+                <div class="kb-card-sub">${f.neighborhood} • ☁️ Mídias na nuvem</div>
+              </div>
+              <span class="kb-card-meta">${f.products.length} itens</span>
+            </div>
+          `).join('')}
+        `;
+        return;
+      }
+
+      const folder = APP_DATABASE.folders.find(f => f.id === kbSelectedFolderId);
+
+      if (!kbSelectedProductId) {
+        kbPanelContent.innerHTML = `
+          <div class="kb-breadcrumb" onclick="openKbFolder(null)">
+            <span class="kb-breadcrumb-back">← Voltar</span>
+            <span class="kb-breadcrumb-title">${folder.name}</span>
+          </div>
+          ${folder.products.map(p => `
+            <div class="kb-card" onclick="openKbProduct('${p.id}')">
+              <div class="kb-card-info">
+                <div class="kb-card-title">${p.title}</div>
+                <div class="kb-card-sub">${p.shortDescription}</div>
+              </div>
+              <span class="kb-card-meta">${formatPrice(p)}</span>
+            </div>
+          `).join('')}
+        `;
+        return;
+      }
+
+      const product = folder.products.find(p => p.id === kbSelectedProductId);
+
+      kbPanelContent.innerHTML = `
+        <div class="kb-breadcrumb" onclick="openKbProduct(null)">
+          <span class="kb-breadcrumb-back">← Voltar</span>
+          <span class="kb-breadcrumb-title">${product.title}</span>
+        </div>
+
+        <div class="sub-tabs-bar">
+          <button class="sub-tab-btn ${kbProductDetailSubTab === 'details' ? 'active' : ''}" onclick="setKbProductDetailSubTab('details')">
+            Detalhes
+          </button>
+          <button class="sub-tab-btn ${kbProductDetailSubTab === 'photos' ? 'active' : ''}" onclick="setKbProductDetailSubTab('photos')">
+            Fotos (${product.photos.length})
+          </button>
+          <button class="sub-tab-btn ${kbProductDetailSubTab === 'videos' ? 'active' : ''}" onclick="setKbProductDetailSubTab('videos')">
+            Vídeos (${product.videos.length})
+          </button>
+        </div>
+
+        <div id="kbProductSubContent"></div>
+      `;
+
+      renderKbProductSubContent(product, folder);
+    }
+
+    function renderKbProductSubContent(product, folder) {
+      const container = document.getElementById('kbProductSubContent');
+      if (!container) return;
+
+      if (kbProductDetailSubTab === 'details') {
+        container.innerHTML = `
+          <div style="background: var(--kb-card-bg); border: 1px solid var(--kb-border); border-radius: 8px; padding: 10px 12px;">
+            <div style="font-size: 15px; font-weight: 700; color: var(--kb-text); margin-bottom: 2px;">
+              ${formatPrice(product)}
+            </div>
+            <div style="font-size: 12px; color: var(--kb-text); line-height: 1.45; margin-bottom: 8px;">
+              ${product.shortDescription}
+            </div>
+            <span class="cloud-pill">☁️ Fotos & Vídeos na nuvem (0 MB no celular)</span>
+          </div>
+          <button class="kb-action-btn" onclick="insertFullProductMessage('${product.id}', '${folder.id}')">
+            Inserir Ficha Completa no WhatsApp
+          </button>
+        `;
+      } else if (kbProductDetailSubTab === 'photos') {
+        container.innerHTML = `
+          <div style="font-size: 11px; color: var(--kb-muted); margin-bottom: 6px;">
+            Toque em uma foto para enviar o link direto em alta resolução (Google Cloud / CDN):
+          </div>
+          <div class="media-grid">
+            ${product.photos.map(ph => `
+              <div class="media-thumbnail-card" onclick="injectText('[Foto em Alta Resolução] ${ph.title}: ${ph.url}')">
+                <img class="media-thumb-img" src="${ph.thumbnailUrl}" alt="${ph.title}" />
+                <div class="media-thumb-info">
+                  <div class="media-thumb-title">${ph.title}</div>
+                  <div class="media-thumb-badge">☁️ Cloud WebP</div>
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        `;
+      } else if (kbProductDetailSubTab === 'videos') {
+        container.innerHTML = `
+          <div style="font-size: 11px; color: var(--kb-muted); margin-bottom: 6px;">
+            Vídeos em streaming na nuvem (sem consumir armazenamento do celular):
+          </div>
+          ${product.videos.length === 0 ? '<div style="font-size: 12px; color: var(--kb-muted); text-align: center; padding: 12px;">Nenhum vídeo cadastrado.</div>' : product.videos.map(v => `
+            <div class="kb-card" onclick="injectText('[Vídeo Tour (${v.duration})] ${v.title}: ${v.url}')">
+              <div class="kb-card-info">
+                <div class="kb-card-title">${v.title}</div>
+                <div class="kb-card-sub">Streaming Cloud CDN</div>
+              </div>
+              <span class="kb-card-meta">${v.duration}</span>
+            </div>
+          `).join('')}
+        `;
+      }
+    }
+
+    window.openKbFolder = function(id) {
+      kbSelectedFolderId = id;
+      kbSelectedProductId = null;
+      renderKbProductsView();
+    };
+
+    window.openKbProduct = function(id) {
+      kbSelectedProductId = id;
+      kbProductDetailSubTab = 'details';
+      renderKbProductsView();
+    };
+
+    window.setKbProductDetailSubTab = function(sub) {
+      kbProductDetailSubTab = sub;
+      renderKbProductsView();
+    };
+
+    window.insertFullProductMessage = function(pId, fId) {
+      const folder = APP_DATABASE.folders.find(f => f.id === fId);
+      const product = folder.products.find(p => p.id === pId);
+
+      const msg = [
+        `*${product.title}*`,
+        `${folder.name}${folder.neighborhood ? ` — ${folder.neighborhood}` : ''}`,
+        `*${formatPrice(product)}*`,
+        '',
+        product.shortDescription,
+        '',
+        `Fotos e tour em alta resolução: ${product.datasheetUrl}`,
+      ].join('\n');
+
+      injectText(msg);
+    };
+
+    // TECLADO: ATALHOS
+    function renderKbShortcutsView() {
+      kbPanelContent.innerHTML = `
+        <div class="sub-tabs-bar">
+          <button class="sub-tab-btn ${kbShortcutsFilter === 'text' ? 'active' : ''}" onclick="setKbShortcutsFilter('text')">
+            Mensagens de Texto (${APP_DATABASE.shortcuts.texts.length})
+          </button>
+          <button class="sub-tab-btn ${kbShortcutsFilter === 'audio' ? 'active' : ''}" onclick="setKbShortcutsFilter('audio')">
+            Áudios Rápidos (${APP_DATABASE.shortcuts.audios.length})
+          </button>
+        </div>
+
+        <div id="kbShortcutsList"></div>
+      `;
+
+      const container = document.getElementById('kbShortcutsList');
+      if (kbShortcutsFilter === 'text') {
+        container.innerHTML = APP_DATABASE.shortcuts.texts.map(t => `
+          <div class="kb-card" onclick="injectText('${t.text.replace(/'/g, "\\'").replace(/\n/g, '\\n')}')">
+            <div class="kb-card-info">
+              <div class="kb-card-title">${t.title}</div>
+              <div class="kb-card-sub">${t.text.replace(/\n/g, ' ')}</div>
+            </div>
+          </div>
+        `).join('');
+      } else {
+        container.innerHTML = APP_DATABASE.shortcuts.audios.map(a => `
+          <div class="kb-card" onclick="injectText('[Áudio gravado (${a.duration})] ${a.title}: ${a.audioUrl}')">
+            <div class="kb-card-info">
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <div class="kb-card-title">${a.title}</div>
+                <span class="cloud-pill">${a.duration}</span>
+              </div>
+              <div class="kb-card-sub" style="font-style: italic;">"${a.transcript}"</div>
+            </div>
+          </div>
+        `).join('');
+      }
+    }
+
+    window.setKbShortcutsFilter = function(filter) {
+      kbShortcutsFilter = filter;
+      renderKbShortcutsView();
+    };
+
+    // TECLADO: COPILOT
+    function renderKbCopilotView() {
+      kbPanelContent.innerHTML = `
+        <div style="background: var(--kb-card-bg); border: 1px solid var(--kb-border); border-radius: 8px; padding: 10px 12px; margin-bottom: 8px;">
+          <div style="font-size: 10px; font-weight: 600; color: var(--kb-muted); text-transform: uppercase; margin-bottom: 2px;">
+            Mensagem do cliente no chat
+          </div>
+          <div style="font-size: 12px; color: var(--kb-text); font-style: italic;">
+            “Olá! Vi o anúncio da imobiliária e tenho interesse no Condomínio Villa Bella. Você teria fotos e opções de 3 suítes para venda?”
+          </div>
+        </div>
+
+        <button class="kb-action-btn" id="btnCopilotAnalyze" onclick="runCopilotAnalysis()">
+          Analisar e Sugerir Respostas com IA
+        </button>
+
+        <div id="copilotSuggestionsList" style="margin-top: 8px;"></div>
+      `;
+    }
+
+    window.runCopilotAnalysis = function() {
+      const btn = document.getElementById('btnCopilotAnalyze');
+      const list = document.getElementById('copilotSuggestionsList');
+      btn.innerText = 'Analisando catálogo e gerando respostas...';
+      btn.disabled = true;
+
+      setTimeout(() => {
+        btn.innerText = 'Gerar novas opções';
+        btn.disabled = false;
+        const p = APP_DATABASE.folders[0].products[0];
+
+        list.innerHTML = `
+          <div class="kb-card" onclick="injectText('Olá, Carlos! Tudo bem? Sou a ${APP_DATABASE.broker.name}, da ${APP_DATABASE.broker.agency}. Temos excelentes opções com 3 suítes no Villa Bella. Posso te enviar as fotos e ficha completa?')">
+            <div class="kb-card-info">
+              <div style="font-size: 10px; font-weight: 700; color: #38bdf8; text-transform: uppercase;">Cordial</div>
+              <div class="kb-card-title" style="font-weight: 400; font-size: 12px; white-space: normal; line-height: 1.4;">
+                Olá, Carlos! Tudo bem? Sou a ${APP_DATABASE.broker.name}, da ${APP_DATABASE.broker.agency}. Temos excelentes opções com 3 suítes no Villa Bella. Posso te enviar as fotos e ficha completa?
+              </div>
+            </div>
+          </div>
+
+          <div class="kb-card" onclick="injectText('Temos a Casa térrea 3 suítes no Villa Bella por ${formatPrice(p)} (320m², piscina e 4 vagas). Fotos em alta resolução: ${p.datasheetUrl}')">
+            <div class="kb-card-info">
+              <div style="font-size: 10px; font-weight: 700; color: #34d399; text-transform: uppercase;">Objetiva</div>
+              <div class="kb-card-title" style="font-weight: 400; font-size: 12px; white-space: normal; line-height: 1.4;">
+                Temos a Casa térrea 3 suítes no Villa Bella por ${formatPrice(p)} (320m², piscina e 4 vagas). Fotos em alta resolução: ${p.datasheetUrl}
+              </div>
+            </div>
+          </div>
+        `;
+      }, 500);
+    };
+
+    // TECLADO: MAIS
+    function renderKbMoreView() {
+      if (!kbMoreSubMenu) {
+        kbPanelContent.innerHTML = `
+          <div style="font-size: 11px; font-weight: 600; color: var(--kb-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px;">
+            Ferramentas Adicionais
+          </div>
+
+          <div class="kb-card" onclick="openKbMoreSubMenu('agenda')">
+            <div class="kb-card-info">
+              <div class="kb-card-title">Agenda</div>
+              <div class="kb-card-sub">Próximas visitas agendadas</div>
+            </div>
+            <span class="kb-card-meta">${APP_DATABASE.agenda.length} itens</span>
+          </div>
+
+          <div class="kb-card" onclick="openKbMoreSubMenu('crm')">
+            <div class="kb-card-info">
+              <div class="kb-card-title">CRM</div>
+              <div class="kb-card-sub">Funil de atendimento de leads</div>
+            </div>
+            <span class="kb-card-meta">${APP_DATABASE.crm.length} leads</span>
+          </div>
+
+          <div class="kb-card" onclick="openKbMoreSubMenu('settings')">
+            <div class="kb-card-info">
+              <div class="kb-card-title">Configurações</div>
+              <div class="kb-card-sub">Aparência do teclado (Modo Claro / Escuro)</div>
+            </div>
+            <span class="kb-card-meta">${APP_DATABASE.theme.toUpperCase()}</span>
+          </div>
+        `;
+        return;
+      }
+
+      if (kbMoreSubMenu === 'agenda') {
+        kbPanelContent.innerHTML = `
+          <div class="kb-breadcrumb" onclick="openKbMoreSubMenu(null)">
+            <span class="kb-breadcrumb-back">← Voltar</span>
+            <span class="kb-breadcrumb-title">Agenda de Visitas</span>
+          </div>
+          ${APP_DATABASE.agenda.map(a => `
+            <div class="kb-card" onclick="injectText('Olá, ${a.client}! Confirmando nossa visita ao imóvel ${a.productTitle} agendada para ${a.datetime}. Qualquer imprevisto estou à disposição.')">
+              <div class="kb-card-info">
+                <div class="kb-card-title">${a.client} — ${a.productTitle}</div>
+                <div class="kb-card-sub">${a.datetime} • Toque para enviar lembrete</div>
+              </div>
+              <span class="kb-card-meta">${a.status}</span>
+            </div>
+          `).join('')}
+        `;
+      } else if (kbMoreSubMenu === 'crm') {
+        kbPanelContent.innerHTML = `
+          <div class="kb-breadcrumb" onclick="openKbMoreSubMenu(null)">
+            <span class="kb-breadcrumb-back">← Voltar</span>
+            <span class="kb-breadcrumb-title">CRM de Leads</span>
+          </div>
+          ${APP_DATABASE.crm.map(c => `
+            <div class="kb-card" onclick="injectText('Olá, ${c.clientName}! Como estão seus planos para o imóvel? Surgiram novas oportunidades nesta semana.')">
+              <div class="kb-card-info">
+                <div class="kb-card-title">${c.clientName} (${c.stage})</div>
+                <div class="kb-card-sub">Último contato: ${c.lastContact}</div>
+              </div>
+              <span class="kb-card-meta">${c.phone}</span>
+            </div>
+          `).join('')}
+        `;
+      } else if (kbMoreSubMenu === 'settings') {
+        kbPanelContent.innerHTML = `
+          <div class="kb-breadcrumb" onclick="openKbMoreSubMenu(null)">
+            <span class="kb-breadcrumb-back">← Voltar</span>
+            <span class="kb-breadcrumb-title">Aparência do Teclado</span>
+          </div>
+          <div class="kb-card" onclick="setSimulatorTheme('light')">
+            <div class="kb-card-info">
+              <div class="kb-card-title">Modo Claro</div>
+              <div class="kb-card-sub">Fundo neutro suave com teclas brancas</div>
+            </div>
+            <span class="kb-card-meta">${APP_DATABASE.theme === 'light' ? '✓ Ativo' : ''}</span>
+          </div>
+          <div class="kb-card" onclick="setSimulatorTheme('dark')">
+            <div class="kb-card-info">
+              <div class="kb-card-title">Modo Escuro</div>
+              <div class="kb-card-sub">Cores sóbrias e confortáveis</div>
+            </div>
+            <span class="kb-card-meta">${APP_DATABASE.theme === 'dark' ? '✓ Ativo' : ''}</span>
+          </div>
+        `;
+      }
+    }
+
+    window.openKbMoreSubMenu = function(menu) {
+      kbMoreSubMenu = menu;
+      renderKbMoreView();
+    };
+
+    // TECLADO: GBOARD ANDROID
+    const SVG_SHIFT = `<svg class="g-icon" viewBox="0 0 24 24"><path d="M12 4.5l-7 7h4v8h6v-8h4l-7-7z"/></svg>`;
+    const SVG_BACKSPACE = `<svg class="g-icon" viewBox="0 0 24 24"><path d="M22 3H7c-.69 0-1.23.35-1.59.88L0 12l5.41 8.11c.36.53.9.89 1.59.89h15c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-3 12.59L17.59 17 14 13.41 10.41 17 9 15.59 12.59 12 9 8.41 10.41 7 14 10.59 17.59 7 19 8.41 15.41 12 19 15.59z"/></svg>`;
+    const SVG_ENTER = `<svg class="g-icon" viewBox="0 0 24 24"><path d="M19 7v4H5.83l3.58-3.59L8 6l-6 6 6 6 1.41-1.41L5.83 13H21V7h-2z"/></svg>`;
+
+    function renderGboard() {
+      const gbRow1 = document.getElementById('gbRow1');
+      const gbRow2 = document.getElementById('gbRow2');
+      const gbRow3 = document.getElementById('gbRow3');
+      const gbRow4 = document.getElementById('gbRow4');
+
+      if (gboardMode === 'alpha') {
+        const row1 = ['q','w','e','r','t','y','u','i','o','p'];
+        const row2 = ['a','s','d','f','g','h','j','k','l','ç'];
+        const row3 = ['z','x','c','v','b','n','m'];
+
+        gbRow1.innerHTML = row1.map(c => `<button class="gb-key" onclick="typeChar('${isShiftActive ? c.toUpperCase() : c}')">${isShiftActive ? c.toUpperCase() : c}</button>`).join('');
+        gbRow2.innerHTML = row2.map(c => `<button class="gb-key" onclick="typeChar('${isShiftActive ? c.toUpperCase() : c}')">${isShiftActive ? c.toUpperCase() : c}</button>`).join('');
+        gbRow3.innerHTML = `
+          <button class="gb-key func ${isShiftActive ? 'active' : ''}" onclick="toggleShift()">${SVG_SHIFT}</button>
+          ${row3.map(c => `<button class="gb-key" onclick="typeChar('${isShiftActive ? c.toUpperCase() : c}')">${isShiftActive ? c.toUpperCase() : c}</button>`).join('')}
+          <button class="gb-key func" onclick="deleteChar()">${SVG_BACKSPACE}</button>
+        `;
+        gbRow4.innerHTML = `
+          <button class="gb-key func" onclick="setGboardMode('numeric')">?123</button>
+          <button class="gb-key func" onclick="typeChar(',')">,</button>
+          <button class="gb-key space-bar" onclick="typeChar(' ')"></button>
+          <button class="gb-key func" onclick="typeChar('.')">.</button>
+          <button class="gb-key enter-action" onclick="typeChar('\\n')">${SVG_ENTER}</button>
+        `;
+      } else if (gboardMode === 'numeric') {
+        const row1 = ['1','2','3','4','5','6','7','8','9','0'];
+        const row2 = ['@','#','$','%','&','-','+','(',')','/'];
+        const row3 = ['*','"',"'",':',';','!','?'];
+
+        gbRow1.innerHTML = row1.map(c => `<button class="gb-key" onclick="typeChar('${c}')">${c}</button>`).join('');
+        gbRow2.innerHTML = row2.map(c => `<button class="gb-key" onclick="typeChar('${c}')">${c}</button>`).join('');
+        gbRow3.innerHTML = `
+          <button class="gb-key func" onclick="setGboardMode('symbols')">=\\&lt;</button>
+          ${row3.map(c => `<button class="gb-key" onclick="typeChar('${c}')">${c}</button>`).join('')}
+          <button class="gb-key func" onclick="deleteChar()">${SVG_BACKSPACE}</button>
+        `;
+        gbRow4.innerHTML = `
+          <button class="gb-key func" onclick="setGboardMode('alpha')">ABC</button>
+          <button class="gb-key func" onclick="typeChar('_')">_</button>
+          <button class="gb-key space-bar" onclick="typeChar(' ')"></button>
+          <button class="gb-key func" onclick="typeChar('/')">/</button>
+          <button class="gb-key enter-action" onclick="typeChar('\\n')">${SVG_ENTER}</button>
+        `;
+      } else if (gboardMode === 'symbols') {
+        const row1 = ['~','\`','|','^','_','=','{','}','[',']'];
+        const row2 = ['<','>','€','£','¥','¢','§','°','«','»'];
+        const row3 = ['·','©','®','™','¶','¿','¡'];
+
+        gbRow1.innerHTML = row1.map(c => `<button class="gb-key" onclick="typeChar('${c}')">${c}</button>`).join('');
+        gbRow2.innerHTML = row2.map(c => `<button class="gb-key" onclick="typeChar('${c}')">${c}</button>`).join('');
+        gbRow3.innerHTML = `
+          <button class="gb-key func" onclick="setGboardMode('numeric')">?123</button>
+          ${row3.map(c => `<button class="gb-key" onclick="typeChar('${c}')">${c}</button>`).join('')}
+          <button class="gb-key func" onclick="deleteChar()">${SVG_BACKSPACE}</button>
+        `;
+        gbRow4.innerHTML = `
+          <button class="gb-key func" onclick="setGboardMode('alpha')">ABC</button>
+          <button class="gb-key func" onclick="typeChar(',')">,</button>
+          <button class="gb-key space-bar" onclick="typeChar(' ')"></button>
+          <button class="gb-key func" onclick="typeChar('.')">.</button>
+          <button class="gb-key enter-action" onclick="typeChar('\\n')">${SVG_ENTER}</button>
+        `;
+      }
+    }
+
+    window.setGboardMode = function(m) {
+      gboardMode = m;
+      renderGboard();
+    };
+
+    window.toggleShift = function() {
+      isShiftActive = !isShiftActive;
+      renderGboard();
+    };
+
+    // ENVIO DE MENSAGENS NO WHATSAPP
+    btnSend.addEventListener('click', () => {
+      const text = waInput.innerText.trim();
+      if (!text) return;
+      const bubble = document.createElement('div');
+      bubble.className = 'msg-bubble msg-broker';
+      bubble.innerHTML = text.replace(/\n/g, '<br>') + '<div class="msg-time">Agora</div>';
+      chatMessages.appendChild(bubble);
+      waInput.innerText = '';
+      chatMessages.scrollTop = chatMessages.scrollHeight;
+    });
+
+    // INICIALIZAÇÃO NO APP CONTAINER
+    switchMainEnvironment('app');
+  </script>
+</body>
+</html>
