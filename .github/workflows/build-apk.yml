@@ -30,16 +30,9 @@ jobs:
           distribution: 'zulu'
           java-version: '17'
 
-      - name: Configurar Android SDK
-        uses: android-actions/setup-android@v3
-
-      - name: Instalar Gradle Wrapper se necessário
+      - name: Permissão de execução para o Gradlew
         working-directory: android
-        run: |
-          if [ ! -f gradlew ]; then
-            gradle wrapper --gradle-version 8.6
-          fi
-          chmod +x gradlew
+        run: chmod +x gradlew
 
       - name: Gerar Bundle JS do React Native
         run: |
