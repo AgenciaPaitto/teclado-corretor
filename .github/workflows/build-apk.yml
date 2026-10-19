@@ -42,9 +42,27 @@ jobs:
 
       - name: Compilar APK de Debug
         working-directory: android
-        run: ./gradlew assembleDebug --no-daemon --stacktrace
+        run: |
+          set -o pipefail
+          ./gradlew assembleDebug --no-daemon --stacktrace --console=plain 2>&1 | tee ../build.log
+
+      - name: Exibir detalhes do erro se falhar
+        if: failure()
+        run: |
+          echo "=========================================="
+          echo "ULTIMAS 150 LINHAS DO LOG DE COMPILACAO:"
+          echo "=========================================="
+          tail -n 150 build.log
+
+      - name: Salvar Log de Erro como Artefato
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gradle-build-log
+          path: build.log
 
       - name: Salvar APK como Artefato de Download
+        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: app-debug-apk
