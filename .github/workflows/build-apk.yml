@@ -29,6 +29,7 @@ jobs:
         with:
           distribution: 'zulu'
           java-version: '17'
+          cache: 'gradle'
 
       - name: Permissão de execução para o Gradlew
         working-directory: android
@@ -41,7 +42,7 @@ jobs:
 
       - name: Compilar APK de Debug
         working-directory: android
-        run: ./gradlew assembleDebug --no-daemon
+        run: ./gradlew assembleDebug --no-daemon --stacktrace
 
       - name: Salvar APK como Artefato de Download
         uses: actions/upload-artifact@v4
