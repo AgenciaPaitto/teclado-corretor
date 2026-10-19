@@ -24,7 +24,12 @@ class MainApplication : Application(), ReactApplication {
 
         override fun getJSMainModuleName(): String = "index"
 
-        override fun getUseDeveloperSupport(): Boolean = BuildConfig.DEBUG
+        // Desativa DevSupport para que o app leia SEMPRE os assets locais (index.android.bundle)
+        // e não tente conectar ao Metro server (localhost:8081) em dispositivos reais.
+        override fun getUseDeveloperSupport(): Boolean = false
+
+        // O teclado roda em segundo plano através de um InputMethodService (sem Activity)
+        override fun getShouldRequireActivity(): Boolean = false
 
         override val isNewArchEnabled: Boolean = BuildConfig.IS_NEW_ARCHITECTURE_ENABLED
         override val isHermesEnabled: Boolean = BuildConfig.IS_HERMES_ENABLED

@@ -8,6 +8,7 @@ import { Animated, StyleSheet, Text, View } from 'react-native';
 import { KeyboardBridge } from '../native/KeyboardBridge';
 import type { MainSystemTab } from '../types';
 import { AICopilotTab } from './components/AICopilotTab';
+import { KeyboardSwitchTab } from './components/KeyboardSwitchTab';
 import { MoreTab } from './components/MoreTab';
 import { ProductsTab } from './components/ProductsTab';
 import { ShortcutsTab } from './components/ShortcutsTab';
@@ -15,7 +16,35 @@ import { SystemMenuBar } from './components/SystemMenuBar';
 import { useKeyboardData } from './hooks/useKeyboardData';
 import { colors, radius } from './theme';
 
-export default function CorretorKeyboard() {
+interface ErrorBoundaryState {
+  hasError: boolean;
+  error: string | null;
+}
+
+class KeyboardErrorBoundary extends React.Component<{ children: React.ReactNode }, ErrorBoundaryState> {
+  state: ErrorBoundaryState = { hasError: false, error: null };
+
+  static getDerivedStateFromError(error: unknown): ErrorBoundaryState {
+    return { hasError: true, error: error instanceof Error ? error.message : String(error) };
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <View style={[styles.root, styles.errorContainer]}>
+          <Text style={styles.errorTitle}>Teclado do Corretor</Text>
+          <Text style={styles.errorSubtitle}>{this.state.error || 'Erro ao inicializar visualização'}</Text>
+          <Text style={styles.errorButton} onPress={() => this.setState({ hasError: false })}>
+            Tentar novamente
+          </Text>
+        </View>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+function CorretorKeyboardContent() {
   const { data } = useKeyboardData();
   const [tab, setTab] = useState<MainSystemTab>('products');
   const [toast, setToast] = useState<string | null>(null);
@@ -52,10 +81,18 @@ export default function CorretorKeyboard() {
     [showToast],
   );
 
+  const handleTabChange = useCallback((newTab: MainSystemTab) => {
+    setTab(newTab);
+    if (newTab === 'keyboard') {
+      KeyboardBridge.switchKeyboard();
+    }
+  }, []);
+
   return (
     <View style={styles.root} testID="corretor-keyboard">
       {/* Área de conteúdo do sistema */}
       <View style={styles.content}>
+        {tab === 'keyboard' && <KeyboardSwitchTab onInsert={insert} />}
         {tab === 'products' && <ProductsTab folders={data.folders} onInsert={insert} />}
         {tab === 'shortcuts' && <ShortcutsTab shortcuts={data.shortcuts} onInsert={insert} />}
         {tab === 'copilot' && <AICopilotTab onInsert={insert} />}
@@ -76,8 +113,16 @@ export default function CorretorKeyboard() {
       </View>
 
       {/* Menu com os botões do sistema SEMPRE VISÍVEL abaixo do teclado */}
-      <SystemMenuBar active={tab} onChange={setTab} />
+      <SystemMenuBar active={tab} onChange={handleTabChange} />
     </View>
+  );
+}
+
+export default function CorretorKeyboard() {
+  return (
+    <KeyboardErrorBoundary>
+      <CorretorKeyboardContent />
+    </KeyboardErrorBoundary>
   );
 }
 
@@ -103,5 +148,28 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     fontSize: 12,
     fontWeight: '500',
+  },
+  errorContainer: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  errorTitle: {
+    color: colors.text,
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: 6,
+  },
+  errorSubtitle: {
+    color: '#ef4444',
+    fontSize: 12,
+    textAlign: 'center',
+    marginBottom: 12,
+  },
+  errorButton: {
+    color: colors.accent,
+    fontSize: 13,
+    fontWeight: '600',
+    padding: 8,
   },
 });

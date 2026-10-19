@@ -9,7 +9,9 @@ import android.view.View
 import android.view.ViewGroup
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
+import android.view.ContextThemeWrapper
 import android.widget.FrameLayout
+import com.corretorkeyboard.R
 import com.facebook.react.ReactApplication
 import com.facebook.react.ReactInstanceManager
 import com.facebook.react.ReactRootView
@@ -67,6 +69,7 @@ class CustomKeyboardService : InputMethodService() {
         val instance: CustomKeyboardService? get() = instanceRef?.get()
     }
 
+    private var rootContainer: FrameLayout? = null
     private var reactRootView: ReactRootView? = null
 
     /** Pacote do app em foco (ex.: "com.whatsapp"). */
@@ -86,48 +89,71 @@ class CustomKeyboardService : InputMethodService() {
     }
 
     /**
-     * Chamado UMA vez (ou quando a config muda) para criar a View do teclado.
-     * Aqui "montamos" o React Native dentro da janela do IME.
+     * Força o sistema Android a SEMPRE exibir a visualização do teclado quando solicitado.
+     * Sem este override, o Android pode avaliar false dependendo da configuração de hardware/sistema,
+     * fazendo com que o teclado não apareça.
      */
-    override fun onCreateInputView(): View {
-        // Evita montar duas vezes (ex.: rotação de tela)
-        reactRootView?.unmountReactApplication()
-
-        val heightPx = (KEYBOARD_HEIGHT_DP * resources.displayMetrics.density).toInt()
-
-        val rootView = ReactRootView(this).apply {
-            // startReactApplication cria o contexto JS em background se necessário
-            startReactApplication(
-                reactInstanceManager,
-                MODULE_NAME,
-                Bundle().apply { putString("platform", "android-ime") }
-            )
-        }
-        reactRootView = rootView
-
-        // Container com altura fixa: o IME precisa de altura determinística,
-        // caso contrário o ReactRootView mede 0px dentro da janela do teclado.
-        return FrameLayout(this).apply {
-            layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, heightPx)
-            addView(rootView, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, heightPx))
-        }
-    }
+    override fun onEvaluateInputViewShown(): Boolean = true
 
     /** Nunca usar modo "fullscreen" (landscape) — quebraria o layout RN. */
     override fun onEvaluateFullscreenMode(): Boolean = false
 
     /**
+     * Chamado para criar ou obter a View do teclado.
+     * Reaproveita a mesma ReactRootView já montada para evitar flashes, reinicializações
+     * ou travamento na troca de campos de texto.
+     */
+    override fun onCreateInputView(): View {
+        rootContainer?.let { container ->
+            (container.parent as? ViewGroup)?.removeView(container)
+            return container
+        }
+
+        val themedContext = ContextThemeWrapper(this, R.style.AppTheme)
+        val heightPx = (KEYBOARD_HEIGHT_DP * resources.displayMetrics.density).toInt()
+
+        val container = FrameLayout(themedContext).apply {
+            layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, heightPx)
+            // Fundo escuro imediato idêntico ao colors.bg para evitar tela transparente/flicker
+            setBackgroundColor(android.graphics.Color.parseColor("#101216"))
+        }
+
+        try {
+            val rootView = ReactRootView(themedContext).apply {
+                startReactApplication(
+                    reactInstanceManager,
+                    MODULE_NAME,
+                    Bundle().apply { putString("platform", "android-ime") }
+                )
+            }
+            reactRootView = rootView
+            container.addView(rootView, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, heightPx))
+        } catch (t: Throwable) {
+            android.util.Log.e("CustomKeyboardService", "Falha ao inicializar ReactRootView do teclado", t)
+        }
+
+        rootContainer = container
+        return container
+    }
+
+    /**
      * O teclado ficou visível para um novo campo de texto.
-     * Retomamos o host RN (timers/animações) e avisamos o JS para recarregar
-     * dados do MMKV (o corretor pode ter editado o catálogo no app).
+     * Retomamos o host RN (se pausado) e avisamos o JS para recarregar dados do MMKV.
      */
     override fun onStartInputView(info: EditorInfo?, restarting: Boolean) {
         super.onStartInputView(info, restarting)
         targetPackage = info?.packageName
-        reactInstanceManager.onHostResume(null)
+
+        try {
+            if (reactInstanceManager.lifecycleState != com.facebook.react.common.LifecycleState.RESUMED) {
+                reactInstanceManager.onHostResume(null)
+            }
+        } catch (t: Throwable) {
+            android.util.Log.w("CustomKeyboardService", "onHostResume ignorado: ${t.message}")
+        }
 
         emitToJs(EVENT_KEYBOARD_SHOW, Arguments.createMap().apply {
-            putString("targetPackage", targetPackage)
+            putString("targetPackage", targetPackage ?: "")
             putBoolean("restarting", restarting)
             putInt("inputType", info?.inputType ?: 0)
         })
@@ -135,12 +161,17 @@ class CustomKeyboardService : InputMethodService() {
 
     override fun onFinishInputView(finishingInput: Boolean) {
         super.onFinishInputView(finishingInput)
-        emitToJs(EVENT_KEYBOARD_HIDE, Arguments.createMap())
+        try {
+            emitToJs(EVENT_KEYBOARD_HIDE, Arguments.createMap())
+        } catch (_: Throwable) {}
     }
 
     override fun onDestroy() {
-        reactRootView?.unmountReactApplication()
+        try {
+            reactRootView?.unmountReactApplication()
+        } catch (_: Throwable) {}
         reactRootView = null
+        rootContainer = null
         if (instanceRef?.get() === this) instanceRef = null
         super.onDestroy()
     }
@@ -203,13 +234,17 @@ class CustomKeyboardService : InputMethodService() {
      * API 28+ possui switchToPreviousInputMethod(); abaixo disso, abre o picker.
      */
     fun switchKeyboard() {
-        val switched = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-            switchToPreviousInputMethod()
-        } else false
+        try {
+            val switched = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                switchToPreviousInputMethod()
+            } else false
 
-        if (!switched) {
-            val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
-            imm.showInputMethodPicker()
+            if (!switched) {
+                val imm = getSystemService(INPUT_METHOD_SERVICE) as? InputMethodManager
+                imm?.showInputMethodPicker()
+            }
+        } catch (t: Throwable) {
+            android.util.Log.w("CustomKeyboardService", "Não foi possível alternar método de entrada: ${t.message}")
         }
     }
 
@@ -218,9 +253,11 @@ class CustomKeyboardService : InputMethodService() {
     // -----------------------------------------------------------------------
 
     private fun emitToJs(event: String, params: Any) {
-        val ctx: ReactContext = reactInstanceManager.currentReactContext ?: return
-        if (!ctx.hasActiveReactInstance()) return
-        ctx.getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter::class.java)
-            .emit(event, params)
+        try {
+            val ctx: ReactContext = reactInstanceManager.currentReactContext ?: return
+            if (!ctx.hasActiveReactInstance()) return
+            ctx.getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter::class.java)
+                .emit(event, params)
+        } catch (_: Throwable) {}
     }
 }
