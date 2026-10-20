@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { KeyboardBridge } from '../../native/KeyboardBridge';
 import { Repo } from '../../storage/storage';
-import type { KeyboardData } from '../../types';
+import type { KeyboardData, ThemePreference } from '../../types';
 
 /**
  * Carrega o snapshot do MMKV (síncrono) e recarrega toda vez que o teclado
@@ -19,5 +19,11 @@ export function useKeyboardData() {
     });
   }, []);
 
-  return { data, targetApp };
+  /** Troca o tema a partir do próprio teclado (aba Mais → Configurações). */
+  const setTheme = useCallback((theme: ThemePreference) => {
+    Repo.setTheme(theme);
+    setData(d => ({ ...d, theme }));
+  }, []);
+
+  return { data, targetApp, setTheme };
 }

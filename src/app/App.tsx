@@ -10,12 +10,12 @@ import {
   Pressable,
   SafeAreaView,
   StatusBar,
-  StyleSheet,
   Text,
   View,
 } from 'react-native';
 import { Repo } from '../storage/storage';
-import { colors, radius } from '../keyboard/theme';
+import type { ThemePreference } from '../types';
+import { makeStyles, radius, ThemeProvider, useColors } from '../keyboard/theme';
 import { AuthScreen } from './screens/AuthScreen';
 import { OnboardingGuideScreen } from './screens/OnboardingGuideScreen';
 import { ProductsManagerScreen } from './screens/ProductsManagerScreen';
@@ -25,6 +25,18 @@ import { ShortcutsManagerScreen } from './screens/ShortcutsManagerScreen';
 type AppTab = 'onboarding' | 'products' | 'shortcuts' | 'profile';
 
 export default function App() {
+  const [theme, setTheme] = useState<ThemePreference>(() => Repo.getTheme());
+  return (
+    <ThemeProvider preference={theme}>
+      <AppShell onThemeChange={setTheme} />
+    </ThemeProvider>
+  );
+}
+
+function AppShell({ onThemeChange }: { onThemeChange: (theme: ThemePreference) => void }) {
+  const colors = useColors();
+  const styles = useStyles();
+  const barStyle = colors.scheme === 'dark' ? 'light-content' : 'dark-content';
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => !!Repo.getAuthToken());
   const [currentTab, setCurrentTab] = useState<AppTab>('onboarding');
   const [brokerName, setBrokerName] = useState(() => Repo.getBroker().name);
@@ -33,7 +45,7 @@ export default function App() {
   if (!isAuthenticated) {
     return (
       <SafeAreaView style={styles.root}>
-        <StatusBar barStyle="light-content" backgroundColor={colors.bg} />
+        <StatusBar barStyle={barStyle} backgroundColor={colors.bg} />
         <AuthScreen
           onSuccess={() => {
             setBrokerName(Repo.getBroker().name);
@@ -46,7 +58,7 @@ export default function App() {
 
   return (
     <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="light-content" backgroundColor={colors.bg} />
+      <StatusBar barStyle={barStyle} backgroundColor={colors.bg} />
 
       {/* Top Header */}
       <View style={styles.topHeader}>
@@ -71,6 +83,7 @@ export default function App() {
         {currentTab === 'profile' && (
           <ProfileSettingsScreen
             onProfileChange={b => setBrokerName(b.name)}
+            onThemeChange={onThemeChange}
             onLogout={() => {
               Repo.clearAuth();
               setIsAuthenticated(false);
@@ -117,7 +130,7 @@ export default function App() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(colors => ({
   root: {
     flex: 1,
     backgroundColor: colors.bg,
@@ -184,4 +197,4 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontWeight: '700',
   },
-});
+}));

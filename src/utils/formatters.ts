@@ -51,13 +51,23 @@ export function formatProductMessage(p: Product, folder?: ProductFolder): string
     specs || null,
     '',
     p.shortDescription,
-    '',
-    `Fotos e vídeos completos: ${p.datasheetUrl}`,
+    // Sem link da ficha cadastrado, a mensagem termina na descrição
+    ...(p.datasheetUrl ? ['', `Fotos e vídeos completos: ${p.datasheetUrl}`] : []),
   ]
     .filter(line => line !== null)
     .join('\n');
 }
 
+/**
+ * Normaliza um link colado pelo corretor (Drive, Dropbox, site da imobiliária…).
+ * Aceita com ou sem "https://". Retorna null se não parecer um link válido.
+ */
+export function normalizeUrl(input: string): string | null {
+  const s = input.trim();
+  if (!s || /\s/.test(s)) return null;
+  const withScheme = /^https?:\/\//i.test(s) ? s : `https://${s}`;
+  return /^https?:\/\/[^/.\s]+\.\S+/i.test(withScheme) ? withScheme : null;
+}
 
 /** Substitui {{variáveis}} dos templates pelos dados do corretor. */
 export function applyTemplate(body: string, broker: BrokerProfile): string {

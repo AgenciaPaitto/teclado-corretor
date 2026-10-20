@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { FlatList, Pressable, ScrollView, Text, View } from 'react-native';
 import type { MediaItem, Product, ProductFolder } from '../../types';
 import { formatPrice, formatProductMessage } from '../../utils/formatters';
-import { colors, radius, spacing } from '../theme';
+import { makeStyles, radius, spacing } from '../theme';
 import { ItemCard } from './ItemCard';
 
 interface Props {
@@ -17,6 +17,7 @@ type ProductDetailView = 'details' | 'photos' | 'videos';
  * Mídias hospedadas em Cloud Object Storage sem ocupar armazenamento do dispositivo.
  */
 export function ProductsTab({ folders, onInsert }: Props) {
+  const styles = useStyles();
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
   const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
   const [activeSubTab, setActiveSubTab] = useState<ProductDetailView>('details');
@@ -111,16 +112,15 @@ export function ProductsTab({ folders, onInsert }: Props) {
 
       <View style={styles.productBody}>
         {activeSubTab === 'details' && (
-          <View style={styles.detailsContainer}>
+          <ScrollView contentContainerStyle={styles.detailsContainer} keyboardShouldPersistTaps="always">
             <Text style={styles.productPrice}>{formatPrice(product)}</Text>
             <Text style={styles.productDesc}>{product.shortDescription}</Text>
-            <Text style={styles.cloudBadge}>Cloud CDN: link direto sem consumir memória local</Text>
             <Pressable
               style={styles.actionBtn}
               onPress={() => onInsert(formatProductMessage(product, folder))}>
               <Text style={styles.actionBtnText}>Inserir Ficha Completa</Text>
             </Pressable>
-          </View>
+          </ScrollView>
         )}
 
         {activeSubTab === 'photos' && (
@@ -128,12 +128,14 @@ export function ProductsTab({ folders, onInsert }: Props) {
             data={product.photos}
             keyExtractor={photo => photo.id}
             contentContainerStyle={styles.mediaList}
+            keyboardShouldPersistTaps="always"
+            ListEmptyComponent={<Text style={styles.empty}>Nenhuma foto cadastrada.</Text>}
             renderItem={({ item }) => (
               <Pressable
                 style={styles.mediaCard}
                 onPress={() => onInsert(`[Foto] ${item.title}: ${item.url}`)}>
                 <Text style={styles.mediaTitle}>{item.title}</Text>
-                <Text style={styles.mediaMeta}>Nuvem CDN • Toque para enviar link</Text>
+                <Text style={styles.mediaMeta}>Toque para enviar link</Text>
               </Pressable>
             )}
           />
@@ -144,12 +146,18 @@ export function ProductsTab({ folders, onInsert }: Props) {
             data={product.videos}
             keyExtractor={video => video.id}
             contentContainerStyle={styles.mediaList}
+            keyboardShouldPersistTaps="always"
+            ListEmptyComponent={<Text style={styles.empty}>Nenhum vídeo cadastrado.</Text>}
             renderItem={({ item }) => (
               <Pressable
                 style={styles.mediaCard}
-                onPress={() => onInsert(`[Vídeo] ${item.title} (${item.duration}): ${item.url}`)}>
+                onPress={() =>
+                  onInsert(`[Vídeo] ${item.title}${item.duration ? ` (${item.duration})` : ''}: ${item.url}`)
+                }>
                 <Text style={styles.mediaTitle}>{item.title}</Text>
-                <Text style={styles.mediaMeta}>Duração: {item.duration || '0:45'} • Streaming Cloud</Text>
+                <Text style={styles.mediaMeta}>
+                  {item.duration ? `Duração: ${item.duration} • ` : ''}Toque para enviar link
+                </Text>
               </Pressable>
             )}
           />
@@ -159,7 +167,7 @@ export function ProductsTab({ folders, onInsert }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(colors => ({
   flex: { flex: 1 },
   list: { padding: spacing.sm },
   empty: { color: colors.textMuted, textAlign: 'center', marginTop: 24, fontSize: 13 },
@@ -219,11 +227,6 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     lineHeight: 18,
   },
-  cloudBadge: {
-    fontSize: 10,
-    color: colors.textMuted,
-    marginTop: 4,
-  },
   actionBtn: {
     backgroundColor: colors.surfaceAlt,
     paddingVertical: 8,
@@ -254,4 +257,4 @@ const styles = StyleSheet.create({
     fontSize: 11,
     marginTop: 2,
   },
-});
+}));

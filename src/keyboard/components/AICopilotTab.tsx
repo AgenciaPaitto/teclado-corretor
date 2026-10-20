@@ -1,8 +1,8 @@
 import React, { useCallback, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 import { AIServiceError, analyzeClipboardMessage } from '../../services/aiService';
 import type { AISuggestion, SuggestionTone } from '../../types';
-import { colors, radius, spacing } from '../theme';
+import { makeStyles, radius, spacing, useColors } from '../theme';
 
 interface Props {
   onInsert: (text: string) => void;
@@ -24,6 +24,8 @@ const TONE_LABEL: Record<SuggestionTone, string> = {
  * AI Copilot minimalista — sem emojis, bordas ou cantos coloridos.
  */
 export function AICopilotTab({ onInsert }: Props) {
+  const colors = useColors();
+  const styles = useStyles();
   const [state, setState] = useState<State>({ status: 'idle' });
 
   const analyze = useCallback(async () => {
@@ -78,7 +80,7 @@ export function AICopilotTab({ onInsert }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(colors => ({
   container: {
     flex: 1,
     padding: spacing.sm,
@@ -143,4 +145,4 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 18,
   },
-});
+}));

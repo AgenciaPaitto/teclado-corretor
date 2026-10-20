@@ -72,6 +72,16 @@ export const Repo = {
     this.setFolders([...folders, folder]);
   },
 
+  /** Atualiza nome e bairro da pasta (os imóveis dentro dela são mantidos). */
+  updateFolder(folderId: string, changes: Pick<ProductFolder, 'name' | 'neighborhood'>): void {
+    this.setFolders(this.getFolders().map(f => (f.id === folderId ? { ...f, ...changes } : f)));
+  },
+
+  /** Exclui a pasta e todos os imóveis dela. */
+  deleteFolder(folderId: string): void {
+    this.setFolders(this.getFolders().filter(f => f.id !== folderId));
+  },
+
   addProduct(folderId: string, product: Product): void {
     const folders = this.getFolders().map(f => {
       if (f.id === folderId) {
@@ -82,22 +92,41 @@ export const Repo = {
     this.setFolders(folders);
   },
 
-  addPhotoToProduct(folderId: string, productId: string, photo: MediaItem): void {
+  /** Aplica uma alteração em um imóvel específico de uma pasta. */
+  mapProduct(folderId: string, productId: string, fn: (p: Product) => Product): void {
     const folders = this.getFolders().map(f => {
-      if (f.id === folderId) {
-        return {
-          ...f,
-          products: f.products.map(p => {
-            if (p.id === productId) {
-              return { ...p, photos: [...p.photos, photo] };
-            }
-            return p;
-          }),
-        };
-      }
-      return f;
+      if (f.id !== folderId) return f;
+      return { ...f, products: f.products.map(p => (p.id === productId ? fn(p) : p)) };
     });
     this.setFolders(folders);
+  },
+
+  updateProduct(folderId: string, product: Product): void {
+    this.mapProduct(folderId, product.id, () => product);
+  },
+
+  deleteProduct(folderId: string, productId: string): void {
+    const folders = this.getFolders().map(f =>
+      f.id === folderId ? { ...f, products: f.products.filter(p => p.id !== productId) } : f,
+    );
+    this.setFolders(folders);
+  },
+
+  /** Adiciona um link de foto ou vídeo ao imóvel (conforme media.type). */
+  addMedia(folderId: string, productId: string, media: MediaItem): void {
+    this.mapProduct(folderId, productId, p =>
+      media.type === 'image'
+        ? { ...p, photos: [...p.photos, media] }
+        : { ...p, videos: [...p.videos, media] },
+    );
+  },
+
+  deleteMedia(folderId: string, productId: string, mediaId: string): void {
+    this.mapProduct(folderId, productId, p => ({
+      ...p,
+      photos: p.photos.filter(m => m.id !== mediaId),
+      videos: p.videos.filter(m => m.id !== mediaId),
+    }));
   },
 
   addTextShortcut(shortcut: TextShortcut): void {
@@ -108,12 +137,38 @@ export const Repo = {
     });
   },
 
+  updateTextShortcut(shortcut: TextShortcut): void {
+    const sc = this.getShortcuts();
+    this.setShortcuts({
+      ...sc,
+      texts: sc.texts.map(t => (t.id === shortcut.id ? shortcut : t)),
+    });
+  },
+
+  deleteTextShortcut(id: string): void {
+    const sc = this.getShortcuts();
+    this.setShortcuts({ ...sc, texts: sc.texts.filter(t => t.id !== id) });
+  },
+
   addAudioShortcut(shortcut: AudioShortcut): void {
     const sc = this.getShortcuts();
     this.setShortcuts({
       ...sc,
       audios: [...sc.audios, shortcut],
     });
+  },
+
+  updateAudioShortcut(shortcut: AudioShortcut): void {
+    const sc = this.getShortcuts();
+    this.setShortcuts({
+      ...sc,
+      audios: sc.audios.map(a => (a.id === shortcut.id ? shortcut : a)),
+    });
+  },
+
+  deleteAudioShortcut(id: string): void {
+    const sc = this.getShortcuts();
+    this.setShortcuts({ ...sc, audios: sc.audios.filter(a => a.id !== id) });
   },
 
   resetToDefaults(): void {

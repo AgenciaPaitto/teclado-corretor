@@ -1,13 +1,19 @@
 import React from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, Text, useWindowDimensions, View } from 'react-native';
 import { KeyboardBridge } from '../../native/KeyboardBridge';
-import { colors, radius, spacing } from '../theme';
+import { makeStyles, radius, spacing } from '../theme';
 
 interface Props {
   onInsert: (text: string) => void;
 }
 
 export function KeyboardSwitchTab({ onInsert }: Props) {
+  const styles = useStyles();
+
+  // Celular deitado: o teclado fica mais baixo, então escondemos a explicação
+  const { width, height } = useWindowDimensions();
+  const compact = width > height;
+
   const handleSwitch = () => {
     KeyboardBridge.switchKeyboard();
   };
@@ -21,12 +27,14 @@ export function KeyboardSwitchTab({ onInsert }: Props) {
   };
 
   return (
-    <View style={styles.container} testID="keyboard-switch-tab">
-      <View style={styles.card}>
-        <Text style={styles.title}>Teclado de Digitação</Text>
-        <Text style={styles.desc}>
-          Toque no botão abaixo para alternar para o seu teclado padrão (Gboard, Samsung, etc.) e digitar livremente.
-        </Text>
+    <View style={[styles.container, compact && styles.containerCompact]} testID="keyboard-switch-tab">
+      <View style={[styles.card, compact && styles.cardCompact]}>
+        {!compact && <Text style={styles.title}>Teclado de Digitação</Text>}
+        {!compact && (
+          <Text style={styles.desc}>
+            Toque no botão abaixo para alternar para o seu teclado padrão (Gboard, Samsung, etc.) e digitar livremente.
+          </Text>
+        )}
         <Pressable
           testID="switch-keyboard-btn"
           style={({ pressed }) => [styles.switchBtn, pressed && styles.pressed]}
@@ -76,17 +84,23 @@ export function KeyboardSwitchTab({ onInsert }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(colors => ({
   container: {
     flex: 1,
     padding: spacing.md,
     justifyContent: 'space-between',
+  },
+  containerCompact: {
+    padding: spacing.sm,
   },
   card: {
     backgroundColor: colors.surface,
     padding: spacing.md,
     borderRadius: radius.md,
     alignItems: 'center',
+  },
+  cardCompact: {
+    padding: spacing.sm,
   },
   title: {
     fontSize: 15,
@@ -146,4 +160,4 @@ const styles = StyleSheet.create({
   pressed: {
     opacity: 0.6,
   },
-});
+}));

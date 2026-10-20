@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { FlatList, Pressable, Text, View } from 'react-native';
 import type { AudioShortcut, BrokerProfile, ShortcutsData, TextShortcut } from '../../types';
 import { applyTemplate } from '../../utils/formatters';
-import { colors, radius, spacing } from '../theme';
+import { makeStyles, radius, spacing } from '../theme';
 import { ItemCard } from './ItemCard';
 
 interface Props {
@@ -17,6 +17,7 @@ type ShortcutFilter = 'text' | 'audio';
  * Atalhos — Mensagens criadas pelo próprio usuário para envio rápido (Texto e Áudio).
  */
 export function ShortcutsTab({ shortcuts, broker, onInsert }: Props) {
+  const styles = useStyles();
   const [filter, setFilter] = useState<ShortcutFilter>('text');
 
   return (
@@ -63,9 +64,11 @@ export function ShortcutsTab({ shortcuts, broker, onInsert }: Props) {
             <ItemCard
               testID={`shortcut-audio-${item.id}`}
               title={item.title}
-              subtitle={`"${item.transcript}"`}
-              meta={item.duration}
-              onPress={() => onInsert(`[Áudio ${item.duration}] ${item.title}: ${item.audioUrl}`)}
+              subtitle={item.transcript ? `"${item.transcript}"` : undefined}
+              meta={item.duration || undefined}
+              onPress={() =>
+                onInsert(`[Áudio${item.duration ? ` ${item.duration}` : ''}] ${item.title}: ${item.audioUrl}`)
+              }
             />
           )}
         />
@@ -74,7 +77,7 @@ export function ShortcutsTab({ shortcuts, broker, onInsert }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(colors => ({
   container: { flex: 1 },
   filterBar: {
     flexDirection: 'row',
@@ -103,4 +106,4 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   list: { padding: spacing.sm },
-});
+}));

@@ -5,15 +5,16 @@ import {
   Platform,
   Pressable,
   ScrollView,
-  StyleSheet,
   Text,
   TextInput,
   View,
 } from 'react-native';
-import { colors, radius, spacing } from '../../keyboard/theme';
+import { makeStyles, radius, spacing, useColors } from '../../keyboard/theme';
 import { KeyboardBridge } from '../../native/KeyboardBridge';
 
 export function OnboardingGuideScreen() {
+  const colors = useColors();
+  const styles = useStyles();
   const [activePlatform, setActivePlatform] = useState<'android' | 'ios'>(
     Platform.OS === 'ios' ? 'ios' : 'android',
   );
@@ -243,7 +244,7 @@ export function OnboardingGuideScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(colors => ({
   container: { flex: 1, backgroundColor: colors.bg },
   content: { padding: spacing.md, paddingBottom: 40 },
   heroCard: {
@@ -255,7 +256,7 @@ const styles = StyleSheet.create({
   heroBadge: {
     fontSize: 10,
     fontWeight: '700',
-    color: '#38bdf8',
+    color: colors.info,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
     marginBottom: 4,
@@ -316,7 +317,7 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   statusBoxReady: {
-    backgroundColor: '#064e3b',
+    backgroundColor: colors.successBg,
   },
   statusBoxPending: {
     backgroundColor: colors.surfaceAlt,
@@ -324,7 +325,7 @@ const styles = StyleSheet.create({
   statusBoxIcon: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#10b981',
+    color: colors.success,
   },
   statusBoxContent: {
     flex: 1,
@@ -355,7 +356,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   stepNumDone: {
-    backgroundColor: '#059669',
+    backgroundColor: colors.successStrong,
   },
   stepNumText: {
     color: colors.text,
@@ -387,7 +388,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   actionBtnDone: {
-    backgroundColor: '#064e3b',
+    backgroundColor: colors.successBg,
   },
   actionBtnText: {
     color: colors.text,
@@ -395,19 +396,19 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   actionBtnPrimary: {
-    backgroundColor: '#2563eb',
+    backgroundColor: colors.primaryStrong,
     paddingVertical: 10,
     paddingHorizontal: 12,
     borderRadius: radius.md,
     alignItems: 'center',
   },
   actionBtnPrimaryText: {
-    color: '#ffffff',
+    color: colors.onPrimary,
     fontSize: 12,
     fontWeight: '700',
   },
   actionBtnDoneText: {
-    color: '#34d399',
+    color: colors.successText,
   },
   tipBox: {
     backgroundColor: colors.surfaceAlt,
@@ -418,7 +419,7 @@ const styles = StyleSheet.create({
   tipTitle: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#38bdf8',
+    color: colors.info,
     marginBottom: 2,
   },
   tipDesc: {
@@ -461,4 +462,4 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     fontWeight: '500',
   },
-});
+}));

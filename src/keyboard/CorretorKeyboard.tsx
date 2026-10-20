@@ -4,9 +4,9 @@
  * Produtos, Atalhos, Copilot e Mais.
  */
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Animated, StyleSheet, Text, View } from 'react-native';
+import { Animated, Text, View } from 'react-native';
 import { KeyboardBridge } from '../native/KeyboardBridge';
-import type { MainSystemTab } from '../types';
+import type { KeyboardData, MainSystemTab, ThemePreference } from '../types';
 import { AICopilotTab } from './components/AICopilotTab';
 import { KeyboardSwitchTab } from './components/KeyboardSwitchTab';
 import { MoreTab } from './components/MoreTab';
@@ -14,7 +14,7 @@ import { ProductsTab } from './components/ProductsTab';
 import { ShortcutsTab } from './components/ShortcutsTab';
 import { SystemMenuBar } from './components/SystemMenuBar';
 import { useKeyboardData } from './hooks/useKeyboardData';
-import { colors, radius } from './theme';
+import { makeStyles, radius, ThemeProvider } from './theme';
 
 interface ErrorBoundaryState {
   hasError: boolean;
@@ -31,21 +31,36 @@ class KeyboardErrorBoundary extends React.Component<{ children: React.ReactNode 
   render() {
     if (this.state.hasError) {
       return (
-        <View style={[styles.root, styles.errorContainer]}>
-          <Text style={styles.errorTitle}>Teclado do Corretor</Text>
-          <Text style={styles.errorSubtitle}>{this.state.error || 'Erro ao inicializar visualização'}</Text>
-          <Text style={styles.errorButton} onPress={() => this.setState({ hasError: false })}>
-            Tentar novamente
-          </Text>
-        </View>
+        <ErrorFallback
+          message={this.state.error}
+          onRetry={() => this.setState({ hasError: false })}
+        />
       );
     }
     return this.props.children;
   }
 }
 
-function CorretorKeyboardContent() {
-  const { data } = useKeyboardData();
+function ErrorFallback({ message, onRetry }: { message: string | null; onRetry: () => void }) {
+  const styles = useStyles();
+  return (
+    <View style={[styles.root, styles.errorContainer]}>
+      <Text style={styles.errorTitle}>Teclado do Corretor</Text>
+      <Text style={styles.errorSubtitle}>{message || 'Erro ao inicializar visualização'}</Text>
+      <Text style={styles.errorButton} onPress={onRetry}>
+        Tentar novamente
+      </Text>
+    </View>
+  );
+}
+
+interface ContentProps {
+  data: KeyboardData;
+  onThemeChange: (theme: ThemePreference) => void;
+}
+
+function CorretorKeyboardContent({ data, onThemeChange }: ContentProps) {
+  const styles = useStyles();
   const [tab, setTab] = useState<MainSystemTab>('products');
   const [toast, setToast] = useState<string | null>(null);
   const toastOpacity = useRef(new Animated.Value(0)).current;
@@ -100,6 +115,7 @@ function CorretorKeyboardContent() {
             agenda={data.agenda}
             crm={data.crm}
             theme={data.theme}
+            onThemeChange={onThemeChange}
             onInsert={insert}
           />
         )}
@@ -118,14 +134,17 @@ function CorretorKeyboardContent() {
 }
 
 export default function CorretorKeyboard() {
+  const { data, setTheme } = useKeyboardData();
   return (
-    <KeyboardErrorBoundary>
-      <CorretorKeyboardContent />
-    </KeyboardErrorBoundary>
+    <ThemeProvider preference={data.theme}>
+      <KeyboardErrorBoundary>
+        <CorretorKeyboardContent data={data} onThemeChange={setTheme} />
+      </KeyboardErrorBoundary>
+    </ThemeProvider>
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(colors => ({
   root: {
     flex: 1,
     backgroundColor: colors.bg,
@@ -160,7 +179,7 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   errorSubtitle: {
-    color: '#ef4444',
+    color: colors.danger,
     fontSize: 12,
     textAlign: 'center',
     marginBottom: 12,
@@ -171,4 +190,4 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     padding: 8,
   },
-});
+}));

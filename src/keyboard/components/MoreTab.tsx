@@ -1,15 +1,20 @@
 import React, { useState } from 'react';
-import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { FlatList, Pressable, ScrollView, Text, View } from 'react-native';
 import type { CRMLead, MoreSubMenu, ScheduleItem, ThemePreference } from '../../types';
-import { Repo } from '../../storage/storage';
-import { colors, radius, spacing } from '../theme';
+import { makeStyles, radius, spacing } from '../theme';
 import { ItemCard } from './ItemCard';
+
+const THEME_LABEL: Record<ThemePreference, string> = {
+  light: 'CLARO',
+  dark: 'ESCURO',
+  system: 'SISTEMA',
+};
 
 interface Props {
   agenda: ScheduleItem[];
   crm: CRMLead[];
   theme: ThemePreference;
-  onThemeChange?: (theme: ThemePreference) => void;
+  onThemeChange: (theme: ThemePreference) => void;
   onInsert: (text: string) => void;
 }
 
@@ -17,19 +22,13 @@ interface Props {
  * Aba "Mais" — Submenu com Agenda, CRM e Configurações (Aparência do Teclado).
  */
 export function MoreTab({ agenda, crm, theme, onThemeChange, onInsert }: Props) {
+  const styles = useStyles();
   const [selectedSubMenu, setSelectedSubMenu] = useState<MoreSubMenu>(null);
-  const [currentTheme, setCurrentTheme] = useState<ThemePreference>(theme);
-
-  const handleSelectTheme = (t: ThemePreference) => {
-    setCurrentTheme(t);
-    Repo.setTheme(t);
-    onThemeChange?.(t);
-  };
 
   // Se nenhum submenu estiver aberto, exibe as opções do segundo menu
   if (!selectedSubMenu) {
     return (
-      <View style={styles.menuContainer}>
+      <ScrollView contentContainerStyle={styles.menuContainer} keyboardShouldPersistTaps="always">
         <Pressable
           testID="more-btn-agenda"
           style={styles.menuOption}
@@ -60,9 +59,9 @@ export function MoreTab({ agenda, crm, theme, onThemeChange, onInsert }: Props) 
             <Text style={styles.menuTitle}>Configurações</Text>
             <Text style={styles.menuSubtitle}>Aparência do teclado (Claro, Escuro ou Padrão)</Text>
           </View>
-          <Text style={styles.menuMeta}>{currentTheme.toUpperCase()}</Text>
+          <Text style={styles.menuMeta}>{THEME_LABEL[theme]}</Text>
         </Pressable>
-      </View>
+      </ScrollView>
     );
   }
 
@@ -133,7 +132,7 @@ export function MoreTab({ agenda, crm, theme, onThemeChange, onInsert }: Props) 
         <Text style={styles.crumbTitle}>Aparência do Teclado</Text>
       </Pressable>
 
-      <View style={styles.themeOptionsContainer}>
+      <ScrollView contentContainerStyle={styles.themeOptionsContainer} keyboardShouldPersistTaps="always">
         <Text style={styles.themeSectionTitle}>Tema da Interface</Text>
 
         {(
@@ -143,12 +142,12 @@ export function MoreTab({ agenda, crm, theme, onThemeChange, onInsert }: Props) 
             { key: 'system', label: 'Padrão do Sistema' },
           ] as const
         ).map(opt => {
-          const isSelected = currentTheme === opt.key;
+          const isSelected = theme === opt.key;
           return (
             <Pressable
               key={opt.key}
               style={[styles.themeOptionRow, isSelected && styles.themeOptionRowActive]}
-              onPress={() => handleSelectTheme(opt.key)}>
+              onPress={() => onThemeChange(opt.key)}>
               <Text style={[styles.themeOptionText, isSelected && styles.themeOptionTextActive]}>
                 {opt.label}
               </Text>
@@ -156,12 +155,12 @@ export function MoreTab({ agenda, crm, theme, onThemeChange, onInsert }: Props) 
             </Pressable>
           );
         })}
-      </View>
+      </ScrollView>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(colors => ({
   flex: { flex: 1 },
   list: { padding: spacing.sm },
   menuContainer: {
@@ -238,4 +237,4 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontWeight: '700',
   },
-});
+}));

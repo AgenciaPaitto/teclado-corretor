@@ -4,76 +4,135 @@ import {
   FlatList,
   Pressable,
   ScrollView,
-  StyleSheet,
   Text,
   TextInput,
   View,
 } from 'react-native';
 import { Repo } from '../../storage/storage';
 import type { AudioShortcut, ShortcutsData, TextShortcut } from '../../types';
-import { colors, radius, spacing } from '../../keyboard/theme';
+import { normalizeUrl } from '../../utils/formatters';
+import { makeStyles, radius, spacing, useColors } from '../../keyboard/theme';
+
+/** Formulários de criação/edição: id null = criando um atalho novo. */
+interface TextForm {
+  id: string | null;
+  title: string;
+  text: string;
+}
+
+interface AudioForm {
+  id: string | null;
+  title: string;
+  url: string;
+  duration: string;
+  transcript: string;
+}
+
+function confirmDelete(title: string, onConfirm: () => void) {
+  Alert.alert('Excluir atalho', `Deseja excluir "${title}"?`, [
+    { text: 'Cancelar', style: 'cancel' },
+    { text: 'Excluir', style: 'destructive', onPress: onConfirm },
+  ]);
+}
 
 export function ShortcutsManagerScreen() {
+  const colors = useColors();
+  const styles = useStyles();
   const [shortcuts, setShortcuts] = useState<ShortcutsData>(() => Repo.getShortcuts());
   const [activeTab, setActiveTab] = useState<'text' | 'audio'>('text');
 
-  // Criação de Atalho de Texto
-  const [isCreatingText, setIsCreatingText] = useState(false);
-  const [textTitle, setTextTitle] = useState('');
-  const [textContent, setTextContent] = useState('');
-
-  // Criação de Atalho de Áudio
-  const [isCreatingAudio, setIsCreatingAudio] = useState(false);
-  const [audioTitle, setAudioTitle] = useState('');
-  const [audioDuration, setAudioDuration] = useState('0:45');
-  const [audioTranscript, setAudioTranscript] = useState('');
+  const [textForm, setTextForm] = useState<TextForm | null>(null);
+  const [audioForm, setAudioForm] = useState<AudioForm | null>(null);
 
   const refreshShortcuts = () => {
     setShortcuts(Repo.getShortcuts());
   };
 
-  const handleCreateText = () => {
-    if (!textTitle.trim() || !textContent.trim()) {
+  const switchTab = (tab: 'text' | 'audio') => {
+    setActiveTab(tab);
+    setTextForm(null);
+    setAudioForm(null);
+  };
+
+  const handleSaveText = () => {
+    if (!textForm) return;
+    if (!textForm.title.trim() || !textForm.text.trim()) {
       Alert.alert('Atenção', 'Preencha o título e o texto da mensagem.');
       return;
     }
 
     const shortcut: TextShortcut = {
-      id: `text-${Date.now()}`,
-      title: textTitle.trim(),
-      text: textContent.trim(),
+      id: textForm.id ?? `text-${Date.now()}`,
+      title: textForm.title.trim(),
+      text: textForm.text.trim(),
     };
 
-    Repo.addTextShortcut(shortcut);
+    if (textForm.id) {
+      Repo.updateTextShortcut(shortcut);
+    } else {
+      Repo.addTextShortcut(shortcut);
+    }
     refreshShortcuts();
-    setIsCreatingText(false);
-    setTextTitle('');
-    setTextContent('');
-    Alert.alert('Sucesso', 'Atalho de texto criado e sincronizado com o teclado!');
+    setTextForm(null);
+    Alert.alert('Sucesso', textForm.id ? 'Atalho atualizado!' : 'Atalho de texto criado e sincronizado com o teclado!');
   };
 
-  const handleCreateAudio = () => {
-    if (!audioTitle.trim() || !audioTranscript.trim()) {
-      Alert.alert('Atenção', 'Preencha o título e a transcrição do áudio.');
+  const handleSaveAudio = () => {
+    if (!audioForm) return;
+    if (!audioForm.title.trim()) {
+      Alert.alert('Atenção', 'Preencha o título do áudio.');
+      return;
+    }
+    const audioUrl = normalizeUrl(audioForm.url);
+    if (!audioUrl) {
+      Alert.alert('Atenção', 'Cole o link do áudio. Ex: https://drive.google.com/...');
       return;
     }
 
     const shortcut: AudioShortcut = {
-      id: `audio-${Date.now()}`,
-      title: audioTitle.trim(),
-      duration: audioDuration.trim() || '0:30',
-      audioUrl: `https://cdn.primeimoveis.com.br/audios/${Date.now()}.mp3`,
-      transcript: audioTranscript.trim(),
+      id: audioForm.id ?? `audio-${Date.now()}`,
+      title: audioForm.title.trim(),
+      duration: audioForm.duration.trim(),
+      audioUrl,
+      transcript: audioForm.transcript.trim(),
     };
 
-    Repo.addAudioShortcut(shortcut);
+    if (audioForm.id) {
+      Repo.updateAudioShortcut(shortcut);
+    } else {
+      Repo.addAudioShortcut(shortcut);
+    }
     refreshShortcuts();
-    setIsCreatingAudio(false);
-    setAudioTitle('');
-    setAudioDuration('0:45');
-    setAudioTranscript('');
-    Alert.alert('Sucesso', 'Atalho de áudio adicionado e sincronizado com o teclado!');
+    setAudioForm(null);
+    Alert.alert('Sucesso', audioForm.id ? 'Áudio atualizado!' : 'Atalho de áudio adicionado e sincronizado com o teclado!');
   };
+
+  const handleDeleteText = (item: TextShortcut) => {
+    confirmDelete(item.title, () => {
+      Repo.deleteTextShortcut(item.id);
+      refreshShortcuts();
+      if (textForm?.id === item.id) setTextForm(null);
+    });
+  };
+
+  const handleDeleteAudio = (item: AudioShortcut) => {
+    confirmDelete(item.title, () => {
+      Repo.deleteAudioShortcut(item.id);
+      refreshShortcuts();
+      if (audioForm?.id === item.id) setAudioForm(null);
+    });
+  };
+
+  const renderItemActions = (onEdit: () => void, onDelete: () => void) => (
+    <View style={styles.itemActions}>
+      <Pressable hitSlop={6} onPress={onEdit}>
+        <Text style={styles.linkText}>Editar</Text>
+      </Pressable>
+      <Pressable hitSlop={6} onPress={onDelete}>
+        <Text style={styles.deleteText}>Excluir</Text>
+      </Pressable>
+    </View>
+  );
 
   return (
     <View style={styles.container}>
@@ -85,8 +144,8 @@ export function ShortcutsManagerScreen() {
         <Pressable
           style={styles.addBtn}
           onPress={() => {
-            if (activeTab === 'text') setIsCreatingText(true);
-            else setIsCreatingAudio(true);
+            if (activeTab === 'text') setTextForm({ id: null, title: '', text: '' });
+            else setAudioForm({ id: null, title: '', url: '', duration: '', transcript: '' });
           }}>
           <Text style={styles.addBtnText}>
             {activeTab === 'text' ? '+ Novo Texto' : '+ Novo Áudio'}
@@ -98,95 +157,107 @@ export function ShortcutsManagerScreen() {
       <View style={styles.tabToggle}>
         <Pressable
           style={[styles.toggleBtn, activeTab === 'text' && styles.toggleBtnActive]}
-          onPress={() => setActiveTab('text')}>
+          onPress={() => switchTab('text')}>
           <Text style={[styles.toggleText, activeTab === 'text' && styles.toggleTextActive]}>
             Textos ({shortcuts.texts.length})
           </Text>
         </Pressable>
         <Pressable
           style={[styles.toggleBtn, activeTab === 'audio' && styles.toggleBtnActive]}
-          onPress={() => setActiveTab('audio')}>
+          onPress={() => switchTab('audio')}>
           <Text style={[styles.toggleText, activeTab === 'audio' && styles.toggleTextActive]}>
             Áudios Rápidos ({shortcuts.audios.length})
           </Text>
         </Pressable>
       </View>
 
-      {/* Formulário de Criação de Texto */}
-      {isCreatingText && (
-        <ScrollView style={styles.formContainer}>
-          <Text style={styles.sectionTitle}>Novo Atalho de Texto</Text>
+      {/* Formulário de Texto (criar / editar) */}
+      {textForm && (
+        <ScrollView style={styles.formContainer} keyboardShouldPersistTaps="handled">
+          <Text style={styles.sectionTitle}>{textForm.id ? 'Editar Atalho de Texto' : 'Novo Atalho de Texto'}</Text>
           <Text style={styles.label}>Título do Atalho</Text>
           <TextInput
             style={styles.input}
             placeholder="Ex: Confirmação de Visita, Chave Pix"
             placeholderTextColor={colors.textMuted}
-            value={textTitle}
-            onChangeText={setTextTitle}
+            value={textForm.title}
+            onChangeText={title => setTextForm({ ...textForm, title })}
           />
 
           <Text style={styles.label}>Conteúdo da Mensagem</Text>
           <TextInput
             style={[styles.input, styles.textArea]}
-            placeholder="Escreva a mensagem que será colada no WhatsApp. Você pode usar {{corretor}}, {{imobiliaria}}, {{creci}}"
+            placeholder="Escreva a mensagem que será colada no WhatsApp."
             placeholderTextColor={colors.textMuted}
             multiline
-            value={textContent}
-            onChangeText={setTextContent}
+            value={textForm.text}
+            onChangeText={text => setTextForm({ ...textForm, text })}
           />
+          <Text style={styles.hint}>
+            Variáveis: {'{{corretor}}'}, {'{{imobiliaria}}'}, {'{{creci}}'} e {'{{telefone}}'} são trocadas pelos dados do
+            seu perfil.
+          </Text>
 
           <View style={styles.formBtnsRow}>
-            <Pressable
-              style={styles.cancelBtn}
-              onPress={() => setIsCreatingText(false)}>
+            <Pressable style={styles.cancelBtn} onPress={() => setTextForm(null)}>
               <Text style={styles.cancelBtnText}>Cancelar</Text>
             </Pressable>
-            <Pressable style={styles.saveBtn} onPress={handleCreateText}>
+            <Pressable style={styles.saveBtn} onPress={handleSaveText}>
               <Text style={styles.saveBtnText}>Salvar Atalho</Text>
             </Pressable>
           </View>
         </ScrollView>
       )}
 
-      {/* Formulário de Criação de Áudio */}
-      {isCreatingAudio && (
-        <ScrollView style={styles.formContainer}>
-          <Text style={styles.sectionTitle}>Novo Áudio Pré-gravado</Text>
+      {/* Formulário de Áudio (criar / editar) */}
+      {audioForm && (
+        <ScrollView style={styles.formContainer} keyboardShouldPersistTaps="handled">
+          <Text style={styles.sectionTitle}>{audioForm.id ? 'Editar Áudio' : 'Novo Áudio Pré-gravado'}</Text>
           <Text style={styles.label}>Título do Áudio</Text>
           <TextInput
             style={styles.input}
             placeholder="Ex: Apresentação Inicial, Proposta Aceita"
             placeholderTextColor={colors.textMuted}
-            value={audioTitle}
-            onChangeText={setAudioTitle}
+            value={audioForm.title}
+            onChangeText={title => setAudioForm({ ...audioForm, title })}
           />
 
-          <Text style={styles.label}>Duração Estimada</Text>
+          <Text style={styles.label}>Link do Áudio</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="Cole o link (Google Drive, Dropbox...)"
+            placeholderTextColor={colors.textMuted}
+            keyboardType="url"
+            autoCapitalize="none"
+            autoCorrect={false}
+            value={audioForm.url}
+            onChangeText={url => setAudioForm({ ...audioForm, url })}
+          />
+
+          <Text style={styles.label}>Duração (opcional)</Text>
           <TextInput
             style={styles.input}
             placeholder="Ex: 0:45"
             placeholderTextColor={colors.textMuted}
-            value={audioDuration}
-            onChangeText={setAudioDuration}
+            value={audioForm.duration}
+            onChangeText={duration => setAudioForm({ ...audioForm, duration })}
           />
 
-          <Text style={styles.label}>Transcrição do Áudio</Text>
+          <Text style={styles.label}>Transcrição do Áudio (opcional)</Text>
           <TextInput
             style={[styles.input, styles.textArea]}
             placeholder="Texto do áudio para conferência rápida antes de enviar"
             placeholderTextColor={colors.textMuted}
             multiline
-            value={audioTranscript}
-            onChangeText={setAudioTranscript}
+            value={audioForm.transcript}
+            onChangeText={transcript => setAudioForm({ ...audioForm, transcript })}
           />
 
           <View style={styles.formBtnsRow}>
-            <Pressable
-              style={styles.cancelBtn}
-              onPress={() => setIsCreatingAudio(false)}>
+            <Pressable style={styles.cancelBtn} onPress={() => setAudioForm(null)}>
               <Text style={styles.cancelBtnText}>Cancelar</Text>
             </Pressable>
-            <Pressable style={styles.saveBtn} onPress={handleCreateAudio}>
+            <Pressable style={styles.saveBtn} onPress={handleSaveAudio}>
               <Text style={styles.saveBtnText}>Salvar Áudio</Text>
             </Pressable>
           </View>
@@ -199,10 +270,15 @@ export function ShortcutsManagerScreen() {
           data={shortcuts.texts}
           keyExtractor={item => item.id}
           contentContainerStyle={styles.list}
+          ListEmptyComponent={<Text style={styles.emptyText}>Nenhum atalho de texto ainda.</Text>}
           renderItem={({ item }) => (
             <View style={styles.itemCard}>
               <Text style={styles.itemTitle}>{item.title}</Text>
               <Text style={styles.itemSub} numberOfLines={2}>{item.text}</Text>
+              {renderItemActions(
+                () => setTextForm({ id: item.id, title: item.title, text: item.text }),
+                () => handleDeleteText(item),
+              )}
             </View>
           )}
         />
@@ -211,13 +287,26 @@ export function ShortcutsManagerScreen() {
           data={shortcuts.audios}
           keyExtractor={item => item.id}
           contentContainerStyle={styles.list}
+          ListEmptyComponent={<Text style={styles.emptyText}>Nenhum áudio cadastrado ainda.</Text>}
           renderItem={({ item }) => (
             <View style={styles.itemCard}>
               <View style={styles.audioRow}>
                 <Text style={styles.itemTitle}>{item.title}</Text>
-                <Text style={styles.durationBadge}>{item.duration}</Text>
+                {item.duration ? <Text style={styles.durationBadge}>{item.duration}</Text> : null}
               </View>
-              <Text style={styles.transcriptText}>"{item.transcript}"</Text>
+              {item.transcript ? <Text style={styles.transcriptText}>"{item.transcript}"</Text> : null}
+              <Text style={styles.urlText} numberOfLines={1}>{item.audioUrl}</Text>
+              {renderItemActions(
+                () =>
+                  setAudioForm({
+                    id: item.id,
+                    title: item.title,
+                    url: item.audioUrl,
+                    duration: item.duration,
+                    transcript: item.transcript,
+                  }),
+                () => handleDeleteAudio(item),
+              )}
             </View>
           )}
         />
@@ -226,7 +315,7 @@ export function ShortcutsManagerScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(colors => ({
   container: { flex: 1, backgroundColor: colors.bg },
   headerBar: {
     padding: spacing.md,
@@ -239,7 +328,7 @@ const styles = StyleSheet.create({
   badge: {
     fontSize: 10,
     fontWeight: '700',
-    color: '#38bdf8',
+    color: colors.info,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
@@ -249,13 +338,13 @@ const styles = StyleSheet.create({
     color: colors.text,
   },
   addBtn: {
-    backgroundColor: '#3b82f6',
+    backgroundColor: colors.primary,
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: radius.md,
   },
   addBtnText: {
-    color: '#ffffff',
+    color: colors.onPrimary,
     fontSize: 12,
     fontWeight: '600',
   },
@@ -292,6 +381,20 @@ const styles = StyleSheet.create({
   },
   itemTitle: { fontSize: 13, fontWeight: '700', color: colors.text },
   itemSub: { fontSize: 12, color: colors.textMuted, marginTop: 4, lineHeight: 16 },
+  itemActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 16,
+    marginTop: 8,
+  },
+  linkText: { color: colors.primary, fontSize: 12, fontWeight: '600' },
+  deleteText: { color: colors.danger, fontSize: 12, fontWeight: '600' },
+  emptyText: {
+    color: colors.textMuted,
+    fontSize: 12,
+    textAlign: 'center',
+    paddingVertical: 12,
+  },
   audioRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -300,8 +403,8 @@ const styles = StyleSheet.create({
   durationBadge: {
     fontSize: 11,
     fontWeight: '600',
-    color: '#818cf8',
-    backgroundColor: 'rgba(99,102,241,0.12)',
+    color: colors.violet,
+    backgroundColor: colors.violetBg,
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 4,
@@ -312,6 +415,7 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
     marginTop: 4,
   },
+  urlText: { fontSize: 10, color: colors.textMuted, marginTop: 4 },
   formContainer: {
     backgroundColor: colors.surface,
     padding: spacing.md,
@@ -331,6 +435,12 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.textSecondary,
     marginTop: 4,
+  },
+  hint: {
+    fontSize: 10,
+    color: colors.textMuted,
+    marginTop: 2,
+    lineHeight: 14,
   },
   input: {
     backgroundColor: colors.surfaceAlt,
@@ -358,10 +468,10 @@ const styles = StyleSheet.create({
   cancelBtnText: { color: colors.textMuted, fontSize: 12, fontWeight: '600' },
   saveBtn: {
     flex: 1,
-    backgroundColor: '#3b82f6',
+    backgroundColor: colors.primary,
     paddingVertical: 10,
     borderRadius: radius.md,
     alignItems: 'center',
   },
-  saveBtnText: { color: '#ffffff', fontSize: 12, fontWeight: '600' },
-});
+  saveBtnText: { color: colors.onPrimary, fontSize: 12, fontWeight: '600' },
+}));

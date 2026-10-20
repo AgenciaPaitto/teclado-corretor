@@ -3,14 +3,13 @@ import {
   Alert,
   Pressable,
   ScrollView,
-  StyleSheet,
   Text,
   TextInput,
   View,
 } from 'react-native';
 import { Repo } from '../../storage/storage';
 import type { BrokerProfile, ThemePreference } from '../../types';
-import { colors, radius, spacing } from '../../keyboard/theme';
+import { makeStyles, radius, spacing } from '../../keyboard/theme';
 import { AI_CONFIG } from '../../services/aiService';
 
 interface Props {
@@ -20,6 +19,7 @@ interface Props {
 }
 
 export function ProfileSettingsScreen({ onLogout, onThemeChange, onProfileChange }: Props) {
+  const styles = useStyles();
   const [broker, setBroker] = useState<BrokerProfile>(() => Repo.getBroker());
   const [theme, setTheme] = useState<ThemePreference>(() => Repo.getTheme());
   const [isEditing, setIsEditing] = useState(false);
@@ -67,7 +67,9 @@ export function ProfileSettingsScreen({ onLogout, onThemeChange, onProfileChange
             setAgency(restored.agency);
             setCreci(restored.creci);
             setPhone(restored.phone);
-            setTheme(Repo.getTheme());
+            const restoredTheme = Repo.getTheme();
+            setTheme(restoredTheme);
+            onThemeChange?.(restoredTheme);
             onProfileChange?.(restored);
             Alert.alert('Restaurado', 'Dados de exemplo restaurados com sucesso.');
           },
@@ -213,14 +215,14 @@ export function ProfileSettingsScreen({ onLogout, onThemeChange, onProfileChange
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(colors => ({
   container: { flex: 1, backgroundColor: colors.bg },
   content: { padding: spacing.md, paddingBottom: 40 },
   header: { marginBottom: spacing.md },
   badge: {
     fontSize: 10,
     fontWeight: '700',
-    color: '#38bdf8',
+    color: colors.info,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
     marginBottom: 4,
@@ -255,7 +257,7 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   editBtnText: {
-    color: '#3b82f6',
+    color: colors.primary,
     fontSize: 12,
     fontWeight: '600',
   },
@@ -279,13 +281,13 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
   saveBtn: {
-    backgroundColor: '#3b82f6',
+    backgroundColor: colors.primary,
     paddingVertical: 10,
     borderRadius: radius.md,
     alignItems: 'center',
     marginTop: 6,
   },
-  saveBtnText: { color: '#ffffff', fontSize: 12, fontWeight: '600' },
+  saveBtnText: { color: colors.onPrimary, fontSize: 12, fontWeight: '600' },
   themeOptionRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -297,20 +299,20 @@ const styles = StyleSheet.create({
   },
   themeOptionRowActive: {
     borderWidth: 1,
-    borderColor: '#3b82f6',
+    borderColor: colors.primary,
   },
   themeLabel: { fontSize: 12, fontWeight: '500', color: colors.textSecondary },
   themeLabelActive: { color: colors.text, fontWeight: '700' },
   themeSubDesc: { fontSize: 10, color: colors.textMuted, marginTop: 2 },
-  checkmark: { color: '#3b82f6', fontWeight: '700', fontSize: 14 },
+  checkmark: { color: colors.primary, fontWeight: '700', fontSize: 14 },
   statusRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
     paddingVertical: 3,
   },
-  statusDot: { color: '#10b981', fontSize: 10 },
-  statusDotPending: { color: '#f59e0b' },
+  statusDot: { color: colors.success, fontSize: 10 },
+  statusDotPending: { color: colors.warning },
   statusText: { color: colors.textSecondary, fontSize: 11, flex: 1 },
   actionsCard: { gap: 8, marginTop: 4 },
   resetBtn: {
@@ -323,10 +325,10 @@ const styles = StyleSheet.create({
   },
   resetBtnText: { color: colors.textMuted, fontSize: 12, fontWeight: '500' },
   logoutBtn: {
-    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+    backgroundColor: colors.dangerBg,
     paddingVertical: 12,
     borderRadius: radius.md,
     alignItems: 'center',
   },
-  logoutBtnText: { color: '#ef4444', fontSize: 12, fontWeight: '600' },
-});
+  logoutBtnText: { color: colors.danger, fontSize: 12, fontWeight: '600' },
+}));

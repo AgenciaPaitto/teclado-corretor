@@ -1,6 +1,6 @@
 import React, { memo } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { colors, radius, spacing } from '../theme';
+import { Pressable, Text, View } from 'react-native';
+import { makeStyles, radius, spacing, useColors } from '../theme';
 
 interface Props {
   testID?: string;
@@ -13,21 +13,25 @@ interface Props {
 /**
  * Card minimalista sem bordas, cantos coloridos ou emojis.
  */
-export const ItemCard = memo(({ testID, title, subtitle, meta, onPress }: Props) => (
-  <Pressable
-    testID={testID}
-    onPress={onPress}
-    android_ripple={{ color: colors.surfaceActive }}
-    style={({ pressed }) => [styles.card, pressed && styles.pressed]}>
-    <View style={styles.body}>
-      <Text style={styles.title} numberOfLines={1}>{title}</Text>
-      {subtitle ? <Text style={styles.subtitle} numberOfLines={2}>{subtitle}</Text> : null}
-    </View>
-    {meta ? <Text style={styles.meta}>{meta}</Text> : null}
-  </Pressable>
-));
+export const ItemCard = memo(({ testID, title, subtitle, meta, onPress }: Props) => {
+  const colors = useColors();
+  const styles = useStyles();
+  return (
+    <Pressable
+      testID={testID}
+      onPress={onPress}
+      android_ripple={{ color: colors.surfaceActive }}
+      style={({ pressed }) => [styles.card, pressed && styles.pressed]}>
+      <View style={styles.body}>
+        <Text style={styles.title} numberOfLines={1}>{title}</Text>
+        {subtitle ? <Text style={styles.subtitle} numberOfLines={2}>{subtitle}</Text> : null}
+      </View>
+      {meta ? <Text style={styles.meta}>{meta}</Text> : null}
+    </Pressable>
+  );
+});
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(colors => ({
   card: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -62,4 +66,4 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     marginLeft: 6,
   },
-});
+}));

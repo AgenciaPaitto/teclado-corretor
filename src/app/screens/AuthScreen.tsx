@@ -3,19 +3,20 @@ import {
   Alert,
   Pressable,
   ScrollView,
-  StyleSheet,
   Text,
   TextInput,
   View,
 } from 'react-native';
 import { Repo } from '../../storage/storage';
-import { colors, radius, spacing } from '../../keyboard/theme';
+import { makeStyles, radius, spacing, useColors } from '../../keyboard/theme';
 
 interface Props {
   onSuccess: () => void;
 }
 
 export function AuthScreen({ onSuccess }: Props) {
+  const colors = useColors();
+  const styles = useStyles();
   const [isRegister, setIsRegister] = useState(false);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -155,14 +156,14 @@ export function AuthScreen({ onSuccess }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(colors => ({
   container: { flex: 1, backgroundColor: colors.bg },
   content: { padding: spacing.md, paddingBottom: 40 },
   header: { marginBottom: spacing.md },
   badge: {
     fontSize: 10,
     fontWeight: '700',
-    color: '#38bdf8',
+    color: colors.info,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
     marginBottom: 4,
@@ -223,15 +224,15 @@ const styles = StyleSheet.create({
     fontSize: 13,
   },
   submitBtn: {
-    backgroundColor: '#3b82f6',
+    backgroundColor: colors.primary,
     paddingVertical: 14,
     borderRadius: radius.md,
     alignItems: 'center',
     marginTop: 10,
   },
   submitBtnText: {
-    color: '#ffffff',
+    color: colors.onPrimary,
     fontSize: 13,
     fontWeight: '700',
   },
-});
+}));

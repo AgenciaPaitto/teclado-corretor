@@ -1,5 +1,6 @@
 package com.corretorkeyboard.keyboard
 
+import android.content.res.Configuration
 import android.inputmethodservice.InputMethodService
 import android.os.Build
 import android.os.Bundle
@@ -53,8 +54,15 @@ class CustomKeyboardService : InputMethodService() {
         /** Nome registrado via AppRegistry.registerComponent no index.js */
         const val MODULE_NAME = "CorretorKeyboard"
 
-        /** Altura total do teclado (toolbar + conteúdo + barra inferior). */
+        /** Altura total do teclado (toolbar + conteúdo + barra inferior) em pé. */
         private const val KEYBOARD_HEIGHT_DP = 320
+
+        /**
+         * Celular deitado: a tela tem ~360-410dp de altura, então 320dp cobriria
+         * quase tudo. Usamos no máximo metade da altura, com um piso legível.
+         */
+        private const val LANDSCAPE_SCREEN_FRACTION = 0.5f
+        private const val MIN_LANDSCAPE_HEIGHT_DP = 180
 
         // Eventos emitidos ao JS
         const val EVENT_KEYBOARD_SHOW = "onKeyboardShow"
@@ -69,7 +77,7 @@ class CustomKeyboardService : InputMethodService() {
         val instance: CustomKeyboardService? get() = instanceRef?.get()
     }
 
-    private var rootContainer: FrameLayout? = null
+    private var rootContainer: KeyboardRootFrameLayout? = null
     private var reactRootView: ReactRootView? = null
 
     /** Pacote do app em foco (ex.: "com.whatsapp"). */
@@ -87,8 +95,18 @@ class CustomKeyboardService : InputMethodService() {
      */
     private class KeyboardRootFrameLayout(
         context: android.content.Context,
-        private val targetHeightPx: Int
+        initialHeightPx: Int
     ) : FrameLayout(context) {
+        /** Pode mudar ao girar o celular; o filho (ReactRootView) acompanha via MATCH_PARENT. */
+        var targetHeightPx: Int = initialHeightPx
+            set(value) {
+                if (field == value) return
+                field = value
+                minimumHeight = value
+                layoutParams?.let { it.height = value; layoutParams = it }
+                requestLayout()
+            }
+
         override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
             val forcedHeightSpec = MeasureSpec.makeMeasureSpec(targetHeightPx, MeasureSpec.EXACTLY)
             super.onMeasure(widthMeasureSpec, forcedHeightSpec)
@@ -117,13 +135,15 @@ class CustomKeyboardService : InputMethodService() {
      * Chamado para criar ou obter a View do teclado.
      */
     override fun onCreateInputView(): View {
+        // O sistema chama de novo ao girar a tela: reaproveita a view e só ajusta a altura
         rootContainer?.let { container ->
             (container.parent as? ViewGroup)?.removeView(container)
+            container.targetHeightPx = keyboardHeightPx()
             return container
         }
 
         val themedContext = ContextThemeWrapper(this, R.style.AppTheme)
-        val heightPx = (KEYBOARD_HEIGHT_DP * resources.displayMetrics.density).toInt()
+        val heightPx = keyboardHeightPx()
 
         val container = KeyboardRootFrameLayout(themedContext, heightPx).apply {
             layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, heightPx)
@@ -135,7 +155,7 @@ class CustomKeyboardService : InputMethodService() {
         val loadingLayout = android.widget.LinearLayout(themedContext).apply {
             orientation = android.widget.LinearLayout.VERTICAL
             gravity = android.view.Gravity.CENTER
-            layoutParams = FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, heightPx)
+            layoutParams = FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT)
 
             val titleView = android.widget.TextView(themedContext).apply {
                 text = "Teclado do Corretor"
@@ -173,7 +193,7 @@ class CustomKeyboardService : InputMethodService() {
                 )
             }
             reactRootView = rootView
-            container.addView(rootView, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, heightPx))
+            container.addView(rootView, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
         } catch (t: Throwable) {
             android.util.Log.e("CustomKeyboardService", "Falha ao inicializar ReactRootView do teclado", t)
         }
@@ -189,9 +209,10 @@ class CustomKeyboardService : InputMethodService() {
         super.onStartInputView(info, restarting)
         targetPackage = info?.packageName
 
-        // Assegura que a janela de input method permaneça na altura fixada
+        // Assegura que a janela de input method fique na altura da orientação atual
         try {
-            val heightPx = (KEYBOARD_HEIGHT_DP * resources.displayMetrics.density).toInt()
+            val heightPx = keyboardHeightPx()
+            rootContainer?.targetHeightPx = heightPx
             window?.window?.setLayout(ViewGroup.LayoutParams.MATCH_PARENT, heightPx)
         } catch (_: Throwable) {}
 
@@ -302,6 +323,18 @@ class CustomKeyboardService : InputMethodService() {
     // -----------------------------------------------------------------------
     // Helpers
     // -----------------------------------------------------------------------
+
+    /** Altura do teclado em pixels para a orientação atual da tela. */
+    private fun keyboardHeightPx(): Int {
+        val metrics = resources.displayMetrics
+        val portraitPx = (KEYBOARD_HEIGHT_DP * metrics.density).toInt()
+        if (resources.configuration.orientation != Configuration.ORIENTATION_LANDSCAPE) {
+            return portraitPx
+        }
+        val minPx = (MIN_LANDSCAPE_HEIGHT_DP * metrics.density).toInt()
+        val fractionPx = (metrics.heightPixels * LANDSCAPE_SCREEN_FRACTION).toInt()
+        return fractionPx.coerceIn(minPx, portraitPx)
+    }
 
     private fun emitToJs(event: String, params: Any) {
         try {
