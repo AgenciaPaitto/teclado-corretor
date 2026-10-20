@@ -8,18 +8,20 @@ interface Props {
   subtitle?: string;
   meta?: string;
   onPress: () => void;
+  onLongPress?: () => void;
 }
 
 /**
  * Card minimalista sem bordas, cantos coloridos ou emojis.
  */
-export const ItemCard = memo(({ testID, title, subtitle, meta, onPress }: Props) => {
+export const ItemCard = memo(({ testID, title, subtitle, meta, onPress, onLongPress }: Props) => {
   const colors = useColors();
   const styles = useStyles();
   return (
     <Pressable
       testID={testID}
       onPress={onPress}
+      onLongPress={onLongPress}
       android_ripple={{ color: colors.surfaceActive }}
       style={({ pressed }) => [styles.card, pressed && styles.pressed]}>
       <View style={styles.body}>

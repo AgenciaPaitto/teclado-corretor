@@ -225,7 +225,7 @@ export function ShortcutsManagerScreen() {
           <Text style={styles.label}>Link do Áudio</Text>
           <TextInput
             style={styles.input}
-            placeholder="Cole o link (Google Drive, Dropbox...)"
+            placeholder="Cole o link direto do arquivo (.mp3, .ogg, .m4a)"
             placeholderTextColor={colors.textMuted}
             keyboardType="url"
             autoCapitalize="none"

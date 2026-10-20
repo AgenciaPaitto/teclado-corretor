@@ -1,5 +1,7 @@
 package com.corretorkeyboard.keyboard
 
+import android.content.ClipDescription
+import android.content.Intent
 import android.content.res.Configuration
 import android.graphics.Color
 import android.inputmethodservice.InputMethodService
@@ -7,6 +9,7 @@ import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.net.Uri
 import android.text.TextUtils
 import android.util.Log
 import android.view.Gravity
@@ -21,6 +24,9 @@ import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.ProgressBar
 import android.widget.TextView
+import androidx.core.view.inputmethod.EditorInfoCompat
+import androidx.core.view.inputmethod.InputConnectionCompat
+import androidx.core.view.inputmethod.InputContentInfoCompat
 import com.corretorkeyboard.R
 import com.facebook.react.ReactApplication
 import com.facebook.react.ReactInstanceManager
@@ -381,6 +387,36 @@ class CustomKeyboardService : InputMethodService() {
             sendDownUpKeyEvents(KeyEvent.KEYCODE_ENTER)
             true
         }
+    }
+
+    /**
+     * Formatos de arquivo que o campo em foco aceita receber do teclado
+     * (ex.: WhatsApp → image/gif, image/png...). Vazio = o campo só aceita texto.
+     */
+    fun acceptedContentMimeTypes(): Array<String> =
+        currentInputEditorInfo?.let { EditorInfoCompat.getContentMimeTypes(it) } ?: emptyArray()
+
+    /**
+     * Entrega uma imagem já baixada direto na conversa — o mesmo recurso que o
+     * Gboard usa para GIFs e figurinhas (commitContent). O app de destino recebe
+     * permissão temporária de leitura do arquivo.
+     */
+    fun commitImage(media: MediaFiles.Downloaded, description: String, linkUrl: String?): Boolean {
+        val ic = currentInputConnection ?: return false
+        val editorInfo = currentInputEditorInfo ?: return false
+        val uri = MediaFiles.uriFor(this, media.file)
+        val info = InputContentInfoCompat(
+            uri,
+            ClipDescription(description, arrayOf(media.mimeType)),
+            linkUrl?.let { Uri.parse(it) }
+        )
+        // No Android 7.0 (API 24) a permissão precisa ser concedida manualmente
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N_MR1) {
+            grantUriPermission(editorInfo.packageName, uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        return InputConnectionCompat.commitContent(
+            ic, editorInfo, info, InputConnectionCompat.INPUT_CONTENT_GRANT_READ_URI_PERMISSION, null
+        )
     }
 
     /**

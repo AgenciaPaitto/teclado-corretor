@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { FlatList, Pressable, ScrollView, Text, View } from 'react-native';
 import type { CRMLead, MoreSubMenu, ScheduleItem, ThemePreference } from '../../types';
 import { makeStyles, radius, spacing } from '../theme';
+import { DiagnosticsPanel } from './DiagnosticsPanel';
 import { ItemCard } from './ItemCard';
 
 const THEME_LABEL: Record<ThemePreference, string> = {
@@ -60,6 +61,16 @@ export function MoreTab({ agenda, crm, theme, onThemeChange, onInsert }: Props) 
             <Text style={styles.menuSubtitle}>Aparência do teclado (Claro, Escuro ou Padrão)</Text>
           </View>
           <Text style={styles.menuMeta}>{THEME_LABEL[theme]}</Text>
+        </Pressable>
+
+        <Pressable
+          testID="more-btn-diagnostics"
+          style={styles.menuOption}
+          onPress={() => setSelectedSubMenu('diagnostics')}>
+          <View style={styles.menuInfo}>
+            <Text style={styles.menuTitle}>Diagnóstico</Text>
+            <Text style={styles.menuSubtitle}>O que o campo em foco aceita: texto, fotos, GIFs</Text>
+          </View>
         </Pressable>
       </ScrollView>
     );
@@ -124,7 +135,20 @@ export function MoreTab({ agenda, crm, theme, onThemeChange, onInsert }: Props) 
     );
   }
 
-  // 3. SUBMENU: CONFIGURAÇÕES (APARÊNCIA DO TECLADO)
+  // 3. SUBMENU: DIAGNÓSTICO (formatos aceitos pelo campo em foco)
+  if (selectedSubMenu === 'diagnostics') {
+    return (
+      <View style={styles.flex}>
+        <Pressable onPress={() => setSelectedSubMenu(null)} style={styles.breadcrumb}>
+          <Text style={styles.back}>Voltar</Text>
+          <Text style={styles.crumbTitle}>Diagnóstico</Text>
+        </Pressable>
+        <DiagnosticsPanel onInsert={onInsert} />
+      </View>
+    );
+  }
+
+  // 4. SUBMENU: CONFIGURAÇÕES (APARÊNCIA DO TECLADO)
   return (
     <View style={styles.flex}>
       <Pressable onPress={() => setSelectedSubMenu(null)} style={styles.breadcrumb}>

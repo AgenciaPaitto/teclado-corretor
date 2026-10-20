@@ -44,5 +44,16 @@
                 android:resource="@xml/method" />
         </service>
 
+        <!-- 3) Arquivos baixados pelo teclado (fotos, videos e audios) entregues a outros apps -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.keyboardfiles"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/keyboard_file_paths" />
+        </provider>
+
     </application>
 </manifest>

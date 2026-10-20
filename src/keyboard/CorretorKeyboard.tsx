@@ -20,6 +20,11 @@ function describeError(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
+/** Garante ponto final para juntar duas frases no aviso. */
+function sentence(text: string): string {
+  return /[.!?]$/.test(text) ? text : `${text}.`;
+}
+
 // Erros JS não tratados também vão para o diagnóstico nativo do teclado.
 // O tratamento padrão do React Native continua sendo chamado.
 const defaultErrorHandler = ErrorUtils.getGlobalHandler();
@@ -78,16 +83,18 @@ interface ContentProps {
 function CorretorKeyboardContent({ data, onThemeChange }: ContentProps) {
   const styles = useStyles();
   const [tab, setTab] = useState<MainSystemTab>('products');
+  const [toast, setToast] = useState<string | null>(null);
+  const toastOpacity = useRef(new Animated.Value(0)).current;
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** Evita disparar vários downloads ao tocar repetidas vezes. */
+  const sending = useRef(false);
 
   useEffect(() => {
     KeyboardBridge.notifyReady();
   }, []);
-  const [toast, setToast] = useState<string | null>(null);
-  const toastOpacity = useRef(new Animated.Value(0)).current;
-  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const showToast = useCallback(
-    (msg: string) => {
+    (msg: string, durationMs = 1200) => {
       setToast(msg);
       if (toastTimer.current) clearTimeout(toastTimer.current);
       Animated.timing(toastOpacity, { toValue: 1, duration: 120, useNativeDriver: true }).start();
@@ -95,7 +102,7 @@ function CorretorKeyboardContent({ data, onThemeChange }: ContentProps) {
         Animated.timing(toastOpacity, { toValue: 0, duration: 200, useNativeDriver: true }).start(() =>
           setToast(null),
         );
-      }, 1200);
+      }, durationMs);
     },
     [toastOpacity],
   );
@@ -116,6 +123,63 @@ function CorretorKeyboardContent({ data, onThemeChange }: ContentProps) {
     [showToast],
   );
 
+  /**
+   * Foto direto na conversa (mesmo recurso dos GIFs do Gboard). Se o app não
+   * aceitar imagem ou o link não for de um arquivo, insere o link como antes.
+   */
+  const sendImage = useCallback(
+    async (url: string, title: string) => {
+      if (sending.current) {
+        showToast('Aguarde o envio anterior');
+        return;
+      }
+      sending.current = true;
+      showToast('Baixando foto...', 30000);
+      let reason: string;
+      try {
+        const result = await KeyboardBridge.commitImage(url, title);
+        if (result === 'sent') {
+          showToast('Foto enviada para a conversa');
+          return;
+        }
+        reason = result === 'unsupported' ? 'Este app não recebe fotos pelo teclado' : 'O app recusou a foto';
+      } catch (e) {
+        reason = describeError(e);
+      } finally {
+        sending.current = false;
+      }
+      const ok = await KeyboardBridge.insertText(`[Foto] ${title}: ${url}`).catch(() => false);
+      showToast(ok ? `${sentence(reason)} Link inserido.` : reason, 4000);
+    },
+    [showToast],
+  );
+
+  /**
+   * Áudio, vídeo e várias fotos: baixa e abre o compartilhamento do Android
+   * (direto no app em foco, quando possível). Se falhar, insere o texto/link.
+   */
+  const shareMedia = useCallback(
+    async (urls: string[], fallbackText: string) => {
+      if (sending.current) {
+        showToast('Aguarde o envio anterior');
+        return;
+      }
+      sending.current = true;
+      showToast(urls.length > 1 ? `Baixando ${urls.length} arquivos...` : 'Baixando arquivo...', 60000);
+      try {
+        await KeyboardBridge.shareMedia(urls);
+        showToast('Escolha a conversa para enviar', 2500);
+      } catch (e) {
+        const reason = describeError(e);
+        const ok = await KeyboardBridge.insertText(fallbackText).catch(() => false);
+        showToast(ok ? `${sentence(reason)} Link inserido.` : reason, 4000);
+      } finally {
+        sending.current = false;
+      }
+    },
+    [showToast],
+  );
+
   // A troca para o teclado padrão (Gboard etc.) acontece somente pelo botão
   // "Alternar Teclado" dentro da aba — assim as teclas rápidas ficam acessíveis.
   const handleTabChange = useCallback((newTab: MainSystemTab) => {
@@ -127,8 +191,12 @@ function CorretorKeyboardContent({ data, onThemeChange }: ContentProps) {
       {/* Área de conteúdo do sistema */}
       <View style={styles.content}>
         {tab === 'keyboard' && <KeyboardSwitchTab onInsert={insert} />}
-        {tab === 'products' && <ProductsTab folders={data.folders} onInsert={insert} />}
-        {tab === 'shortcuts' && <ShortcutsTab shortcuts={data.shortcuts} broker={data.broker} onInsert={insert} />}
+        {tab === 'products' && (
+          <ProductsTab folders={data.folders} onInsert={insert} onSendImage={sendImage} onShare={shareMedia} />
+        )}
+        {tab === 'shortcuts' && (
+          <ShortcutsTab shortcuts={data.shortcuts} broker={data.broker} onInsert={insert} onShare={shareMedia} />
+        )}
         {tab === 'copilot' && <AICopilotTab onInsert={insert} />}
         {tab === 'more' && (
           <MoreTab
@@ -184,8 +252,9 @@ const useStyles = makeStyles(colors => ({
     position: 'absolute',
     bottom: 12,
     alignSelf: 'center',
+    maxWidth: '90%',
     backgroundColor: colors.toastBg,
-    borderRadius: radius.pill,
+    borderRadius: radius.lg,
     paddingHorizontal: 16,
     paddingVertical: 7,
     zIndex: 99,
@@ -194,6 +263,7 @@ const useStyles = makeStyles(colors => ({
     color: colors.textSecondary,
     fontSize: 12,
     fontWeight: '500',
+    textAlign: 'center',
   },
   errorContainer: {
     justifyContent: 'center',

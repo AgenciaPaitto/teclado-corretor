@@ -9,14 +9,18 @@ interface Props {
   shortcuts: ShortcutsData;
   broker: BrokerProfile;
   onInsert: (text: string) => void;
+  /** Compartilhamento do Android; fallbackText é inserido se falhar. */
+  onShare: (urls: string[], fallbackText: string) => void;
 }
+
+const audioLink = (a: AudioShortcut) => `[Áudio${a.duration ? ` ${a.duration}` : ''}] ${a.title}: ${a.audioUrl}`;
 
 type ShortcutFilter = 'text' | 'audio';
 
 /**
  * Atalhos — Mensagens criadas pelo próprio usuário para envio rápido (Texto e Áudio).
  */
-export function ShortcutsTab({ shortcuts, broker, onInsert }: Props) {
+export function ShortcutsTab({ shortcuts, broker, onInsert, onShare }: Props) {
   const styles = useStyles();
   const [filter, setFilter] = useState<ShortcutFilter>('text');
 
@@ -60,15 +64,19 @@ export function ShortcutsTab({ shortcuts, broker, onInsert }: Props) {
           keyExtractor={item => item.id}
           contentContainerStyle={styles.list}
           keyboardShouldPersistTaps="always"
+          ListHeaderComponent={
+            shortcuts.audios.length > 0 ? (
+              <Text style={styles.hint}>Toque: enviar o áudio • Segure: enviar o link</Text>
+            ) : null
+          }
           renderItem={({ item }: { item: AudioShortcut }) => (
             <ItemCard
               testID={`shortcut-audio-${item.id}`}
               title={item.title}
               subtitle={item.transcript ? `"${item.transcript}"` : undefined}
               meta={item.duration || undefined}
-              onPress={() =>
-                onInsert(`[Áudio${item.duration ? ` ${item.duration}` : ''}] ${item.title}: ${item.audioUrl}`)
-              }
+              onPress={() => onShare([item.audioUrl], audioLink(item))}
+              onLongPress={() => onInsert(audioLink(item))}
             />
           )}
         />
@@ -106,4 +114,5 @@ const useStyles = makeStyles(colors => ({
     fontWeight: '600',
   },
   list: { padding: spacing.sm },
+  hint: { color: colors.textMuted, fontSize: 11, marginBottom: 6, textAlign: 'center' },
 }));

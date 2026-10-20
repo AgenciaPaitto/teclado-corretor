@@ -401,7 +401,7 @@ export function ProductsManagerScreen() {
             <Text style={styles.label}>Link</Text>
             <TextInput
               style={styles.input}
-              placeholder={isImage ? 'Cole o link da foto' : 'Cole o link do YouTube, Drive...'}
+              placeholder={isImage ? 'Cole o link direto da foto (.jpg, .png)' : 'Cole o link do vídeo (.mp4) ou do YouTube'}
               placeholderTextColor={colors.textMuted}
               keyboardType="url"
               autoCapitalize="none"
@@ -487,8 +487,9 @@ export function ProductsManagerScreen() {
         )}
 
         <Text style={styles.cloudInfo}>
-          Cole links de fotos e vídeos já hospedados (Google Drive, YouTube, site da imobiliária). O teclado envia
-          só o link, sem baixar nada para o celular.
+          Cole o link direto do arquivo (que abre só a foto ou o vídeo, ex.: terminado em .jpg ou .mp4). No WhatsApp
+          o teclado envia a própria foto na conversa; vídeos vão pelo compartilhamento. Links de página (YouTube,
+          pasta do Drive) são enviados como link.
         </Text>
 
         {renderMediaSection('image', product.photos)}

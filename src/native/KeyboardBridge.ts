@@ -18,10 +18,16 @@ interface KeyboardBridgeNative {
   isKeyboardSelected(): Promise<boolean>;
   openInputMethodPicker(): Promise<boolean>;
   openKeyboardSettings(): Promise<boolean>;
-  // Só existem no Android (diagnóstico de carregamento do IME)
+  // Só existem no Android (diagnóstico de carregamento do IME e envio de arquivos)
   notifyReady?(): void;
   reportError?(message: string): void;
+  getContentMimeTypes?(): Promise<string[]>;
+  commitImage?(url: string, description: string): Promise<CommitImageResult>;
+  shareMedia?(urls: string[]): Promise<'direct' | 'chooser'>;
 }
+
+/** sent = foto entregue na conversa; unsupported = o app só aceita texto (ou outro formato). */
+export type CommitImageResult = 'sent' | 'unsupported' | 'failed';
 
 export interface KeyboardShowEvent {
   targetPackage: string | null;
@@ -63,6 +69,17 @@ export const KeyboardBridge = {
   notifyReady: () => Native?.notifyReady?.(),
   /** Envia um erro JS para o diagnóstico exibido pelo teclado nativo. */
   reportError: (message: string) => Native?.reportError?.(message),
+  /** Formatos de arquivo que o campo em foco aceita receber do teclado (vazio = só texto). */
+  getContentMimeTypes: (): Promise<string[]> =>
+    Native?.getContentMimeTypes ? Native.getContentMimeTypes() : Promise.resolve([]),
+  /** Baixa a foto e entrega direto na conversa (Android). */
+  commitImage: (url: string, description: string): Promise<CommitImageResult> =>
+    Native?.commitImage ? Native.commitImage(url, description) : Promise.resolve('unsupported'),
+  /** Baixa os arquivos e abre o compartilhamento (prioriza o app em foco). */
+  shareMedia: (urls: string[]): Promise<'direct' | 'chooser'> =>
+    Native?.shareMedia
+      ? Native.shareMedia(urls)
+      : Promise.reject(new Error('Compartilhamento indisponível neste aparelho.')),
 
   onKeyboardShow(cb: (e: KeyboardShowEvent) => void) {
     const sub = emitter?.addListener('onKeyboardShow', cb);

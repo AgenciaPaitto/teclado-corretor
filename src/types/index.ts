@@ -88,7 +88,7 @@ export interface CRMLead {
 /** 4 botões principais do menu inferior fixo + tela de digitação */
 export type MainSystemTab = 'products' | 'shortcuts' | 'copilot' | 'more' | 'keyboard';
 
-export type MoreSubMenu = 'agenda' | 'crm' | 'settings' | null;
+export type MoreSubMenu = 'agenda' | 'crm' | 'settings' | 'diagnostics' | null;
 
 export interface KeyboardData {
   broker: BrokerProfile;

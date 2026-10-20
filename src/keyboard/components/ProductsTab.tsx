@@ -8,7 +8,14 @@ import { ItemCard } from './ItemCard';
 interface Props {
   folders: ProductFolder[];
   onInsert: (text: string) => void;
+  /** Foto direto na conversa (cai no link se o app não aceitar). */
+  onSendImage: (url: string, title: string) => void;
+  /** Compartilhamento do Android; fallbackText é inserido se falhar. */
+  onShare: (urls: string[], fallbackText: string) => void;
 }
+
+const photoLink = (m: MediaItem) => `[Foto] ${m.title}: ${m.url}`;
+const videoLink = (m: MediaItem) => `[Vídeo] ${m.title}${m.duration ? ` (${m.duration})` : ''}: ${m.url}`;
 
 type ProductDetailView = 'details' | 'photos' | 'videos';
 
@@ -16,7 +23,7 @@ type ProductDetailView = 'details' | 'photos' | 'videos';
  * Aba de Produtos — Pastas com informações sobre cada produto (Fotos, vídeos e detalhes).
  * Mídias hospedadas em Cloud Object Storage sem ocupar armazenamento do dispositivo.
  */
-export function ProductsTab({ folders, onInsert }: Props) {
+export function ProductsTab({ folders, onInsert, onSendImage, onShare }: Props) {
   const styles = useStyles();
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
   const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
@@ -130,12 +137,27 @@ export function ProductsTab({ folders, onInsert }: Props) {
             contentContainerStyle={styles.mediaList}
             keyboardShouldPersistTaps="always"
             ListEmptyComponent={<Text style={styles.empty}>Nenhuma foto cadastrada.</Text>}
+            ListHeaderComponent={
+              product.photos.length > 1 ? (
+                <Pressable
+                  style={styles.actionBtn}
+                  onPress={() =>
+                    onShare(
+                      product.photos.map(p => p.url),
+                      product.photos.map(photoLink).join('\n'),
+                    )
+                  }>
+                  <Text style={styles.actionBtnText}>Enviar todas as fotos ({product.photos.length})</Text>
+                </Pressable>
+              ) : null
+            }
             renderItem={({ item }) => (
               <Pressable
                 style={styles.mediaCard}
-                onPress={() => onInsert(`[Foto] ${item.title}: ${item.url}`)}>
+                onPress={() => onSendImage(item.url, item.title)}
+                onLongPress={() => onInsert(photoLink(item))}>
                 <Text style={styles.mediaTitle}>{item.title}</Text>
-                <Text style={styles.mediaMeta}>Toque para enviar link</Text>
+                <Text style={styles.mediaMeta}>Toque: enviar a foto • Segure: enviar o link</Text>
               </Pressable>
             )}
           />
@@ -151,12 +173,11 @@ export function ProductsTab({ folders, onInsert }: Props) {
             renderItem={({ item }) => (
               <Pressable
                 style={styles.mediaCard}
-                onPress={() =>
-                  onInsert(`[Vídeo] ${item.title}${item.duration ? ` (${item.duration})` : ''}: ${item.url}`)
-                }>
+                onPress={() => onShare([item.url], videoLink(item))}
+                onLongPress={() => onInsert(videoLink(item))}>
                 <Text style={styles.mediaTitle}>{item.title}</Text>
                 <Text style={styles.mediaMeta}>
-                  {item.duration ? `Duração: ${item.duration} • ` : ''}Toque para enviar link
+                  {item.duration ? `${item.duration} • ` : ''}Toque: enviar o vídeo • Segure: enviar o link
                 </Text>
               </Pressable>
             )}
