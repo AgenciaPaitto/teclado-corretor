@@ -267,13 +267,16 @@ class CustomKeyboardService : InputMethodService() {
 
     private fun attachReactRootView(container: FrameLayout) {
         try {
-            val rootView = ReactRootView(container.context).apply {
-                startReactApplication(
-                    reactInstanceManager,
-                    MODULE_NAME,
-                    Bundle().apply { putString("platform", "android-ime") }
-                )
-            }
+            // ATENÇÃO: pegar o manager FORA do apply. Dentro dele, "reactInstanceManager"
+            // seria a propriedade da própria ReactRootView (ainda nula), não a do serviço —
+            // era isso que deixava o teclado preso em "Carregando...".
+            val manager = this.reactInstanceManager
+            val rootView = ReactRootView(container.context)
+            rootView.startReactApplication(
+                manager,
+                MODULE_NAME,
+                Bundle().apply { putString("platform", "android-ime") }
+            )
             reactRootView = rootView
             container.addView(rootView, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
         } catch (t: Throwable) {
