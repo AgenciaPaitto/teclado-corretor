@@ -5,14 +5,17 @@
  * instalação do teclado no Android e iOS, catálogo de produtos,
  * upload e armazenamento de fotos em nuvem, e atalhos rápidos.
  */
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
+  AppState,
   Pressable,
   SafeAreaView,
   StatusBar,
   Text,
   View,
 } from 'react-native';
+import { pullProfile, restoreSession, signOut, startAuthSync } from '../services/auth';
+import { supabase } from '../services/supabase';
 import { Repo } from '../storage/storage';
 import type { ThemePreference } from '../types';
 import { makeStyles, radius, ThemeProvider, useColors } from '../keyboard/theme';
@@ -37,9 +40,29 @@ function AppShell({ onThemeChange }: { onThemeChange: (theme: ThemePreference) =
   const colors = useColors();
   const styles = useStyles();
   const barStyle = colors.scheme === 'dark' ? 'light-content' : 'dark-content';
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => !!Repo.getAuthToken());
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => Repo.isLoggedIn());
   const [currentTab, setCurrentTab] = useState<AppTab>('onboarding');
   const [brokerName, setBrokerName] = useState(() => Repo.getBroker().name);
+
+  useEffect(() => {
+    const stopSync = startAuthSync();
+    // Confere a sessão do Supabase (desfaz logins antigos de demonstração)
+    restoreSession().then(ok => {
+      setIsAuthenticated(ok);
+      if (ok) pullProfile().then(p => p && setBrokerName(p.name)).catch(() => {});
+    });
+
+    // Renova o token só com o app em primeiro plano (recomendação do Supabase p/ RN)
+    supabase.auth.startAutoRefresh();
+    const appState = AppState.addEventListener('change', state => {
+      if (state === 'active') supabase.auth.startAutoRefresh();
+      else supabase.auth.stopAutoRefresh();
+    });
+    return () => {
+      stopSync();
+      appState.remove();
+    };
+  }, []);
 
   // Se não estiver logado, exibe tela de Autenticação / Criação de Conta
   if (!isAuthenticated) {
@@ -85,7 +108,7 @@ function AppShell({ onThemeChange }: { onThemeChange: (theme: ThemePreference) =
             onProfileChange={b => setBrokerName(b.name)}
             onThemeChange={onThemeChange}
             onLogout={() => {
-              Repo.clearAuth();
+              signOut().catch(() => {});
               setIsAuthenticated(false);
             }}
           />

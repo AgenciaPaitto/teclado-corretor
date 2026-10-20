@@ -173,8 +173,8 @@ export const Repo = {
     this.setShortcuts({ ...sc, audios: sc.audios.filter(a => a.id !== id) });
   },
 
+  /** Restaura o catálogo de demonstração. O perfil do corretor (vindo da conta) é mantido. */
   resetToDefaults(): void {
-    this.setBroker(SEED_DATA.broker);
     this.setFolders(SEED_DATA.folders);
     this.setShortcuts(SEED_DATA.shortcuts);
     this.setAgenda(SEED_DATA.agenda);

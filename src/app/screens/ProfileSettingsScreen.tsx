@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Alert,
   Pressable,
@@ -11,6 +11,7 @@ import { Repo } from '../../storage/storage';
 import type { BrokerProfile, ThemePreference } from '../../types';
 import { makeStyles, radius, spacing } from '../../keyboard/theme';
 import { AI_CONFIG } from '../../services/aiService';
+import { AuthError, currentEmail, pushProfile } from '../../services/auth';
 
 interface Props {
   onLogout: () => void;
@@ -28,8 +29,14 @@ export function ProfileSettingsScreen({ onLogout, onThemeChange, onProfileChange
   const [agency, setAgency] = useState(broker.agency);
   const [creci, setCreci] = useState(broker.creci);
   const [phone, setPhone] = useState(broker.phone);
+  const [email, setEmail] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
 
-  const handleSaveProfile = () => {
+  useEffect(() => {
+    currentEmail().then(setEmail).catch(() => {});
+  }, []);
+
+  const handleSaveProfile = async () => {
     const updated: BrokerProfile = {
       name: name.trim() || broker.name,
       agency: agency.trim() || broker.agency,
@@ -37,11 +44,24 @@ export function ProfileSettingsScreen({ onLogout, onThemeChange, onProfileChange
       phone: phone.trim() || broker.phone,
     };
 
-    Repo.setBroker(updated);
     setBroker(updated);
     onProfileChange?.(updated);
     setIsEditing(false);
-    Alert.alert('Sucesso', 'Perfil atualizado e sincronizado com o teclado!');
+    setSaving(true);
+    try {
+      // Grava no aparelho (teclado) e na conta do Supabase
+      await pushProfile(updated);
+      Alert.alert('Sucesso', 'Perfil salvo na sua conta e sincronizado com o teclado!');
+    } catch (e) {
+      Alert.alert(
+        'Salvo só neste aparelho',
+        `O teclado já usa os novos dados, mas não foi possível salvar na nuvem: ${
+          e instanceof AuthError ? e.message : String(e)
+        }`,
+      );
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleSelectTheme = (t: ThemePreference) => {
@@ -89,9 +109,13 @@ export function ProfileSettingsScreen({ onLogout, onThemeChange, onProfileChange
       <View style={styles.card}>
         <View style={styles.cardHeader}>
           <Text style={styles.sectionTitle}>Dados do Corretor</Text>
-          <Pressable onPress={() => setIsEditing(!isEditing)}>
-            <Text style={styles.editBtnText}>{isEditing ? 'Cancelar' : 'Editar'}</Text>
-          </Pressable>
+          {saving ? (
+            <Text style={styles.editBtnText}>Salvando...</Text>
+          ) : (
+            <Pressable onPress={() => setIsEditing(!isEditing)}>
+              <Text style={styles.editBtnText}>{isEditing ? 'Cancelar' : 'Editar'}</Text>
+            </Pressable>
+          )}
         </View>
 
         {isEditing ? (
@@ -130,6 +154,10 @@ export function ProfileSettingsScreen({ onLogout, onThemeChange, onProfileChange
           </View>
         ) : (
           <View style={styles.profileDetails}>
+            <View style={styles.detailRow}>
+              <Text style={styles.detailLabel}>E-mail da conta:</Text>
+              <Text style={styles.detailValue}>{email ?? '—'}</Text>
+            </View>
             <View style={styles.detailRow}>
               <Text style={styles.detailLabel}>Nome:</Text>
               <Text style={styles.detailValue}>{broker.name}</Text>
@@ -184,8 +212,18 @@ export function ProfileSettingsScreen({ onLogout, onThemeChange, onProfileChange
       <View style={styles.card}>
         <Text style={styles.sectionTitle}>Status do Teclado</Text>
         <View style={styles.statusRow}>
+          <Text style={[styles.statusDot, !email && styles.statusDotPending]}>●</Text>
+          <Text style={styles.statusText}>
+            {email ? `Conta conectada ao Supabase: ${email}` : 'Conta: verificando conexão com o Supabase...'}
+          </Text>
+        </View>
+        <View style={styles.statusRow}>
           <Text style={styles.statusDot}>●</Text>
-          <Text style={styles.statusText}>Armazenamento local compartilhado com o teclado (MMKV)</Text>
+          <Text style={styles.statusText}>Login e dados compartilhados com o teclado neste aparelho</Text>
+        </View>
+        <View style={styles.statusRow}>
+          <Text style={[styles.statusDot, styles.statusDotPending]}>●</Text>
+          <Text style={styles.statusText}>Produtos e atalhos: salvos só neste aparelho (sincronização com a nuvem em breve)</Text>
         </View>
         <View style={styles.statusRow}>
           <Text style={[styles.statusDot, styles.statusDotPending]}>●</Text>

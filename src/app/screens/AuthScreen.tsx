@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
   Pressable,
   ScrollView,
@@ -7,7 +8,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { Repo } from '../../storage/storage';
+import { AuthError, signIn, signUp } from '../../services/auth';
 import { makeStyles, radius, spacing, useColors } from '../../keyboard/theme';
 
 interface Props {
@@ -18,6 +19,7 @@ export function AuthScreen({ onSuccess }: Props) {
   const colors = useColors();
   const styles = useStyles();
   const [isRegister, setIsRegister] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -25,8 +27,8 @@ export function AuthScreen({ onSuccess }: Props) {
   const [agency, setAgency] = useState('');
   const [phone, setPhone] = useState('');
 
-  const handleSubmit = () => {
-    if (!email.trim() || !password.trim()) {
+  const handleSubmit = async () => {
+    if (!email.trim() || !password) {
       Alert.alert('Atenção', 'Preencha o e-mail e a senha.');
       return;
     }
@@ -36,18 +38,42 @@ export function AuthScreen({ onSuccess }: Props) {
       return;
     }
 
-    // Ao criar conta, salva o perfil do corretor. Ao entrar, mantém o perfil já salvo.
-    if (isRegister) {
-      Repo.setBroker({
+    if (isRegister && password.length < 6) {
+      Alert.alert('Atenção', 'A senha precisa ter pelo menos 6 caracteres.');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      if (!isRegister) {
+        await signIn(email, password);
+        onSuccess();
+        return;
+      }
+
+      const result = await signUp({
+        email,
+        password,
         name: name.trim(),
         agency: agency.trim() || 'Imobiliária Parceira',
         creci: creci.trim(),
         phone: phone.trim(),
       });
+      if (result === 'signed_in') {
+        onSuccess();
+      } else {
+        Alert.alert(
+          'Confirme seu e-mail',
+          `Enviamos um link de confirmação para ${email.trim()}. Abra o e-mail, toque no link e depois entre aqui com seu e-mail e senha.`,
+        );
+        setIsRegister(false);
+        setPassword('');
+      }
+    } catch (e) {
+      Alert.alert('Não foi possível continuar', e instanceof AuthError ? e.message : String(e));
+    } finally {
+      setLoading(false);
     }
-
-    Repo.setAuthToken(`jwt-token-${Date.now()}`);
-    onSuccess();
   };
 
   return (
@@ -107,7 +133,7 @@ export function AuthScreen({ onSuccess }: Props) {
         <Text style={styles.label}>Senha</Text>
         <TextInput
           style={styles.input}
-          placeholder="Sua senha de acesso"
+          placeholder={isRegister ? 'Crie uma senha (mínimo 6 caracteres)' : 'Sua senha de acesso'}
           placeholderTextColor={colors.textMuted}
           secureTextEntry
           value={password}
@@ -146,10 +172,17 @@ export function AuthScreen({ onSuccess }: Props) {
           </>
         )}
 
-        <Pressable style={styles.submitBtn} onPress={handleSubmit}>
-          <Text style={styles.submitBtnText}>
-            {isRegister ? 'Concluir Cadastro & Entrar' : 'Entrar no Sistema'}
-          </Text>
+        <Pressable
+          style={[styles.submitBtn, loading && styles.submitBtnDisabled]}
+          disabled={loading}
+          onPress={handleSubmit}>
+          {loading ? (
+            <ActivityIndicator color={colors.onPrimary} />
+          ) : (
+            <Text style={styles.submitBtnText}>
+              {isRegister ? 'Concluir Cadastro & Entrar' : 'Entrar no Sistema'}
+            </Text>
+          )}
         </Pressable>
       </View>
     </ScrollView>
@@ -229,6 +262,9 @@ const useStyles = makeStyles(colors => ({
     borderRadius: radius.md,
     alignItems: 'center',
     marginTop: 10,
+  },
+  submitBtnDisabled: {
+    opacity: 0.7,
   },
   submitBtnText: {
     color: colors.onPrimary,

@@ -1,0 +1,147 @@
+/**
+ * Login do corretor com Supabase Auth (e-mail e senha).
+ *
+ * O marcador de login usado pelo teclado (Repo auth token) acompanha a sessão
+ * do Supabase: é gravado ao entrar / renovar o token e apagado ao sair.
+ */
+import type { Session } from '@supabase/supabase-js';
+import { Repo } from '../storage/storage';
+import type { BrokerProfile } from '../types';
+import { supabase } from './supabase';
+
+export class AuthError extends Error {}
+
+export interface SignUpInput extends BrokerProfile {
+  email: string;
+  password: string;
+}
+
+/** Traduz as mensagens mais comuns do Supabase para o corretor. */
+function friendlyMessage(raw: string): string {
+  const msg = raw.toLowerCase();
+  if (msg.includes('invalid login credentials')) return 'E-mail ou senha incorretos.';
+  if (msg.includes('email not confirmed'))
+    return 'Confirme seu e-mail pelo link que enviamos antes de entrar.';
+  if (msg.includes('already registered') || msg.includes('already been registered'))
+    return 'Este e-mail já tem cadastro. Use a opção Entrar.';
+  if (msg.includes('password should be at least') || msg.includes('weak password'))
+    return 'A senha precisa ter pelo menos 6 caracteres.';
+  if (msg.includes('invalid email') || msg.includes('unable to validate email'))
+    return 'Informe um e-mail válido.';
+  if (msg.includes('rate limit') || msg.includes('too many'))
+    return 'Muitas tentativas seguidas. Aguarde alguns minutos e tente de novo.';
+  if (msg.includes('network request failed') || msg.includes('fetch'))
+    return 'Sem conexão com a internet. Verifique e tente de novo.';
+  return raw;
+}
+
+function fail(error: { message: string }): never {
+  throw new AuthError(friendlyMessage(error.message));
+}
+
+function applySession(session: Session | null) {
+  if (session) Repo.setAuthToken(session.access_token);
+  else Repo.clearAuth();
+}
+
+/** Mantém o marcador de login (lido pelo teclado) igual à sessão do Supabase. */
+export function startAuthSync(): () => void {
+  const { data } = supabase.auth.onAuthStateChange((_event, session) => applySession(session));
+  return () => data.subscription.unsubscribe();
+}
+
+/**
+ * Confere a sessão salva ao abrir o app. Logins antigos de demonstração
+ * (antes do Supabase) não têm sessão real e são desfeitos.
+ */
+export async function restoreSession(): Promise<boolean> {
+  const { data, error } = await supabase.auth.getSession();
+  // Erro (ex.: sem internet para renovar o token): mantém o estado atual
+  // em vez de deslogar o corretor
+  if (error) return Repo.isLoggedIn();
+  applySession(data.session);
+  return !!data.session;
+}
+
+export async function signIn(email: string, password: string): Promise<void> {
+  const { data, error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
+  if (error) fail(error);
+  applySession(data.session);
+  await pullProfile();
+}
+
+/**
+ * Cria a conta. Com a confirmação de e-mail ligada no Supabase, a sessão só
+ * existe depois que o corretor clica no link: nesse caso retorna 'confirm_email'.
+ */
+export async function signUp(input: SignUpInput): Promise<'signed_in' | 'confirm_email'> {
+  const { email, password, ...profile } = input;
+  const { data, error } = await supabase.auth.signUp({
+    email: email.trim(),
+    password,
+    // O gatilho handle_new_user (schema.sql) cria a linha em "profiles" com estes dados
+    options: { data: profile },
+  });
+  if (error) fail(error);
+
+  // Supabase devolve usuário sem identidades quando o e-mail já existe
+  if (data.user && data.user.identities && data.user.identities.length === 0) {
+    throw new AuthError('Este e-mail já tem cadastro. Use a opção Entrar.');
+  }
+
+  Repo.setBroker(profile);
+  if (!data.session) return 'confirm_email';
+  applySession(data.session);
+  return 'signed_in';
+}
+
+export async function signOut(): Promise<void> {
+  // Mesmo sem internet o login local é desfeito
+  try {
+    await supabase.auth.signOut();
+  } finally {
+    Repo.clearAuth();
+  }
+}
+
+/** Baixa o perfil do corretor (nome, CRECI...) para o app e o teclado. */
+export async function pullProfile(): Promise<BrokerProfile | null> {
+  const { data: userData } = await supabase.auth.getUser();
+  const userId = userData.user?.id;
+  if (!userId) return null;
+
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('name, creci, agency, phone')
+    .eq('id', userId)
+    .maybeSingle();
+  if (error || !data) return null;
+
+  const profile: BrokerProfile = {
+    name: data.name,
+    creci: data.creci,
+    agency: data.agency,
+    phone: data.phone,
+  };
+  Repo.setBroker(profile);
+  return profile;
+}
+
+/** Salva o perfil na nuvem (e localmente, para o teclado). */
+export async function pushProfile(profile: BrokerProfile): Promise<void> {
+  Repo.setBroker(profile);
+  const { data: userData } = await supabase.auth.getUser();
+  const userId = userData.user?.id;
+  if (!userId) throw new AuthError('Sessão expirada. Entre novamente.');
+
+  const { error } = await supabase
+    .from('profiles')
+    .upsert({ id: userId, ...profile, updated_at: new Date().toISOString() });
+  if (error) fail(error);
+}
+
+/** E-mail da conta logada (tela de Conta). */
+export async function currentEmail(): Promise<string | null> {
+  const { data } = await supabase.auth.getSession();
+  return data.session?.user.email ?? null;
+}
