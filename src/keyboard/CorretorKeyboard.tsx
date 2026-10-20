@@ -16,6 +16,18 @@ import { SystemMenuBar } from './components/SystemMenuBar';
 import { useKeyboardData } from './hooks/useKeyboardData';
 import { makeStyles, radius, ThemeProvider } from './theme';
 
+function describeError(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+// Erros JS não tratados também vão para o diagnóstico nativo do teclado.
+// O tratamento padrão do React Native continua sendo chamado.
+const defaultErrorHandler = ErrorUtils.getGlobalHandler();
+ErrorUtils.setGlobalHandler((error, isFatal) => {
+  KeyboardBridge.reportError(`${isFatal ? '[fatal] ' : ''}${describeError(error)}`);
+  defaultErrorHandler(error, isFatal);
+});
+
 interface ErrorBoundaryState {
   hasError: boolean;
   error: string | null;
@@ -25,7 +37,11 @@ class KeyboardErrorBoundary extends React.Component<{ children: React.ReactNode 
   state: ErrorBoundaryState = { hasError: false, error: null };
 
   static getDerivedStateFromError(error: unknown): ErrorBoundaryState {
-    return { hasError: true, error: error instanceof Error ? error.message : String(error) };
+    return { hasError: true, error: describeError(error) };
+  }
+
+  componentDidCatch(error: unknown) {
+    KeyboardBridge.reportError(describeError(error));
   }
 
   render() {
@@ -62,6 +78,10 @@ interface ContentProps {
 function CorretorKeyboardContent({ data, onThemeChange }: ContentProps) {
   const styles = useStyles();
   const [tab, setTab] = useState<MainSystemTab>('products');
+
+  useEffect(() => {
+    KeyboardBridge.notifyReady();
+  }, []);
   const [toast, setToast] = useState<string | null>(null);
   const toastOpacity = useRef(new Animated.Value(0)).current;
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -133,14 +153,22 @@ function CorretorKeyboardContent({ data, onThemeChange }: ContentProps) {
   );
 }
 
-export default function CorretorKeyboard() {
+function KeyboardRoot() {
   const { data, setTheme } = useKeyboardData();
   return (
     <ThemeProvider preference={data.theme}>
-      <KeyboardErrorBoundary>
-        <CorretorKeyboardContent data={data} onThemeChange={setTheme} />
-      </KeyboardErrorBoundary>
+      <CorretorKeyboardContent data={data} onThemeChange={setTheme} />
     </ThemeProvider>
+  );
+}
+
+// O ErrorBoundary fica por fora de tudo: um erro ao ler os dados ou o tema
+// mostra a mensagem em vez de deixar o teclado em branco.
+export default function CorretorKeyboard() {
+  return (
+    <KeyboardErrorBoundary>
+      <KeyboardRoot />
+    </KeyboardErrorBoundary>
   );
 }
 

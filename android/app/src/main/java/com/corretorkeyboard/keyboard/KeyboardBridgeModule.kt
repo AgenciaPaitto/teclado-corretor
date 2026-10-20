@@ -145,6 +145,19 @@ class KeyboardBridgeModule(reactContext: ReactApplicationContext) :
         promise.resolve(CustomKeyboardService.instance != null)
     }
 
+    /** O JS avisa que a tela do teclado montou (usado no diagnóstico de carregamento). */
+    @ReactMethod
+    fun notifyReady() {
+        UiThreadUtil.runOnUiThread { CustomKeyboardService.instance?.markJsReady() }
+    }
+
+    /** O JS reporta erros não tratados para aparecerem no diagnóstico do teclado. */
+    @ReactMethod
+    fun reportError(message: String) {
+        CustomKeyboardService.lastJsError = message
+        android.util.Log.e("KeyboardBridge", "Erro JS: $message")
+    }
+
     // Obrigatórios para NativeEventEmitter no RN ≥ 0.65
     @ReactMethod fun addListener(eventName: String) { /* no-op */ }
     @ReactMethod fun removeListeners(count: Double) { /* no-op */ }

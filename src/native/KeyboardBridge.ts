@@ -18,6 +18,9 @@ interface KeyboardBridgeNative {
   isKeyboardSelected(): Promise<boolean>;
   openInputMethodPicker(): Promise<boolean>;
   openKeyboardSettings(): Promise<boolean>;
+  // Só existem no Android (diagnóstico de carregamento do IME)
+  notifyReady?(): void;
+  reportError?(message: string): void;
 }
 
 export interface KeyboardShowEvent {
@@ -56,6 +59,10 @@ export const KeyboardBridge = {
   openInputMethodPicker: () => (Native ? Native.openInputMethodPicker() : noop()),
   /** Abre as configurações de teclado do sistema */
   openKeyboardSettings: () => (Native ? Native.openKeyboardSettings() : noop()),
+  /** Avisa o lado nativo que a tela do teclado montou (some o "Carregando..."). */
+  notifyReady: () => Native?.notifyReady?.(),
+  /** Envia um erro JS para o diagnóstico exibido pelo teclado nativo. */
+  reportError: (message: string) => Native?.reportError?.(message),
 
   onKeyboardShow(cb: (e: KeyboardShowEvent) => void) {
     const sub = emitter?.addListener('onKeyboardShow', cb);

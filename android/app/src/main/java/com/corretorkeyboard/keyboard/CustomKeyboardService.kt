@@ -1,17 +1,26 @@
 package com.corretorkeyboard.keyboard
 
 import android.content.res.Configuration
+import android.graphics.Color
 import android.inputmethodservice.InputMethodService
 import android.os.Build
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.text.TextUtils
+import android.util.Log
+import android.view.Gravity
 import android.view.KeyEvent
 import android.view.View
 import android.view.ViewGroup
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
 import android.view.ContextThemeWrapper
+import android.widget.Button
 import android.widget.FrameLayout
+import android.widget.LinearLayout
+import android.widget.ProgressBar
+import android.widget.TextView
 import com.corretorkeyboard.R
 import com.facebook.react.ReactApplication
 import com.facebook.react.ReactInstanceManager
@@ -64,6 +73,17 @@ class CustomKeyboardService : InputMethodService() {
         private const val LANDSCAPE_SCREEN_FRACTION = 0.5f
         private const val MIN_LANDSCAPE_HEIGHT_DP = 180
 
+        /** Sem a tela do JS após esse tempo, o placeholder mostra o diagnóstico e os botões. */
+        private const val LOAD_TIMEOUT_MS = 10_000L
+        private const val TAG = "CustomKeyboardService"
+
+        /**
+         * Último erro JS reportado via KeyboardBridge.reportError. Fica no companion
+         * porque o JS pode reportar antes de o serviço existir.
+         */
+        @Volatile
+        var lastJsError: String? = null
+
         // Eventos emitidos ao JS
         const val EVENT_KEYBOARD_SHOW = "onKeyboardShow"
         const val EVENT_KEYBOARD_HIDE = "onKeyboardHide"
@@ -79,6 +99,17 @@ class CustomKeyboardService : InputMethodService() {
 
     private var rootContainer: KeyboardRootFrameLayout? = null
     private var reactRootView: ReactRootView? = null
+
+    // Placeholder nativo exibido até a tela do JS aparecer
+    private var loadingLayout: LinearLayout? = null
+    private var loadingSubtitle: TextView? = null
+    private var loadingProgress: ProgressBar? = null
+    private var loadingActions: LinearLayout? = null
+
+    /** O JS avisa (KeyboardBridge.notifyReady) quando a tela do teclado montou. */
+    private var jsReady = false
+    private val mainHandler = Handler(Looper.getMainLooper())
+    private val loadTimeout = Runnable { showLoadProblem() }
 
     /** Pacote do app em foco (ex.: "com.whatsapp"). */
     var targetPackage: String? = null
@@ -121,6 +152,15 @@ class CustomKeyboardService : InputMethodService() {
     override fun onCreate() {
         super.onCreate()
         instanceRef = WeakReference(this)
+
+        // Começa a carregar o JS já na criação do serviço, antes do primeiro campo pedir o teclado
+        try {
+            if (!reactInstanceManager.hasStartedCreatingInitialContext()) {
+                reactInstanceManager.createReactContextInBackground()
+            }
+        } catch (t: Throwable) {
+            Log.w(TAG, "Pré-carregamento do JS ignorado: ${t.message}")
+        }
     }
 
     /**
@@ -148,44 +188,80 @@ class CustomKeyboardService : InputMethodService() {
         val container = KeyboardRootFrameLayout(themedContext, heightPx).apply {
             layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, heightPx)
             minimumHeight = heightPx
-            setBackgroundColor(android.graphics.Color.parseColor("#101216"))
+            setBackgroundColor(Color.parseColor("#101216"))
         }
 
         // 1) Placeholder nativo imediato: garante visualização visível mesmo durante cold-start do JS
-        val loadingLayout = android.widget.LinearLayout(themedContext).apply {
-            orientation = android.widget.LinearLayout.VERTICAL
-            gravity = android.view.Gravity.CENTER
-            layoutParams = FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT)
-
-            val titleView = android.widget.TextView(themedContext).apply {
-                text = "Teclado do Corretor"
-                setTextColor(android.graphics.Color.parseColor("#F1F5F9"))
-                textSize = 15f
-                typeface = android.graphics.Typeface.DEFAULT_BOLD
-                gravity = android.view.Gravity.CENTER
-            }
-
-            val subtitleView = android.widget.TextView(themedContext).apply {
-                text = "Carregando catálogo e atalhos..."
-                setTextColor(android.graphics.Color.parseColor("#94A3B8"))
-                textSize = 12f
-                gravity = android.view.Gravity.CENTER
-                setPadding(0, (6 * resources.displayMetrics.density).toInt(), 0, (12 * resources.displayMetrics.density).toInt())
-            }
-
-            val progressBar = android.widget.ProgressBar(themedContext).apply {
-                isIndeterminate = true
-            }
-
-            addView(titleView)
-            addView(subtitleView)
-            addView(progressBar)
-        }
-        container.addView(loadingLayout)
+        container.addView(buildLoadingLayout(themedContext))
 
         // 2) ReactRootView: sobrepõe o placeholder assim que renderizar o primeiro frame
+        attachReactRootView(container)
+
+        rootContainer = container
+        return container
+    }
+
+    private fun buildLoadingLayout(context: android.content.Context): LinearLayout {
+        val density = resources.displayMetrics.density
+        val layout = LinearLayout(context).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER
+            setBackgroundColor(Color.parseColor("#101216"))
+            val pad = (16 * density).toInt()
+            setPadding(pad, 0, pad, 0)
+            layoutParams = FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT)
+        }
+
+        val titleView = TextView(context).apply {
+            text = "Teclado do Corretor"
+            setTextColor(Color.parseColor("#F1F5F9"))
+            textSize = 15f
+            typeface = android.graphics.Typeface.DEFAULT_BOLD
+            gravity = Gravity.CENTER
+        }
+
+        val subtitleView = TextView(context).apply {
+            text = "Carregando catálogo e atalhos..."
+            setTextColor(Color.parseColor("#94A3B8"))
+            textSize = 12f
+            gravity = Gravity.CENTER
+            setPadding(0, (6 * density).toInt(), 0, (12 * density).toInt())
+        }
+
+        val progressBar = ProgressBar(context).apply {
+            isIndeterminate = true
+        }
+
+        // Botões exibidos só quando o carregamento falha
+        val actions = LinearLayout(context).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
+            visibility = View.GONE
+            addView(Button(context).apply {
+                text = "Tentar novamente"
+                setOnClickListener { reloadReactView() }
+            })
+            addView(Button(context).apply {
+                text = "Trocar teclado"
+                setOnClickListener { switchKeyboard() }
+            })
+        }
+
+        layout.addView(titleView)
+        layout.addView(subtitleView)
+        layout.addView(progressBar)
+        layout.addView(actions)
+
+        loadingLayout = layout
+        loadingSubtitle = subtitleView
+        loadingProgress = progressBar
+        loadingActions = actions
+        return layout
+    }
+
+    private fun attachReactRootView(container: FrameLayout) {
         try {
-            val rootView = ReactRootView(themedContext).apply {
+            val rootView = ReactRootView(container.context).apply {
                 startReactApplication(
                     reactInstanceManager,
                     MODULE_NAME,
@@ -195,11 +271,9 @@ class CustomKeyboardService : InputMethodService() {
             reactRootView = rootView
             container.addView(rootView, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
         } catch (t: Throwable) {
-            android.util.Log.e("CustomKeyboardService", "Falha ao inicializar ReactRootView do teclado", t)
+            lastJsError = "Falha ao iniciar a view do teclado: ${t.message}"
+            Log.e(TAG, "Falha ao inicializar ReactRootView do teclado", t)
         }
-
-        rootContainer = container
-        return container
     }
 
     /**
@@ -221,8 +295,11 @@ class CustomKeyboardService : InputMethodService() {
                 reactInstanceManager.onHostResume(null)
             }
         } catch (t: Throwable) {
-            android.util.Log.w("CustomKeyboardService", "onHostResume ignorado: ${t.message}")
+            Log.w(TAG, "onHostResume ignorado: ${t.message}")
         }
+
+        // Se a tela do JS ainda não apareceu, mostra o diagnóstico após o tempo limite
+        if (isKeyboardHealthy()) hidePlaceholderIfHealthy() else scheduleLoadTimeout()
 
         emitToJs(EVENT_KEYBOARD_SHOW, Arguments.createMap().apply {
             putString("targetPackage", targetPackage ?: "")
@@ -239,11 +316,16 @@ class CustomKeyboardService : InputMethodService() {
     }
 
     override fun onDestroy() {
+        mainHandler.removeCallbacks(loadTimeout)
         try {
             reactRootView?.unmountReactApplication()
         } catch (_: Throwable) {}
         reactRootView = null
         rootContainer = null
+        loadingLayout = null
+        loadingSubtitle = null
+        loadingProgress = null
+        loadingActions = null
         if (instanceRef?.get() === this) instanceRef = null
         super.onDestroy()
     }
@@ -316,8 +398,85 @@ class CustomKeyboardService : InputMethodService() {
                 imm?.showInputMethodPicker()
             }
         } catch (t: Throwable) {
-            android.util.Log.w("CustomKeyboardService", "Não foi possível alternar método de entrada: ${t.message}")
+            Log.w(TAG, "Não foi possível alternar método de entrada: ${t.message}")
         }
+    }
+
+    // -----------------------------------------------------------------------
+    // Diagnóstico de carregamento
+    // -----------------------------------------------------------------------
+
+    /** Chamado pelo KeyboardBridgeModule quando a tela do JS montou. */
+    fun markJsReady() {
+        jsReady = true
+        // As views nativas chegam logo depois do useEffect do JS
+        mainHandler.postDelayed({ hidePlaceholderIfHealthy() }, 300)
+    }
+
+    /** Esconde o placeholder (que pode ter ido para a frente ao mostrar o diagnóstico). */
+    private fun hidePlaceholderIfHealthy() {
+        if (isKeyboardHealthy()) {
+            mainHandler.removeCallbacks(loadTimeout)
+            loadingLayout?.visibility = View.GONE
+        }
+    }
+
+    /** O JS montou a tela e a ReactRootView já tem views nativas desenhadas. */
+    private fun isKeyboardHealthy(): Boolean = jsReady && (reactRootView?.childCount ?: 0) > 0
+
+    private fun scheduleLoadTimeout() {
+        mainHandler.removeCallbacks(loadTimeout)
+        mainHandler.postDelayed(loadTimeout, LOAD_TIMEOUT_MS)
+    }
+
+    /** Troca o "Carregando..." por uma mensagem com o ponto onde parou e os botões de ação. */
+    private fun showLoadProblem() {
+        if (isKeyboardHealthy()) return
+        val ctx = try { reactInstanceManager.currentReactContext } catch (_: Throwable) { null }
+        val details = buildString {
+            append("JS: ").append(if (ctx != null) "carregado" else "não carregado")
+            append(" • tela: ").append(if (jsReady) "montada" else "não montada")
+            append(" • views: ").append(reactRootView?.childCount ?: -1)
+            append(" • estado: ").append(try { reactInstanceManager.lifecycleState } catch (_: Throwable) { "?" })
+            lastJsError?.let { append("\nErro: ").append(it.take(300)) }
+        }
+        Log.e(TAG, "Teclado não carregou: $details")
+
+        loadingSubtitle?.text = "Não foi possível carregar o teclado.\n$details"
+        loadingProgress?.visibility = View.GONE
+        loadingActions?.visibility = View.VISIBLE
+        // A ReactRootView vazia fica por cima e capturaria os toques nos botões
+        loadingLayout?.bringToFront()
+    }
+
+    /** Botão "Tentar novamente": recria a ReactRootView (e o contexto JS, se ele nunca subiu). */
+    private fun reloadReactView() {
+        val container = rootContainer ?: return
+        reactRootView?.let { old ->
+            try { old.unmountReactApplication() } catch (_: Throwable) {}
+            container.removeView(old)
+        }
+        reactRootView = null
+        jsReady = false
+        lastJsError = null
+
+        loadingLayout?.visibility = View.VISIBLE
+        loadingSubtitle?.text = "Carregando catálogo e atalhos..."
+        loadingProgress?.visibility = View.VISIBLE
+        loadingActions?.visibility = View.GONE
+
+        try {
+            if (reactInstanceManager.currentReactContext == null &&
+                reactInstanceManager.hasStartedCreatingInitialContext()
+            ) {
+                reactInstanceManager.recreateReactContextInBackground()
+            }
+        } catch (t: Throwable) {
+            Log.w(TAG, "Recriação do contexto JS ignorada: ${t.message}")
+        }
+
+        attachReactRootView(container)
+        scheduleLoadTimeout()
     }
 
     // -----------------------------------------------------------------------
