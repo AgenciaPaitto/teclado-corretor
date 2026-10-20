@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">Corretor Keyboard</string>
-    <string name="ime_name">Teclado do Corretor</string>
-    <string name="subtype_pt_br">Português (Brasil) — Corretor</string>
+    <string name="app_name">Sales Copilot</string>
+    <string name="ime_name">Sales Copilot</string>
+    <string name="subtype_pt_br">Português (Brasil) — Sales Copilot</string>
 </resources>

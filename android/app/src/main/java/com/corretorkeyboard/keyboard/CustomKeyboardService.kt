@@ -40,7 +40,7 @@ import java.lang.ref.WeakReference
  * CustomKeyboardService
  * ---------------------------------------------------------------------------
  * Ponto de entrada do TECLADO no Android. O sistema cria esta classe quando o
- * usuário seleciona "Teclado do Corretor" e um campo de texto recebe foco em
+ * usuário seleciona "Sales Copilot" e um campo de texto recebe foco em
  * QUALQUER app (ex.: WhatsApp).
  *
  * Arquitetura da ponte:
@@ -219,7 +219,7 @@ class CustomKeyboardService : InputMethodService() {
         }
 
         val titleView = TextView(context).apply {
-            text = "Teclado do Corretor"
+            text = "Sales Copilot"
             setTextColor(Color.parseColor("#F1F5F9"))
             textSize = 15f
             typeface = android.graphics.Typeface.DEFAULT_BOLD

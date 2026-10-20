@@ -86,7 +86,7 @@ function AppShell({ onThemeChange }: { onThemeChange: (theme: ThemePreference) =
       {/* Top Header */}
       <View style={styles.topHeader}>
         <View>
-          <Text style={styles.appTitle}>Corretor Keyboard</Text>
+          <Text style={styles.appTitle}>Sales Copilot</Text>
           <Text style={styles.appSubTitle}>Painel de Controle do Aplicativo</Text>
         </View>
         <Pressable

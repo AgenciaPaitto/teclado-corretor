@@ -32,7 +32,7 @@ final class KeyboardBridge: RCTEventEmitter {
                         _ block: @escaping (KeyboardViewController) -> Any?) {
         DispatchQueue.main.async {
             guard let vc = KeyboardViewController.shared else {
-                reject("E_IME_INACTIVE", "O teclado do corretor não está ativo.", nil)
+                reject("E_IME_INACTIVE", "O teclado Sales Copilot não está ativo.", nil)
                 return
             }
             resolve(block(vc))

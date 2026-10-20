@@ -66,7 +66,7 @@ export function OnboardingGuideScreen() {
       {/* Banner Introdutório */}
       <View style={styles.heroCard}>
         <Text style={styles.heroBadge}>Ativação do Teclado</Text>
-        <Text style={styles.heroTitle}>Teclado do Corretor</Text>
+        <Text style={styles.heroTitle}>Sales Copilot</Text>
         <Text style={styles.heroDesc}>
           Para usar o teclado no WhatsApp e em qualquer aplicativo, siga os dois passos
           rápidos de ativação abaixo.
@@ -102,7 +102,7 @@ export function OnboardingGuideScreen() {
             <View style={styles.statusBoxContent}>
               <Text style={styles.statusBoxTitle}>
                 {isSelected
-                  ? 'Teclado do Corretor Ativo e Pronto!'
+                  ? 'Sales Copilot Ativo e Pronto!'
                   : isEnabled
                   ? 'Habilitado, aguardando seleção como teclado atual'
                   : 'Teclado ainda não habilitado no sistema'}
@@ -111,7 +111,7 @@ export function OnboardingGuideScreen() {
                 {isSelected
                   ? 'Você já pode digitar ou testar no campo abaixo e usar no WhatsApp.'
                   : isEnabled
-                  ? 'Toque no Passo 2 abaixo para selecionar o Teclado do Corretor.'
+                  ? 'Toque no Passo 2 abaixo para selecionar o Sales Copilot.'
                   : 'Toque no Passo 1 abaixo para ligar a chave do teclado.'}
               </Text>
             </View>
@@ -127,7 +127,7 @@ export function OnboardingGuideScreen() {
                 Passo 1: Habilitar em 'Gerenciar Teclados'
               </Text>
               <Text style={styles.stepDesc}>
-                Ative a chave ao lado de <Text style={styles.bold}>Teclado do Corretor</Text> nas configurações do seu celular.
+                Ative a chave ao lado de <Text style={styles.bold}>Sales Copilot</Text> nas configurações do seu celular.
               </Text>
               <Pressable
                 style={[styles.actionBtn, isEnabled && styles.actionBtnDone]}
@@ -149,13 +149,13 @@ export function OnboardingGuideScreen() {
                 Passo 2: Selecionar como Teclado Ativo
               </Text>
               <Text style={styles.stepDesc}>
-                O Android exige escolher qual teclado você deseja usar no momento. Toque no botão abaixo e escolha <Text style={styles.bold}>Teclado do Corretor</Text>.
+                O Android exige escolher qual teclado você deseja usar no momento. Toque no botão abaixo e escolha <Text style={styles.bold}>Sales Copilot</Text>.
               </Text>
               <Pressable
                 style={[styles.actionBtnPrimary, isSelected && styles.actionBtnDone]}
                 onPress={openPicker}>
                 <Text style={[styles.actionBtnPrimaryText, isSelected && styles.actionBtnDoneText]}>
-                  {isSelected ? '✓ Selecionado como Teclado Atual' : '2. Selecionar Teclado do Corretor Agora'}
+                  {isSelected ? '✓ Selecionado como Teclado Atual' : '2. Selecionar Sales Copilot Agora'}
                 </Text>
               </Pressable>
             </View>
@@ -165,7 +165,7 @@ export function OnboardingGuideScreen() {
           <View style={styles.tipBox}>
             <Text style={styles.tipTitle}>💡 Como alternar no dia a dia:</Text>
             <Text style={styles.tipDesc}>
-              Quando estiver no WhatsApp ou em qualquer aplicativo, use o botão de globo (🌐) ou o ícone de teclado na barra inferior de navegação do Android para alternar entre o Teclado do Corretor e o teclado tradicional a qualquer momento.
+              Quando estiver no WhatsApp ou em qualquer aplicativo, use o botão de globo (🌐) ou o ícone de teclado na barra inferior de navegação do Android para alternar entre o Sales Copilot e o teclado tradicional a qualquer momento.
             </Text>
           </View>
         </View>
@@ -187,9 +187,9 @@ export function OnboardingGuideScreen() {
           <View style={styles.stepRow}>
             <View style={styles.stepNum}><Text style={styles.stepNumText}>2</Text></View>
             <View style={styles.stepBody}>
-              <Text style={styles.stepHeading}>Selecione 'Teclado do Corretor'</Text>
+              <Text style={styles.stepHeading}>Selecione 'Sales Copilot'</Text>
               <Text style={styles.stepDesc}>
-                Na seção de teclados de terceiros, selecione <Text style={styles.bold}>Teclado do Corretor</Text>.
+                Na seção de teclados de terceiros, selecione <Text style={styles.bold}>Sales Copilot</Text>.
               </Text>
             </View>
           </View>
@@ -199,7 +199,7 @@ export function OnboardingGuideScreen() {
             <View style={styles.stepBody}>
               <Text style={styles.stepHeading}>ATIVAR 'Permitir Acesso Total'</Text>
               <Text style={styles.stepDesc}>
-                Toque em <Text style={styles.bold}>Teclado do Corretor</Text> na lista de teclados adicionados e ative <Text style={styles.bold}>Permitir Acesso Total</Text>. Esse passo é fundamental para o Copilot de IA e fotos na nuvem.
+                Toque em <Text style={styles.bold}>Sales Copilot</Text> na lista de teclados adicionados e ative <Text style={styles.bold}>Permitir Acesso Total</Text>. Esse passo é fundamental para o Copilot de IA e fotos na nuvem.
               </Text>
             </View>
           </View>
@@ -209,7 +209,7 @@ export function OnboardingGuideScreen() {
             <View style={styles.stepBody}>
               <Text style={styles.stepHeading}>Alternar no WhatsApp</Text>
               <Text style={styles.stepDesc}>
-                No WhatsApp, toque e segure no ícone do Globo (🌐) na parte inferior esquerda e escolha o Teclado do Corretor.
+                No WhatsApp, toque e segure no ícone do Globo (🌐) na parte inferior esquerda e escolha o Sales Copilot.
               </Text>
             </View>
           </View>

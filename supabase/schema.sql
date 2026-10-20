@@ -1,5 +1,5 @@
 -- =============================================================================
--- Corretor Keyboard — esquema do banco no Supabase
+-- Sales Copilot — esquema do banco no Supabase
 -- -----------------------------------------------------------------------------
 -- Como usar: Supabase → SQL Editor → New query → colar este arquivo → Run.
 -- Cada corretor só enxerga e altera os PRÓPRIOS dados (Row Level Security).

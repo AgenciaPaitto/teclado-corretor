@@ -160,7 +160,7 @@ async function postJSON<TReq, TRes>(path: string, body: TReq, token?: string): P
       headers: {
         'Content-Type': 'application/json',
         Accept: 'application/json',
-        'X-Client': 'corretor-keyboard/1.0',
+        'X-Client': 'sales-copilot/1.0',
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
       body: JSON.stringify(body),

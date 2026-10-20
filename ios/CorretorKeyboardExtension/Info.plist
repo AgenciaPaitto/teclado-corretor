@@ -4,7 +4,7 @@
 <plist version="1.0">
 <dict>
     <key>CFBundleDisplayName</key>
-    <string>Teclado do Corretor</string>
+    <string>Sales Copilot</string>
     <!-- App Group compartilhado com o app principal (lido pelo react-native-mmkv) -->
     <key>AppGroup</key>
     <string>group.com.corretorkeyboard</string>

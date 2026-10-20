@@ -67,7 +67,7 @@ function ErrorFallback({ message, onRetry }: { message: string | null; onRetry: 
   const styles = useStyles();
   return (
     <View style={[styles.root, styles.errorContainer]}>
-      <Text style={styles.errorTitle}>Teclado do Corretor</Text>
+      <Text style={styles.errorTitle}>Sales Copilot</Text>
       <Text style={styles.errorSubtitle}>{message || 'Erro ao inicializar visualização'}</Text>
       <Text style={styles.errorButton} onPress={onRetry}>
         Tentar novamente

@@ -59,7 +59,7 @@ export function DiagnosticsPanel({ onInsert }: Props) {
   const formats = mimeTypes.length > 0 ? mimeTypes.join(', ') : 'Nenhum (o campo só aceita texto)';
 
   const report = [
-    'Diagnóstico do Teclado do Corretor',
+    'Diagnóstico do Sales Copilot',
     `App em foco: ${targetApp || 'desconhecido'}`,
     `Formatos aceitos: ${formats}`,
     ...checks.map(c => `${c.label} direto na conversa: ${c.ok ? 'sim' : 'não'}`),

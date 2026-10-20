@@ -1,4 +1,4 @@
-# 🏡 Teclado do Corretor — Custom Keyboard (React Native + TypeScript)
+# 🏡 Sales Copilot — Teclado para corretores (React Native + TypeScript)
 
 Teclado de sistema (IME Android / Keyboard Extension iOS) para corretores de imóveis,
 utilizável dentro do WhatsApp ou de qualquer app. O app principal só faz login e configuração.
@@ -55,7 +55,7 @@ Copie `src/`, `index.js`, `backend/` e os arquivos de `android/` e `ios/` deste 
        PackageList(this).packages.apply { add(KeyboardBridgePackage()) }
    ```
 4. `npm run android` → no app, toque em **Abrir configurações de teclado** → ative
-   “Teclado do Corretor” → no WhatsApp, troque de teclado (ícone ⌨️ na barra de navegação).
+   “Sales Copilot” → no WhatsApp, troque de teclado (ícone ⌨️ na barra de navegação).
 
 ### 3. iOS
 1. Xcode → File › New › Target › **Custom Keyboard Extension** (`CorretorKeyboardExtension`).
@@ -69,7 +69,7 @@ Copie `src/`, `index.js`, `backend/` e os arquivos de `android/` e `ios/` deste 
 4. Ative **App Groups** (`group.com.corretorkeyboard`) no app **e** na extensão, e adicione a
    chave `AppGroup` também no `Info.plist` do app (o MMKV lê esta chave).
 5. Inclua `main.jsbundle` no "Copy Bundle Resources" da extensão (build de release).
-6. Ajustes › Geral › Teclado › Teclados › Adicionar › “Teclado do Corretor” → **Permitir Acesso Total**.
+6. Ajustes › Geral › Teclado › Teclados › Adicionar › “Sales Copilot” → **Permitir Acesso Total**.
 
 ### 4. Backend de IA
 ```bash

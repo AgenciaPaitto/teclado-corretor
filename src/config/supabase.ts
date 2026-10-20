@@ -1,5 +1,5 @@
 /**
- * Projeto Supabase do Corretor Keyboard.
+ * Projeto Supabase do Sales Copilot.
  *
  * A chave "anon" é pública por definição: ela vai dentro do app e só permite o
  * que as regras de segurança (RLS) do banco liberam — cada corretor acessa

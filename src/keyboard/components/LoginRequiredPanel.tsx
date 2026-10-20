@@ -13,7 +13,7 @@ export function LoginRequiredPanel() {
     <View style={styles.container} testID="login-required">
       <Text style={styles.title}>Entre no app para usar o teclado</Text>
       <Text style={styles.desc}>
-        Seus produtos e atalhos aparecem aqui depois do login no app Corretor Keyboard. Enquanto isso, o
+        Seus produtos e atalhos aparecem aqui depois do login no app Sales Copilot. Enquanto isso, o
         botão ABC continua disponível para digitar.
       </Text>
       <Pressable

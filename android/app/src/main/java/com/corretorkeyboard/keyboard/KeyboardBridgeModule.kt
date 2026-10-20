@@ -37,7 +37,7 @@ class KeyboardBridgeModule(reactContext: ReactApplicationContext) :
         UiThreadUtil.runOnUiThread {
             val service = CustomKeyboardService.instance
             if (service == null) {
-                promise.reject("E_IME_INACTIVE", "O teclado do corretor não está ativo.")
+                promise.reject("E_IME_INACTIVE", "O teclado Sales Copilot não está ativo.")
                 return@runOnUiThread
             }
             try {
@@ -130,7 +130,7 @@ class KeyboardBridgeModule(reactContext: ReactApplicationContext) :
         }
     }
 
-    /** Verifica se o Teclado do Corretor está ativado em 'Gerenciar Teclados' */
+    /** Verifica se o Sales Copilot está ativado em 'Gerenciar Teclados' */
     @ReactMethod
     fun isKeyboardEnabled(promise: Promise) {
         try {
@@ -144,7 +144,7 @@ class KeyboardBridgeModule(reactContext: ReactApplicationContext) :
         }
     }
 
-    /** Verifica se o Teclado do Corretor é o teclado padrão/selecionado atualmente */
+    /** Verifica se o Sales Copilot é o teclado padrão/selecionado atualmente */
     @ReactMethod
     fun isKeyboardSelected(promise: Promise) {
         try {
@@ -200,7 +200,7 @@ class KeyboardBridgeModule(reactContext: ReactApplicationContext) :
     fun commitImage(url: String, description: String, promise: Promise) {
         UiThreadUtil.runOnUiThread {
             val service = CustomKeyboardService.instance
-                ?: return@runOnUiThread promise.reject("E_IME_INACTIVE", "O teclado do corretor não está ativo.")
+                ?: return@runOnUiThread promise.reject("E_IME_INACTIVE", "O teclado Sales Copilot não está ativo.")
             // Nem baixa se o campo não aceita nenhuma imagem
             if (!MediaFiles.acceptsAny(service.acceptedContentMimeTypes(), "image/")) {
                 return@runOnUiThread promise.resolve("unsupported")
