@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
+  AppState,
   Linking,
   Platform,
   Pressable,
@@ -10,32 +11,64 @@ import {
   View,
 } from 'react-native';
 import { colors, radius, spacing } from '../../keyboard/theme';
+import { KeyboardBridge } from '../../native/KeyboardBridge';
 
 export function OnboardingGuideScreen() {
   const [activePlatform, setActivePlatform] = useState<'android' | 'ios'>(
     Platform.OS === 'ios' ? 'ios' : 'android',
   );
   const [testText, setTestText] = useState('');
+  const [isEnabled, setIsEnabled] = useState(false);
+  const [isSelected, setIsSelected] = useState(false);
+
+  const checkStatus = useCallback(async () => {
+    if (Platform.OS === 'android') {
+      try {
+        const enabled = await KeyboardBridge.isKeyboardEnabled();
+        const selected = await KeyboardBridge.isKeyboardSelected();
+        setIsEnabled(enabled);
+        setIsSelected(selected);
+      } catch {
+        // Ignora erros de checagem
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    checkStatus();
+    const sub = AppState.addEventListener('change', state => {
+      if (state === 'active') {
+        checkStatus();
+      }
+    });
+    return () => sub.remove();
+  }, [checkStatus]);
 
   const openSettings = () => {
     if (Platform.OS === 'android') {
-      Linking.sendIntent('android.settings.INPUT_METHOD_SETTINGS').catch(() =>
-        Linking.openSettings(),
-      );
+      KeyboardBridge.openKeyboardSettings().catch(() => {
+        Linking.sendIntent('android.settings.INPUT_METHOD_SETTINGS').catch(() =>
+          Linking.openSettings(),
+        );
+      });
     } else {
       Linking.openSettings();
     }
+  };
+
+  const openPicker = () => {
+    KeyboardBridge.openInputMethodPicker();
   };
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       {/* Banner Introdutório */}
       <View style={styles.heroCard}>
-        <Text style={styles.heroBadge}>Instalação & Ativação</Text>
+        <Text style={styles.heroBadge}>Ativação do Teclado</Text>
         <Text style={styles.heroTitle}>Teclado do Corretor</Text>
         <Text style={styles.heroDesc}>
-          Ative o teclado nas configurações do seu celular para enviar fichas de imóveis,
-          fotos em alta resolução, atalhos de áudio e respostas com IA diretamente de dentro do WhatsApp.
+          Para usar o teclado no WhatsApp e em qualquer aplicativo, siga os dois passos
+          rápidos de ativação abaixo.
         </Text>
       </View>
 
@@ -57,44 +90,83 @@ export function OnboardingGuideScreen() {
         </Pressable>
       </View>
 
-      {/* Passo a Passo Android */}
+      {/* Passo a Passo Android com Diagnóstico em Tempo Real */}
       {activePlatform === 'android' ? (
         <View style={styles.stepsCard}>
-          <Text style={styles.stepsTitle}>Passo a Passo para Android:</Text>
+          <Text style={styles.stepsTitle}>Etapas de Ativação no Android:</Text>
 
-          <View style={styles.stepRow}>
-            <View style={styles.stepNum}><Text style={styles.stepNumText}>1</Text></View>
-            <View style={styles.stepBody}>
-              <Text style={styles.stepHeading}>Habilite o Teclado</Text>
-              <Text style={styles.stepDesc}>
-                Vá em <Text style={styles.bold}>Configurações &gt; Sistema &gt; Idiomas e Entrada &gt; Teclados na tela &gt; Gerenciar teclados</Text>.
+          {/* Status Geral */}
+          <View style={[styles.statusBox, isSelected ? styles.statusBoxReady : styles.statusBoxPending]}>
+            <Text style={styles.statusBoxIcon}>{isSelected ? '✓' : 'ℹ'}</Text>
+            <View style={styles.statusBoxContent}>
+              <Text style={styles.statusBoxTitle}>
+                {isSelected
+                  ? 'Teclado do Corretor Ativo e Pronto!'
+                  : isEnabled
+                  ? 'Habilitado, aguardando seleção como teclado atual'
+                  : 'Teclado ainda não habilitado no sistema'}
+              </Text>
+              <Text style={styles.statusBoxSubtitle}>
+                {isSelected
+                  ? 'Você já pode digitar ou testar no campo abaixo e usar no WhatsApp.'
+                  : isEnabled
+                  ? 'Toque no Passo 2 abaixo para selecionar o Teclado do Corretor.'
+                  : 'Toque no Passo 1 abaixo para ligar a chave do teclado.'}
               </Text>
             </View>
           </View>
 
+          {/* PASSO 1: Habilitar nas configurações */}
           <View style={styles.stepRow}>
-            <View style={styles.stepNum}><Text style={styles.stepNumText}>2</Text></View>
+            <View style={[styles.stepNum, isEnabled && styles.stepNumDone]}>
+              <Text style={styles.stepNumText}>{isEnabled ? '✓' : '1'}</Text>
+            </View>
             <View style={styles.stepBody}>
-              <Text style={styles.stepHeading}>Ative o 'Teclado do Corretor'</Text>
-              <Text style={styles.stepDesc}>
-                Ligue a chave ao lado de <Text style={styles.bold}>Teclado do Corretor</Text> e confirme a ativação.
+              <Text style={styles.stepHeading}>
+                Passo 1: Habilitar em 'Gerenciar Teclados'
               </Text>
+              <Text style={styles.stepDesc}>
+                Ative a chave ao lado de <Text style={styles.bold}>Teclado do Corretor</Text> nas configurações do seu celular.
+              </Text>
+              <Pressable
+                style={[styles.actionBtn, isEnabled && styles.actionBtnDone]}
+                onPress={openSettings}>
+                <Text style={styles.actionBtnText}>
+                  {isEnabled ? '✓ Habilitado nas Configurações' : '1. Abrir Configurações de Teclado'}
+                </Text>
+              </Pressable>
             </View>
           </View>
 
+          {/* PASSO 2: Selecionar como teclado atual */}
           <View style={styles.stepRow}>
-            <View style={styles.stepNum}><Text style={styles.stepNumText}>3</Text></View>
+            <View style={[styles.stepNum, isSelected && styles.stepNumDone]}>
+              <Text style={styles.stepNumText}>{isSelected ? '✓' : '2'}</Text>
+            </View>
             <View style={styles.stepBody}>
-              <Text style={styles.stepHeading}>Selecione ao Digitar</Text>
-              <Text style={styles.stepDesc}>
-                Abra o WhatsApp, toque no campo de mensagem e use o ícone de teclado na barra inferior para selecionar o Teclado do Corretor.
+              <Text style={styles.stepHeading}>
+                Passo 2: Selecionar como Teclado Ativo
               </Text>
+              <Text style={styles.stepDesc}>
+                O Android exige escolher qual teclado você deseja usar no momento. Toque no botão abaixo e escolha <Text style={styles.bold}>Teclado do Corretor</Text>.
+              </Text>
+              <Pressable
+                style={[styles.actionBtnPrimary, isSelected && styles.actionBtnDone]}
+                onPress={openPicker}>
+                <Text style={[styles.actionBtnPrimaryText, isSelected && styles.actionBtnDoneText]}>
+                  {isSelected ? '✓ Selecionado como Teclado Atual' : '2. Selecionar Teclado do Corretor Agora'}
+                </Text>
+              </Pressable>
             </View>
           </View>
 
-          <Pressable style={styles.actionBtn} onPress={openSettings}>
-            <Text style={styles.actionBtnText}>Abrir Ajustes de Teclado no Android</Text>
-          </Pressable>
+          {/* Dica para alternar no dia a dia */}
+          <View style={styles.tipBox}>
+            <Text style={styles.tipTitle}>💡 Como alternar no dia a dia:</Text>
+            <Text style={styles.tipDesc}>
+              Quando estiver no WhatsApp ou em qualquer aplicativo, use o botão de globo (🌐) ou o ícone de teclado na barra inferior de navegação do Android para alternar entre o Teclado do Corretor e o teclado tradicional a qualquer momento.
+            </Text>
+          </View>
         </View>
       ) : (
         /* Passo a Passo iOS */
@@ -126,7 +198,7 @@ export function OnboardingGuideScreen() {
             <View style={styles.stepBody}>
               <Text style={styles.stepHeading}>ATIVAR 'Permitir Acesso Total'</Text>
               <Text style={styles.stepDesc}>
-                Toque em <Text style={styles.bold}>Teclado do Corretor</Text> na lista e ligue <Text style={styles.bold}>Permitir Acesso Total</Text>. Esse passo é fundamental para o Copilot de IA e fotos na nuvem.
+                Toque em <Text style={styles.bold}>Teclado do Corretor</Text> na lista de teclados adicionados e ative <Text style={styles.bold}>Permitir Acesso Total</Text>. Esse passo é fundamental para o Copilot de IA e fotos na nuvem.
               </Text>
             </View>
           </View>
@@ -141,21 +213,21 @@ export function OnboardingGuideScreen() {
             </View>
           </View>
 
-          <Pressable style={styles.actionBtn} onPress={openSettings}>
-            <Text style={styles.actionBtnText}>Abrir Ajustes do iPhone</Text>
+          <Pressable style={styles.actionBtnPrimary} onPress={openSettings}>
+            <Text style={styles.actionBtnPrimaryText}>Abrir Ajustes do iPhone</Text>
           </Pressable>
         </View>
       )}
 
       {/* Área de Teste Rápido */}
       <View style={styles.testCard}>
-        <Text style={styles.testTitle}>Teste seu Teclado Agora</Text>
+        <Text style={styles.testTitle}>Passo 3: Teste seu Teclado Agora</Text>
         <Text style={styles.testDesc}>
-          Toque no campo abaixo para abrir o teclado e testar se ele já está ativado:
+          Toque no campo abaixo para abrir o teclado imediatamente e verificar se está funcionando:
         </Text>
         <TextInput
           style={styles.testInput}
-          placeholder="Toque aqui para testar o teclado..."
+          placeholder="Toque aqui para digitar e testar o teclado..."
           placeholderTextColor={colors.textMuted}
           value={testText}
           onChangeText={setTestText}
@@ -229,13 +301,44 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     borderRadius: radius.lg,
     marginBottom: spacing.md,
-    gap: 12,
+    gap: 16,
   },
   stepsTitle: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '700',
     color: colors.text,
-    marginBottom: 4,
+  },
+  statusBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    borderRadius: radius.md,
+    gap: 10,
+  },
+  statusBoxReady: {
+    backgroundColor: '#064e3b',
+  },
+  statusBoxPending: {
+    backgroundColor: colors.surfaceAlt,
+  },
+  statusBoxIcon: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#10b981',
+  },
+  statusBoxContent: {
+    flex: 1,
+  },
+  statusBoxTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.text,
+    marginBottom: 2,
+  },
+  statusBoxSubtitle: {
+    fontSize: 11,
+    color: colors.textSecondary,
+    lineHeight: 15,
   },
   stepRow: {
     flexDirection: 'row',
@@ -250,6 +353,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 2,
+  },
+  stepNumDone: {
+    backgroundColor: '#059669',
   },
   stepNumText: {
     color: colors.text,
@@ -267,6 +373,7 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: colors.textMuted,
     lineHeight: 16,
+    marginBottom: 8,
   },
   bold: {
     color: colors.text,
@@ -274,15 +381,50 @@ const styles = StyleSheet.create({
   },
   actionBtn: {
     backgroundColor: colors.surfaceAlt,
-    paddingVertical: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
     borderRadius: radius.md,
     alignItems: 'center',
-    marginTop: 6,
+  },
+  actionBtnDone: {
+    backgroundColor: '#064e3b',
   },
   actionBtnText: {
     color: colors.text,
     fontSize: 12,
     fontWeight: '600',
+  },
+  actionBtnPrimary: {
+    backgroundColor: '#2563eb',
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: radius.md,
+    alignItems: 'center',
+  },
+  actionBtnPrimaryText: {
+    color: '#ffffff',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  actionBtnDoneText: {
+    color: '#34d399',
+  },
+  tipBox: {
+    backgroundColor: colors.surfaceAlt,
+    padding: 10,
+    borderRadius: radius.md,
+    marginTop: 4,
+  },
+  tipTitle: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#38bdf8',
+    marginBottom: 2,
+  },
+  tipDesc: {
+    fontSize: 10,
+    color: colors.textMuted,
+    lineHeight: 14,
   },
   testCard: {
     backgroundColor: colors.surface,

@@ -69,4 +69,24 @@ final class KeyboardBridge: RCTEventEmitter {
                                  rejecter reject: @escaping RCTPromiseRejectBlock) {
         resolve(KeyboardViewController.shared != nil)
     }
+
+    @objc func isKeyboardEnabled(_ resolve: @escaping RCTPromiseResolveBlock,
+                                 rejecter reject: @escaping RCTPromiseRejectBlock) {
+        resolve(false)
+    }
+
+    @objc func isKeyboardSelected(_ resolve: @escaping RCTPromiseResolveBlock,
+                                  rejecter reject: @escaping RCTPromiseRejectBlock) {
+        resolve(KeyboardViewController.shared != nil)
+    }
+
+    @objc func openInputMethodPicker(_ resolve: @escaping RCTPromiseResolveBlock,
+                                     rejecter reject: @escaping RCTPromiseRejectBlock) {
+        resolve(false)
+    }
+
+    @objc func openKeyboardSettings(_ resolve: @escaping RCTPromiseResolveBlock,
+                                    rejecter reject: @escaping RCTPromiseRejectBlock) {
+        resolve(false)
+    }
 }

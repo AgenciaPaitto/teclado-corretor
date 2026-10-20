@@ -14,6 +14,10 @@ interface KeyboardBridgeNative {
   switchKeyboard(): Promise<boolean>;
   getTargetApp(): Promise<string | null>;
   isKeyboardContext(): Promise<boolean>;
+  isKeyboardEnabled(): Promise<boolean>;
+  isKeyboardSelected(): Promise<boolean>;
+  openInputMethodPicker(): Promise<boolean>;
+  openKeyboardSettings(): Promise<boolean>;
 }
 
 export interface KeyboardShowEvent {
@@ -43,6 +47,15 @@ export const KeyboardBridge = {
   /** Volta ao teclado de digitação padrão (tecla 🌐). */
   switchKeyboard: () => (Native ? Native.switchKeyboard() : noop()),
   getTargetApp: () => (Native ? Native.getTargetApp() : Promise.resolve(null)),
+  isKeyboardContext: () => (Native ? Native.isKeyboardContext() : Promise.resolve(false)),
+  /** Verifica se o Teclado do Corretor está ativado no sistema */
+  isKeyboardEnabled: () => (Native ? Native.isKeyboardEnabled() : Promise.resolve(false)),
+  /** Verifica se o Teclado do Corretor é o teclado selecionado atualmente */
+  isKeyboardSelected: () => (Native ? Native.isKeyboardSelected() : Promise.resolve(false)),
+  /** Abre o seletor rápido de teclados do sistema */
+  openInputMethodPicker: () => (Native ? Native.openInputMethodPicker() : noop()),
+  /** Abre as configurações de teclado do sistema */
+  openKeyboardSettings: () => (Native ? Native.openKeyboardSettings() : noop()),
 
   onKeyboardShow(cb: (e: KeyboardShowEvent) => void) {
     const sub = emitter?.addListener('onKeyboardShow', cb);

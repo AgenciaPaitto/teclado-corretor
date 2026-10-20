@@ -79,6 +79,23 @@ class CustomKeyboardService : InputMethodService() {
     private val reactInstanceManager: ReactInstanceManager
         get() = (application as ReactApplication).reactNativeHost.reactInstanceManager
 
+    /**
+     * Container raiz do teclado com medição determinística de altura.
+     * O Android InputMethodService injeta a view dentro de um container com WRAP_CONTENT.
+     * Sem forçar MeasureSpec.EXACTLY no onMeasure, a ReactRootView (que ainda não tem filhos nativos
+     * antes do JS carregar) colapsaria para 0 pixels de altura, tornando o teclado invisível.
+     */
+    private class KeyboardRootFrameLayout(
+        context: android.content.Context,
+        private val targetHeightPx: Int
+    ) : FrameLayout(context) {
+        override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
+            val forcedHeightSpec = MeasureSpec.makeMeasureSpec(targetHeightPx, MeasureSpec.EXACTLY)
+            super.onMeasure(widthMeasureSpec, forcedHeightSpec)
+            setMeasuredDimension(MeasureSpec.getSize(widthMeasureSpec), targetHeightPx)
+        }
+    }
+
     // -----------------------------------------------------------------------
     // Ciclo de vida do IME
     // -----------------------------------------------------------------------
@@ -90,8 +107,6 @@ class CustomKeyboardService : InputMethodService() {
 
     /**
      * Força o sistema Android a SEMPRE exibir a visualização do teclado quando solicitado.
-     * Sem este override, o Android pode avaliar false dependendo da configuração de hardware/sistema,
-     * fazendo com que o teclado não apareça.
      */
     override fun onEvaluateInputViewShown(): Boolean = true
 
@@ -100,8 +115,6 @@ class CustomKeyboardService : InputMethodService() {
 
     /**
      * Chamado para criar ou obter a View do teclado.
-     * Reaproveita a mesma ReactRootView já montada para evitar flashes, reinicializações
-     * ou travamento na troca de campos de texto.
      */
     override fun onCreateInputView(): View {
         rootContainer?.let { container ->
@@ -112,12 +125,45 @@ class CustomKeyboardService : InputMethodService() {
         val themedContext = ContextThemeWrapper(this, R.style.AppTheme)
         val heightPx = (KEYBOARD_HEIGHT_DP * resources.displayMetrics.density).toInt()
 
-        val container = FrameLayout(themedContext).apply {
+        val container = KeyboardRootFrameLayout(themedContext, heightPx).apply {
             layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, heightPx)
-            // Fundo escuro imediato idêntico ao colors.bg para evitar tela transparente/flicker
+            minimumHeight = heightPx
             setBackgroundColor(android.graphics.Color.parseColor("#101216"))
         }
 
+        // 1) Placeholder nativo imediato: garante visualização visível mesmo durante cold-start do JS
+        val loadingLayout = android.widget.LinearLayout(themedContext).apply {
+            orientation = android.widget.LinearLayout.VERTICAL
+            gravity = android.view.Gravity.CENTER
+            layoutParams = FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, heightPx)
+
+            val titleView = android.widget.TextView(themedContext).apply {
+                text = "Teclado do Corretor"
+                setTextColor(android.graphics.Color.parseColor("#F1F5F9"))
+                textSize = 15f
+                typeface = android.graphics.Typeface.DEFAULT_BOLD
+                gravity = android.view.Gravity.CENTER
+            }
+
+            val subtitleView = android.widget.TextView(themedContext).apply {
+                text = "Carregando catálogo e atalhos..."
+                setTextColor(android.graphics.Color.parseColor("#94A3B8"))
+                textSize = 12f
+                gravity = android.view.Gravity.CENTER
+                setPadding(0, (6 * resources.displayMetrics.density).toInt(), 0, (12 * resources.displayMetrics.density).toInt())
+            }
+
+            val progressBar = android.widget.ProgressBar(themedContext).apply {
+                isIndeterminate = true
+            }
+
+            addView(titleView)
+            addView(subtitleView)
+            addView(progressBar)
+        }
+        container.addView(loadingLayout)
+
+        // 2) ReactRootView: sobrepõe o placeholder assim que renderizar o primeiro frame
         try {
             val rootView = ReactRootView(themedContext).apply {
                 startReactApplication(
@@ -138,11 +184,16 @@ class CustomKeyboardService : InputMethodService() {
 
     /**
      * O teclado ficou visível para um novo campo de texto.
-     * Retomamos o host RN (se pausado) e avisamos o JS para recarregar dados do MMKV.
      */
     override fun onStartInputView(info: EditorInfo?, restarting: Boolean) {
         super.onStartInputView(info, restarting)
         targetPackage = info?.packageName
+
+        // Assegura que a janela de input method permaneça na altura fixada
+        try {
+            val heightPx = (KEYBOARD_HEIGHT_DP * resources.displayMetrics.density).toInt()
+            window?.window?.setLayout(ViewGroup.LayoutParams.MATCH_PARENT, heightPx)
+        } catch (_: Throwable) {}
 
         try {
             if (reactInstanceManager.lifecycleState != com.facebook.react.common.LifecycleState.RESUMED) {

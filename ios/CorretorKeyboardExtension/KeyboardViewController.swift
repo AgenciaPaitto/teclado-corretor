@@ -55,6 +55,18 @@ final class KeyboardViewController: UIInputViewController {
         heightConstraint = h
     }
 
+    override func updateViewConstraints() {
+        super.updateViewConstraints()
+        if heightConstraint == nil {
+            let h = view.heightAnchor.constraint(equalToConstant: keyboardHeight)
+            h.priority = UILayoutPriority(999)
+            h.isActive = true
+            heightConstraint = h
+        } else {
+            heightConstraint?.constant = keyboardHeight
+        }
+    }
+
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
         KeyboardBridge.emit("onKeyboardShow", body: [
