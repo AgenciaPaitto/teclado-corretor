@@ -17,12 +17,12 @@ interface Props {
 
 export function AuthScreen({ onSuccess }: Props) {
   const [isRegister, setIsRegister] = useState(false);
-  const [name, setName] = useState('Ana Souza');
-  const [email, setEmail] = useState('ana.souza@primeimoveis.com.br');
-  const [password, setPassword] = useState('******');
-  const [creci, setCreci] = useState('123456-F');
-  const [agency, setAgency] = useState('Prime Imóveis');
-  const [phone, setPhone] = useState('(11) 98888-7777');
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [creci, setCreci] = useState('');
+  const [agency, setAgency] = useState('');
+  const [phone, setPhone] = useState('');
 
   const handleSubmit = () => {
     if (!email.trim() || !password.trim()) {
@@ -35,13 +35,15 @@ export function AuthScreen({ onSuccess }: Props) {
       return;
     }
 
-    // Salva perfil do corretor e autentica
-    Repo.setBroker({
-      name: name.trim() || 'Corretor',
-      agency: agency.trim() || 'Imobiliária Parceira',
-      creci: creci.trim() || '000000-F',
-      phone: phone.trim() || '(11) 99999-9999',
-    });
+    // Ao criar conta, salva o perfil do corretor. Ao entrar, mantém o perfil já salvo.
+    if (isRegister) {
+      Repo.setBroker({
+        name: name.trim(),
+        agency: agency.trim() || 'Imobiliária Parceira',
+        creci: creci.trim(),
+        phone: phone.trim(),
+      });
+    }
 
     Repo.setAuthToken(`jwt-token-${Date.now()}`);
     onSuccess();

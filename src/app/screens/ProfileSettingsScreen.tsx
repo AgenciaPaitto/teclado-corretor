@@ -11,13 +11,15 @@ import {
 import { Repo } from '../../storage/storage';
 import type { BrokerProfile, ThemePreference } from '../../types';
 import { colors, radius, spacing } from '../../keyboard/theme';
+import { AI_CONFIG } from '../../services/aiService';
 
 interface Props {
   onLogout: () => void;
   onThemeChange?: (theme: ThemePreference) => void;
+  onProfileChange?: (broker: BrokerProfile) => void;
 }
 
-export function ProfileSettingsScreen({ onLogout, onThemeChange }: Props) {
+export function ProfileSettingsScreen({ onLogout, onThemeChange, onProfileChange }: Props) {
   const [broker, setBroker] = useState<BrokerProfile>(() => Repo.getBroker());
   const [theme, setTheme] = useState<ThemePreference>(() => Repo.getTheme());
   const [isEditing, setIsEditing] = useState(false);
@@ -37,6 +39,7 @@ export function ProfileSettingsScreen({ onLogout, onThemeChange }: Props) {
 
     Repo.setBroker(updated);
     setBroker(updated);
+    onProfileChange?.(updated);
     setIsEditing(false);
     Alert.alert('Sucesso', 'Perfil atualizado e sincronizado com o teclado!');
   };
@@ -58,7 +61,14 @@ export function ProfileSettingsScreen({ onLogout, onThemeChange }: Props) {
           style: 'destructive',
           onPress: () => {
             Repo.resetToDefaults();
-            setBroker(Repo.getBroker());
+            const restored = Repo.getBroker();
+            setBroker(restored);
+            setName(restored.name);
+            setAgency(restored.agency);
+            setCreci(restored.creci);
+            setPhone(restored.phone);
+            setTheme(Repo.getTheme());
+            onProfileChange?.(restored);
             Alert.alert('Restaurado', 'Dados de exemplo restaurados com sucesso.');
           },
         },
@@ -173,15 +183,19 @@ export function ProfileSettingsScreen({ onLogout, onThemeChange }: Props) {
         <Text style={styles.sectionTitle}>Status do Teclado</Text>
         <View style={styles.statusRow}>
           <Text style={styles.statusDot}>●</Text>
-          <Text style={styles.statusText}>Armazenamento Compartilhado Ativo (MMKV / App Group)</Text>
+          <Text style={styles.statusText}>Armazenamento local compartilhado com o teclado (MMKV)</Text>
         </View>
         <View style={styles.statusRow}>
-          <Text style={styles.statusDot}>●</Text>
-          <Text style={styles.statusText}>Cloud Object Storage Conectado (Fotos e Vídeos em Nuvem)</Text>
+          <Text style={[styles.statusDot, styles.statusDotPending]}>●</Text>
+          <Text style={styles.statusText}>Fotos e vídeos: links externos (upload em nuvem ainda não configurado)</Text>
         </View>
         <View style={styles.statusRow}>
-          <Text style={styles.statusDot}>●</Text>
-          <Text style={styles.statusText}>AI Copilot Gateway Ativo</Text>
+          <Text style={[styles.statusDot, AI_CONFIG.useMock && styles.statusDotPending]}>●</Text>
+          <Text style={styles.statusText}>
+            {AI_CONFIG.useMock
+              ? 'AI Copilot em modo demonstração (servidor não configurado)'
+              : 'AI Copilot conectado ao servidor'}
+          </Text>
         </View>
       </View>
 
@@ -296,7 +310,8 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
   },
   statusDot: { color: '#10b981', fontSize: 10 },
-  statusText: { color: colors.textSecondary, fontSize: 11 },
+  statusDotPending: { color: '#f59e0b' },
+  statusText: { color: colors.textSecondary, fontSize: 11, flex: 1 },
   actionsCard: { gap: 8, marginTop: 4 },
   resetBtn: {
     backgroundColor: colors.surface,

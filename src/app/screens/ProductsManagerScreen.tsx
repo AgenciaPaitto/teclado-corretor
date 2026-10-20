@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { Repo } from '../../storage/storage';
 import type { MediaItem, Product, ProductFolder } from '../../types';
-import { formatBRL } from '../../utils/formatters';
+import { formatBRL, parseBRL } from '../../utils/formatters';
 import { colors, radius, spacing } from '../../keyboard/theme';
 
 export function ProductsManagerScreen() {
@@ -67,7 +67,11 @@ export function ProductsManagerScreen() {
       return;
     }
 
-    const priceNum = parseFloat(newProdPrice.replace(/[^0-9]/g, '')) || 500000;
+    const priceNum = parseBRL(newProdPrice);
+    if (priceNum === null) {
+      Alert.alert('Atenção', 'Informe um valor válido. Ex: 850.000 ou 850.000,00');
+      return;
+    }
 
     const product: Product = {
       id: `prod-${Date.now()}`,
@@ -221,9 +225,9 @@ export function ProductsManagerScreen() {
             <Text style={styles.label}>Valor (R$)</Text>
             <TextInput
               style={styles.input}
-              placeholder="Ex: 850000"
+              placeholder="Ex: 850.000,00"
               placeholderTextColor={colors.textMuted}
-              keyboardType="numeric"
+              keyboardType="decimal-pad"
               value={newProdPrice}
               onChangeText={setNewProdPrice}
             />

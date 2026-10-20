@@ -81,11 +81,10 @@ function CorretorKeyboardContent() {
     [showToast],
   );
 
+  // A troca para o teclado padrão (Gboard etc.) acontece somente pelo botão
+  // "Alternar Teclado" dentro da aba — assim as teclas rápidas ficam acessíveis.
   const handleTabChange = useCallback((newTab: MainSystemTab) => {
     setTab(newTab);
-    if (newTab === 'keyboard') {
-      KeyboardBridge.switchKeyboard();
-    }
   }, []);
 
   return (
@@ -94,7 +93,7 @@ function CorretorKeyboardContent() {
       <View style={styles.content}>
         {tab === 'keyboard' && <KeyboardSwitchTab onInsert={insert} />}
         {tab === 'products' && <ProductsTab folders={data.folders} onInsert={insert} />}
-        {tab === 'shortcuts' && <ShortcutsTab shortcuts={data.shortcuts} onInsert={insert} />}
+        {tab === 'shortcuts' && <ShortcutsTab shortcuts={data.shortcuts} broker={data.broker} onInsert={insert} />}
         {tab === 'copilot' && <AICopilotTab onInsert={insert} />}
         {tab === 'more' && (
           <MoreTab

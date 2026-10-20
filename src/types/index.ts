@@ -98,12 +98,3 @@ export interface KeyboardData {
   crm: CRMLead[];
   theme: ThemePreference;
 }
-
-export type KeyboardTab = MainSystemTab;
-export type Property = Product;
-export type Condominium = ProductFolder;
-export interface QuickReply {
-  id: string;
-  title: string;
-  body: string;
-}

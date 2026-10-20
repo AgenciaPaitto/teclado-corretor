@@ -27,13 +27,19 @@ type AppTab = 'onboarding' | 'products' | 'shortcuts' | 'profile';
 export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => !!Repo.getAuthToken());
   const [currentTab, setCurrentTab] = useState<AppTab>('onboarding');
+  const [brokerName, setBrokerName] = useState(() => Repo.getBroker().name);
 
   // Se não estiver logado, exibe tela de Autenticação / Criação de Conta
   if (!isAuthenticated) {
     return (
       <SafeAreaView style={styles.root}>
         <StatusBar barStyle="light-content" backgroundColor={colors.bg} />
-        <AuthScreen onSuccess={() => setIsAuthenticated(true)} />
+        <AuthScreen
+          onSuccess={() => {
+            setBrokerName(Repo.getBroker().name);
+            setIsAuthenticated(true);
+          }}
+        />
       </SafeAreaView>
     );
   }
@@ -52,7 +58,7 @@ export default function App() {
           style={styles.headerBadge}
           onPress={() => setCurrentTab('profile')}>
           <Text style={styles.headerBadgeText}>
-            {Repo.getBroker().name.split(' ')[0]}
+            {brokerName.split(' ')[0] || 'Perfil'}
           </Text>
         </Pressable>
       </View>
@@ -64,6 +70,7 @@ export default function App() {
         {currentTab === 'shortcuts' && <ShortcutsManagerScreen />}
         {currentTab === 'profile' && (
           <ProfileSettingsScreen
+            onProfileChange={b => setBrokerName(b.name)}
             onLogout={() => {
               Repo.clearAuth();
               setIsAuthenticated(false);

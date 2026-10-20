@@ -9,6 +9,25 @@ export function formatBRL(value: number): string {
   return `R$ ${withDots},${dec}`;
 }
 
+/**
+ * Converte um valor digitado em formato brasileiro para número.
+ * Aceita "850000", "850.000", "850.000,50", "R$ 1.200,00" e "1200.50".
+ * Retorna null se não houver um número válido maior que zero.
+ */
+export function parseBRL(input: string): number | null {
+  let s = input.replace(/[^\d.,]/g, '');
+  if (!s) return null;
+  if (s.includes(',')) {
+    // Vírgula = separador decimal; pontos = milhar
+    s = s.replace(/\./g, '').replace(',', '.');
+  } else if (/\.\d{3}(\.|$)/.test(s)) {
+    // "850.000" → pontos são separadores de milhar
+    s = s.replace(/\./g, '');
+  }
+  const n = parseFloat(s);
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+
 export function formatPrice(p: Pick<Product, 'price' | 'dealType'>): string {
   const base = formatBRL(p.price);
   return p.dealType === 'locacao' ? `${base}/mês` : base;
@@ -39,7 +58,6 @@ export function formatProductMessage(p: Product, folder?: ProductFolder): string
     .join('\n');
 }
 
-export const formatPropertyMessage = formatProductMessage;
 
 /** Substitui {{variáveis}} dos templates pelos dados do corretor. */
 export function applyTemplate(body: string, broker: BrokerProfile): string {

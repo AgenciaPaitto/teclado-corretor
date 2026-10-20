@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
 import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
-import type { AudioShortcut, ShortcutsData, TextShortcut } from '../../types';
+import type { AudioShortcut, BrokerProfile, ShortcutsData, TextShortcut } from '../../types';
+import { applyTemplate } from '../../utils/formatters';
 import { colors, radius, spacing } from '../theme';
 import { ItemCard } from './ItemCard';
 
 interface Props {
   shortcuts: ShortcutsData;
+  broker: BrokerProfile;
   onInsert: (text: string) => void;
 }
 
@@ -14,7 +16,7 @@ type ShortcutFilter = 'text' | 'audio';
 /**
  * Atalhos — Mensagens criadas pelo próprio usuário para envio rápido (Texto e Áudio).
  */
-export function ShortcutsTab({ shortcuts, onInsert }: Props) {
+export function ShortcutsTab({ shortcuts, broker, onInsert }: Props) {
   const [filter, setFilter] = useState<ShortcutFilter>('text');
 
   return (
@@ -46,8 +48,8 @@ export function ShortcutsTab({ shortcuts, onInsert }: Props) {
             <ItemCard
               testID={`shortcut-text-${item.id}`}
               title={item.title}
-              subtitle={item.text}
-              onPress={() => onInsert(item.text)}
+              subtitle={applyTemplate(item.text, broker)}
+              onPress={() => onInsert(applyTemplate(item.text, broker))}
             />
           )}
         />

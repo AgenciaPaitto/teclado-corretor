@@ -27,8 +27,11 @@ export const AI_CONFIG = {
   timeoutMs: 15_000,
   maxContextProperties: 8,
   maxMessageChars: 2_000,
-  /** true → responde localmente sem rede (desenvolvimento/demonstração). */
-  useMock: false,
+  /**
+   * true → responde localmente sem rede (demonstração).
+   * Mantenha true até publicar o backend (backend/server.ts) e atualizar `baseUrl`.
+   */
+  useMock: true,
 } as const;
 
 // ---------------------------------------------------------------------------
