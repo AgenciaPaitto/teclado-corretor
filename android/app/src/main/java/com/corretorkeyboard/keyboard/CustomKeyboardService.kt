@@ -366,11 +366,18 @@ class CustomKeyboardService : InputMethodService() {
     fun deleteBackward(): Boolean {
         val ic = currentInputConnection ?: return false
         val selected = ic.getSelectedText(0)
-        return if (!TextUtils.isEmpty(selected)) {
-            ic.commitText("", 1)
-        } else {
-            ic.deleteSurroundingText(1, 0)
-        }
+        if (!TextUtils.isEmpty(selected)) return ic.commitText("", 1)
+
+        // Retorna false quando não há nada antes do cursor: o JS usa isso para
+        // parar a repetição do ⌫ (antes ela seguia "apagando" para sempre).
+        val before = ic.getTextBeforeCursor(2, 0)
+        if (before != null && before.isEmpty()) return false
+
+        // Emoji = par surrogate (2 chars): apaga os dois para não deixar lixo
+        val count = if (before != null && before.length == 2 &&
+            Character.isHighSurrogate(before[0]) && Character.isLowSurrogate(before[1])
+        ) 2 else 1
+        return ic.deleteSurroundingText(count, 0)
     }
 
     /**

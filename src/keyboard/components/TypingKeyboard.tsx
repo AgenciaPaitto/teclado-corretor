@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { KeyboardBridge } from '../../native/KeyboardBridge';
 import { makeStyles, radius } from '../theme';
+import { createDeleteRepeater } from '../utils/deleteRepeater';
 
 /**
  * Teclado de digitação próprio (QWERTY pt-BR), portado do simulador web.
@@ -44,6 +45,8 @@ const ACCENTS: Record<string, string[]> = {
 const DOUBLE_TAP_MS = 300;
 const REPEAT_DELAY_MS = 400;
 const REPEAT_INTERVAL_MS = 60;
+/** Trava de segurança: nenhuma repetição do ⌫ dura mais que isso. */
+const MAX_REPEAT_MS = 30_000;
 
 export function TypingKeyboard() {
   const styles = useStyles();
@@ -51,8 +54,6 @@ export function TypingKeyboard() {
   const [shift, setShift] = useState<ShiftState>('off');
   const [accentBase, setAccentBase] = useState<string | null>(null);
   const lastShiftTap = useRef(0);
-  const repeatDelay = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const repeatTimer = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const upper = mode === 'alpha' && shift !== 'off';
   const display = (c: string) => (upper ? c.toUpperCase() : c);
@@ -78,21 +79,21 @@ export function TypingKeyboard() {
     lastShiftTap.current = now;
   };
 
-  const stopDelete = useCallback(() => {
-    if (repeatDelay.current) clearTimeout(repeatDelay.current);
-    if (repeatTimer.current) clearInterval(repeatTimer.current);
-    repeatDelay.current = null;
-    repeatTimer.current = null;
-  }, []);
+  // Repetição do ⌫ (ver deleteRepeater: nunca deixa timer órfão e para sozinha
+  // com o campo vazio). Antes, um timer perdido apagava o texto para sempre.
+  const [deleteRepeater] = useState(() =>
+    createDeleteRepeater(() => KeyboardBridge.deleteBackward(), {
+      delayMs: REPEAT_DELAY_MS,
+      intervalMs: REPEAT_INTERVAL_MS,
+      maxMs: MAX_REPEAT_MS,
+    }),
+  );
+  const stopDelete = deleteRepeater.stop;
 
-  const startDelete = () => {
-    KeyboardBridge.deleteBackward();
-    repeatDelay.current = setTimeout(() => {
-      repeatTimer.current = setInterval(() => KeyboardBridge.deleteBackward(), REPEAT_INTERVAL_MS);
-    }, REPEAT_DELAY_MS);
-  };
-
+  // Para a repetição ao sair da tela de letras e quando o teclado é escondido
+  // (nesse caso o "soltar o dedo" nunca chega ao ⌫).
   useEffect(() => stopDelete, [stopDelete]);
+  useEffect(() => KeyboardBridge.onKeyboardHide(stopDelete), [stopDelete]);
 
   const changeMode = (m: Mode) => {
     setMode(m);
@@ -141,7 +142,7 @@ export function TypingKeyboard() {
           />
         )}
         {row3.map(letterKey)}
-        <Key label="⌫" kind="func" flex={1.5} onPressIn={startDelete} onPressOut={stopDelete} />
+        <Key label="⌫" kind="func" flex={1.5} onPressIn={deleteRepeater.start} onPressOut={stopDelete} />
       </View>
       <View style={styles.row}>
         <Key
