@@ -11,10 +11,12 @@ import type { KeyboardData, ThemePreference } from '../../types';
 export function useKeyboardData() {
   const [data, setData] = useState<KeyboardData>(() => Repo.loadAll());
   const [targetApp, setTargetApp] = useState<string | null>(null);
+  const [loggedIn, setLoggedIn] = useState(() => Repo.isLoggedIn());
 
   useEffect(() => {
     return KeyboardBridge.onKeyboardShow(e => {
       setData(Repo.loadAll());
+      setLoggedIn(Repo.isLoggedIn());
       setTargetApp(e.targetPackage);
     });
   }, []);
@@ -25,5 +27,5 @@ export function useKeyboardData() {
     setData(d => ({ ...d, theme }));
   }, []);
 
-  return { data, targetApp, setTheme };
+  return { data, targetApp, loggedIn, setTheme };
 }

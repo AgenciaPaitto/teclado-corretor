@@ -97,6 +97,23 @@ class KeyboardBridgeModule(reactContext: ReactApplicationContext) :
         }
     }
 
+    /** Abre o app do corretor (usado pelo teclado quando não há login). */
+    @ReactMethod
+    fun openApp(promise: Promise) {
+        UiThreadUtil.runOnUiThread {
+            try {
+                val ctx = reactApplicationContext
+                val intent = ctx.packageManager.getLaunchIntentForPackage(ctx.packageName)
+                    ?: return@runOnUiThread promise.reject("E_OPEN_APP", "App não encontrado.")
+                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                ctx.startActivity(intent)
+                promise.resolve(true)
+            } catch (t: Throwable) {
+                promise.reject("E_OPEN_APP", t.message, t)
+            }
+        }
+    }
+
     /** Abre a tela de configurações de teclado do Android */
     @ReactMethod
     fun openKeyboardSettings(promise: Promise) {

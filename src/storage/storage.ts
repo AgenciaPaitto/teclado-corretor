@@ -64,6 +64,8 @@ export const Repo = {
   setTheme: (t: ThemePreference) => storage.set(KEYS.theme, t),
 
   getAuthToken: (): string | undefined => storage.getString(KEYS.authToken),
+  /** O teclado usa o mesmo armazenamento do app: logado no app = logado no teclado. */
+  isLoggedIn: (): boolean => !!storage.getString(KEYS.authToken),
   setAuthToken: (t: string) => storage.set(KEYS.authToken, t),
   clearAuth: () => storage.delete(KEYS.authToken),
 

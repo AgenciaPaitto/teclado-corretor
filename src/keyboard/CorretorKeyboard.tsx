@@ -6,6 +6,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Animated, Text, View } from 'react-native';
 import { KeyboardBridge } from '../native/KeyboardBridge';
+import { LoginRequiredPanel } from './components/LoginRequiredPanel';
 import type { KeyboardData, MainSystemTab, ThemePreference } from '../types';
 import { AICopilotTab } from './components/AICopilotTab';
 import { MoreTab } from './components/MoreTab';
@@ -77,10 +78,12 @@ function ErrorFallback({ message, onRetry }: { message: string | null; onRetry: 
 
 interface ContentProps {
   data: KeyboardData;
+  /** Mesmo login do app (armazenamento compartilhado). */
+  loggedIn: boolean;
   onThemeChange: (theme: ThemePreference) => void;
 }
 
-function CorretorKeyboardContent({ data, onThemeChange }: ContentProps) {
+function CorretorKeyboardContent({ data, loggedIn, onThemeChange }: ContentProps) {
   const styles = useStyles();
   const [tab, setTab] = useState<MainSystemTab>('products');
   const [toast, setToast] = useState<string | null>(null);
@@ -200,14 +203,16 @@ function CorretorKeyboardContent({ data, onThemeChange }: ContentProps) {
       {/* Área de conteúdo: teclado de letras ou área do corretor */}
       <View style={styles.content}>
         {tab === 'keyboard' && <TypingKeyboard />}
-        {tab === 'products' && (
+        {/* Sem login no app, a área do corretor fica bloqueada (o ABC continua livre) */}
+        {tab !== 'keyboard' && !loggedIn && <LoginRequiredPanel />}
+        {loggedIn && tab === 'products' && (
           <ProductsTab folders={data.folders} onInsert={insert} onSendImage={sendImage} onShare={shareMedia} />
         )}
-        {tab === 'shortcuts' && (
+        {loggedIn && tab === 'shortcuts' && (
           <ShortcutsTab shortcuts={data.shortcuts} broker={data.broker} onInsert={insert} onShare={shareMedia} />
         )}
-        {tab === 'copilot' && <AICopilotTab onInsert={insert} />}
-        {tab === 'more' && (
+        {loggedIn && tab === 'copilot' && <AICopilotTab onInsert={insert} />}
+        {loggedIn && tab === 'more' && (
           <MoreTab
             agenda={data.agenda}
             crm={data.crm}
@@ -228,10 +233,10 @@ function CorretorKeyboardContent({ data, onThemeChange }: ContentProps) {
 }
 
 function KeyboardRoot() {
-  const { data, setTheme } = useKeyboardData();
+  const { data, loggedIn, setTheme } = useKeyboardData();
   return (
     <ThemeProvider preference={data.theme}>
-      <CorretorKeyboardContent data={data} onThemeChange={setTheme} />
+      <CorretorKeyboardContent data={data} loggedIn={loggedIn} onThemeChange={setTheme} />
     </ThemeProvider>
   );
 }

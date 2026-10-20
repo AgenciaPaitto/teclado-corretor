@@ -24,6 +24,7 @@ interface KeyboardBridgeNative {
   getContentMimeTypes?(): Promise<string[]>;
   commitImage?(url: string, description: string): Promise<CommitImageResult>;
   shareMedia?(urls: string[]): Promise<'direct' | 'chooser'>;
+  openApp?(): Promise<boolean>;
 }
 
 /** sent = foto entregue na conversa; unsupported = o app só aceita texto (ou outro formato). */
@@ -80,6 +81,9 @@ export const KeyboardBridge = {
     Native?.shareMedia
       ? Native.shareMedia(urls)
       : Promise.reject(new Error('Compartilhamento indisponível neste aparelho.')),
+
+  /** Abre o app do corretor (ex.: para fazer login). */
+  openApp: (): Promise<boolean> => (Native?.openApp ? Native.openApp() : noop()),
 
   onKeyboardShow(cb: (e: KeyboardShowEvent) => void) {
     const sub = emitter?.addListener('onKeyboardShow', cb);
