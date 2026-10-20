@@ -4,7 +4,8 @@ import type { MainSystemTab } from '../../types';
 import { makeStyles, radius } from '../theme';
 
 const BUTTONS: Array<{ key: MainSystemTab; label: string }> = [
-  { key: 'keyboard', label: 'Teclado' },
+  // Alterna entre a área do corretor e o teclado de letras próprio
+  { key: 'keyboard', label: 'ABC' },
   { key: 'products', label: 'Produtos' },
   { key: 'shortcuts', label: 'Atalhos' },
   { key: 'copilot', label: 'Copilot' },
@@ -17,9 +18,8 @@ interface Props {
 }
 
 /**
- * Menu com os botões do sistema mantido SEMPRE VISÍVEL abaixo do teclado.
- * Substitui os botões anteriores de ABC/Espaço/Backspace/Enter na mesma área.
- * Botões: Teclado, Produtos, Atalhos, Copilot, Mais.
+ * Menu com os botões do sistema mantido SEMPRE VISÍVEL no topo do teclado.
+ * Botões: ABC (teclado de letras), Produtos, Atalhos, Copilot, Mais.
  */
 export const SystemMenuBar = memo(({ active, onChange }: Props) => {
   const styles = useStyles();
@@ -36,6 +36,7 @@ export const SystemMenuBar = memo(({ active, onChange }: Props) => {
             onPress={() => onChange(btn.key)}
             style={({ pressed }) => [
               styles.tab,
+              btn.key === 'keyboard' && styles.tabKeyboard,
               selected && styles.tabActive,
               pressed && styles.pressed,
             ]}>
@@ -56,8 +57,8 @@ const useStyles = makeStyles(colors => ({
     paddingVertical: 5,
     gap: 4,
     backgroundColor: colors.bg,
-    borderTopWidth: 1,
-    borderTopColor: colors.surfaceAlt,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.surfaceAlt,
   },
   tab: {
     flex: 1,
@@ -66,6 +67,9 @@ const useStyles = makeStyles(colors => ({
     paddingVertical: 8,
     borderRadius: radius.sm,
     backgroundColor: 'transparent',
+  },
+  tabKeyboard: {
+    flex: 0.7,
   },
   tabActive: {
     backgroundColor: colors.surfaceAlt,

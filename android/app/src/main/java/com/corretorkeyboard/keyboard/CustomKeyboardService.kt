@@ -292,11 +292,13 @@ class CustomKeyboardService : InputMethodService() {
         super.onStartInputView(info, restarting)
         targetPackage = info?.packageName
 
-        // Assegura que a janela de input method fique na altura da orientação atual
+        // Ajusta a altura do teclado à orientação atual. A JANELA do IME fica em
+        // WRAP_CONTENT: nos Android recentes ela também desenha a barra de navegação
+        // embaixo; travar a janela na altura do conteúdo fazia essa barra cobrir
+        // (cortar) a parte de baixo do teclado.
         try {
-            val heightPx = keyboardHeightPx()
-            rootContainer?.targetHeightPx = heightPx
-            window?.window?.setLayout(ViewGroup.LayoutParams.MATCH_PARENT, heightPx)
+            rootContainer?.targetHeightPx = keyboardHeightPx()
+            window?.window?.setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
         } catch (_: Throwable) {}
 
         try {

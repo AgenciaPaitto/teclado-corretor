@@ -1,18 +1,18 @@
 /**
  * CorretorKeyboard.tsx — Componente RAIZ do teclado (Minimalista).
- * Menu com os botões do sistema mantido SEMPRE VISÍVEL abaixo do teclado:
- * Produtos, Atalhos, Copilot e Mais.
+ * Menu com os botões do sistema mantido SEMPRE VISÍVEL no topo do teclado:
+ * ABC (teclado de letras próprio), Produtos, Atalhos, Copilot e Mais.
  */
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Animated, Text, View } from 'react-native';
 import { KeyboardBridge } from '../native/KeyboardBridge';
 import type { KeyboardData, MainSystemTab, ThemePreference } from '../types';
 import { AICopilotTab } from './components/AICopilotTab';
-import { KeyboardSwitchTab } from './components/KeyboardSwitchTab';
 import { MoreTab } from './components/MoreTab';
 import { ProductsTab } from './components/ProductsTab';
 import { ShortcutsTab } from './components/ShortcutsTab';
 import { SystemMenuBar } from './components/SystemMenuBar';
+import { TypingKeyboard } from './components/TypingKeyboard';
 import { useKeyboardData } from './hooks/useKeyboardData';
 import { makeStyles, radius, ThemeProvider } from './theme';
 
@@ -88,6 +88,8 @@ function CorretorKeyboardContent({ data, onThemeChange }: ContentProps) {
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   /** Evita disparar vários downloads ao tocar repetidas vezes. */
   const sending = useRef(false);
+  /** Última aba da área do corretor — o botão ABC volta para ela. */
+  const lastCorretorTab = useRef<MainSystemTab>('products');
 
   useEffect(() => {
     KeyboardBridge.notifyReady();
@@ -180,17 +182,24 @@ function CorretorKeyboardContent({ data, onThemeChange }: ContentProps) {
     [showToast],
   );
 
-  // A troca para o teclado padrão (Gboard etc.) acontece somente pelo botão
-  // "Alternar Teclado" dentro da aba — assim as teclas rápidas ficam acessíveis.
+  // ABC alterna entre a área do corretor e o teclado de letras (como no simulador).
+  // A troca para outro teclado do sistema (Gboard etc.) fica na tecla 🌐.
   const handleTabChange = useCallback((newTab: MainSystemTab) => {
-    setTab(newTab);
+    setTab(current => {
+      if (newTab === 'keyboard' && current === 'keyboard') return lastCorretorTab.current;
+      if (newTab !== 'keyboard') lastCorretorTab.current = newTab;
+      return newTab;
+    });
   }, []);
 
   return (
     <View style={styles.root} testID="corretor-keyboard">
-      {/* Área de conteúdo do sistema */}
+      {/* Menu com os botões do sistema SEMPRE VISÍVEL no topo */}
+      <SystemMenuBar active={tab} onChange={handleTabChange} />
+
+      {/* Área de conteúdo: teclado de letras ou área do corretor */}
       <View style={styles.content}>
-        {tab === 'keyboard' && <KeyboardSwitchTab onInsert={insert} />}
+        {tab === 'keyboard' && <TypingKeyboard />}
         {tab === 'products' && (
           <ProductsTab folders={data.folders} onInsert={insert} onSendImage={sendImage} onShare={shareMedia} />
         )}
@@ -214,9 +223,6 @@ function CorretorKeyboardContent({ data, onThemeChange }: ContentProps) {
           </Animated.View>
         )}
       </View>
-
-      {/* Menu com os botões do sistema SEMPRE VISÍVEL abaixo do teclado */}
-      <SystemMenuBar active={tab} onChange={handleTabChange} />
     </View>
   );
 }
