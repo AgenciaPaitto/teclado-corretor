@@ -28,11 +28,14 @@ function sentence(text: string): string {
 
 // Erros JS não tratados também vão para o diagnóstico nativo do teclado.
 // O tratamento padrão do React Native continua sendo chamado.
-const defaultErrorHandler = ErrorUtils.getGlobalHandler();
-ErrorUtils.setGlobalHandler((error, isFatal) => {
-  KeyboardBridge.reportError(`${isFatal ? '[fatal] ' : ''}${describeError(error)}`);
-  defaultErrorHandler(error, isFatal);
-});
+// (ErrorUtils não existe na versão web de testes.)
+if (typeof ErrorUtils !== 'undefined') {
+  const defaultErrorHandler = ErrorUtils.getGlobalHandler();
+  ErrorUtils.setGlobalHandler((error, isFatal) => {
+    KeyboardBridge.reportError(`${isFatal ? '[fatal] ' : ''}${describeError(error)}`);
+    defaultErrorHandler(error, isFatal);
+  });
+}
 
 interface ErrorBoundaryState {
   hasError: boolean;

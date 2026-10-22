@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { Platform, Pressable, Text, View } from 'react-native';
 import { KeyboardBridge } from '../../native/KeyboardBridge';
 import { makeStyles, radius } from '../theme';
 import { createDeleteRepeater } from '../utils/deleteRepeater';
@@ -41,6 +41,13 @@ const ACCENTS: Record<string, string[]> = {
   c: ['ç'],
   n: ['ñ'],
 };
+
+/**
+ * Só na versão web (react-native-web): o Pressable espera 50 ms antes do
+ * "pressionar", e um clique mais rápido que isso não aciona o ⌫ (onPressIn).
+ * delayPressIn não existe nos tipos do React Native, por isso o cast.
+ */
+const WEB_NO_PRESS_DELAY = Platform.OS === 'web' ? ({ delayPressIn: 0 } as object) : {};
 
 const DOUBLE_TAP_MS = 300;
 const REPEAT_DELAY_MS = 400;
@@ -176,6 +183,8 @@ function Key({ label, kind = 'char', flex = 1, active, onPress, onLongPress, onP
   const styles = useStyles();
   return (
     <Pressable
+      testID={`key-${label}`}
+      {...WEB_NO_PRESS_DELAY}
       onPress={onPress}
       onLongPress={onLongPress}
       delayLongPress={350}

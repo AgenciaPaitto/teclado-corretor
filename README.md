@@ -88,3 +88,22 @@ Ajuste `AI_CONFIG.baseUrl` em `src/services/aiService.ts`. Para testar sem backe
 - **iOS – rede/clipboard** só funcionam com “Acesso Total” ativado.
 - **Chave da OpenAI nunca no app** — sempre via backend autenticado.
 - **LGPD**: a mensagem do cliente vai ao backend; informe isso nos termos de uso e não persista o texto.
+
+## 🌐 Versão web de testes (navegador, inclusive iPhone)
+
+Roda o código **real** do app e do teclado no navegador (react-native-web + Vite), com o login
+real do Supabase. A página tem duas telas: **App** e **WhatsApp + Teclado** (conversa de teste em
+que o teclado escreve).
+
+```bash
+npm install
+npm run web:dev      # desenvolvimento em http://localhost:5173
+npm run web:build    # gera a pasta dist/ para publicar
+npm run web:preview  # confere a dist/ em http://localhost:4173
+```
+
+- **Publicar:** envie o **conteúdo** de `dist/` para qualquer hospedagem estática (Netlify, Vercel,
+  hospedagem comum via FTP...). Os caminhos são relativos, então funciona em subpastas.
+- **Dados:** ficam no navegador de quem testa (localStorage), separados do celular.
+- **Limitações na web:** fotos e áudios vão como link; envio de arquivos e a tecla 🌐 só no Android.
+- Arquivos `.web.ts` (ex.: `src/native/KeyboardBridge.web.ts`) substituem os nativos só na web.

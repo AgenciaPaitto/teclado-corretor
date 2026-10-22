@@ -6,3 +6,5 @@ android/.gradle/
 *.bundle
 *.log
 .env
+# Build da versão web de testes (npm run web:build)
+dist/

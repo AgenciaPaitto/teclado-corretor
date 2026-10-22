@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#101216" />
+    <title>Sales Copilot — Versão de testes</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%233b82f6'/%3E%3Ctext x='32' y='44' font-family='Arial' font-size='36' font-weight='700' fill='white' text-anchor='middle'%3ES%3C/text%3E%3C/svg%3E" />
+    <style>
+      :root {
+        --bg: #0b0d11;
+        --panel: #14171d;
+        --line: #232733;
+        --text: #f1f5f9;
+        --muted: #8a93a6;
+        --accent: #3b82f6;
+        --chat-bg: #0b141a;
+        --bubble-in: #1f2c34;
+        --bubble-out: #005c4b;
+      }
+      * { box-sizing: border-box; }
+      html, body, #root { height: 100%; margin: 0; }
+      body {
+        background: var(--bg);
+        color: var(--text);
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      }
+      .page {
+        min-height: 100%;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 14px;
+        padding: 16px;
+      }
+      .top {
+        width: 100%;
+        max-width: 420px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+        flex-wrap: wrap;
+      }
+      .top h1 { font-size: 18px; margin: 0; }
+      .top p { font-size: 12px; margin: 2px 0 0; color: var(--muted); }
+      .top nav { display: flex; gap: 6px; }
+      .top nav button {
+        border: 1px solid var(--line);
+        background: var(--panel);
+        color: var(--muted);
+        border-radius: 8px;
+        padding: 8px 12px;
+        font-size: 13px;
+        font-weight: 600;
+        cursor: pointer;
+      }
+      .top nav button.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+      /* "Celular" */
+      .phone {
+        width: 390px;
+        max-width: 100%;
+        height: 800px;
+        max-height: calc(100vh - 140px);
+        min-height: 560px;
+        border: 1px solid var(--line);
+        border-radius: 28px;
+        overflow: hidden;
+        background: #101216;
+        display: flex;
+        flex-direction: column;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.45);
+      }
+      .screen { flex: 1; flex-direction: column; min-height: 0; }
+
+      /* Conversa de teste */
+      .chat { flex: 1; flex-direction: column; min-height: 0; background: var(--chat-bg); }
+      .chat-header {
+        display: flex; align-items: center; gap: 10px;
+        padding: 10px 12px; background: #1f2c34;
+      }
+      .avatar {
+        width: 34px; height: 34px; border-radius: 50%;
+        display: grid; place-items: center;
+        background: #6b7c85; font-size: 12px; font-weight: 700;
+      }
+      .contact { font-size: 14px; font-weight: 600; }
+      .status { font-size: 11px; color: #8696a0; }
+      .messages {
+        flex: 1; min-height: 0; overflow-y: auto;
+        display: flex; flex-direction: column; gap: 6px;
+        padding: 12px;
+      }
+      .bubble {
+        max-width: 82%;
+        padding: 7px 9px 5px;
+        border-radius: 8px;
+        font-size: 13.5px;
+        line-height: 1.35;
+        white-space: pre-wrap;
+        word-break: break-word;
+      }
+      .bubble.client { align-self: flex-start; background: var(--bubble-in); }
+      .bubble.broker { align-self: flex-end; background: var(--bubble-out); }
+      .bubble .time { display: block; text-align: right; font-size: 10px; color: #8696a0; margin-top: 2px; }
+      .input-bar { display: flex; gap: 6px; padding: 6px 8px; background: #1f2c34; align-items: flex-end; }
+      .input-bar textarea {
+        flex: 1; resize: none; max-height: 96px;
+        field-sizing: content; /* cresce com o texto (até 4 linhas), como no WhatsApp */
+        border: none; outline: none; border-radius: 18px;
+        padding: 9px 14px; font-size: 14px; font-family: inherit;
+        background: #2a3942; color: var(--text);
+      }
+      .input-bar button {
+        border: none; border-radius: 18px; padding: 9px 14px;
+        background: #00a884; color: #fff; font-weight: 600; cursor: pointer;
+      }
+      .keyboard { height: 320px; flex-shrink: 0; display: flex; flex-direction: column; }
+
+      .note { max-width: 420px; font-size: 11.5px; line-height: 1.5; color: var(--muted); text-align: center; margin: 0; }
+
+      /* No próprio celular: ocupa a tela toda, sem a moldura */
+      @media (max-width: 480px) {
+        /* A página ocupa a tela exata; o "celular" fica com todo o espaço que sobra */
+        .page { height: 100dvh; min-height: 0; padding: 8px 0 0; gap: 8px; }
+        .top { padding: 0 12px; flex-shrink: 0; }
+        .phone {
+          width: 100%;
+          flex: 1;
+          height: auto;
+          max-height: none;
+          min-height: 0;
+          border: none;
+          border-radius: 0;
+          box-shadow: none;
+        }
+        .keyboard { height: 300px; }
+        .note { display: none; }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="./main.tsx"></script>
+  </body>
+</html>
