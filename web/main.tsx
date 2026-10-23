@@ -1,10 +1,10 @@
 /**
- * Sales Copilot — versão web de testes.
+ * KEYCON — versão web de testes.
  *
  * Roda o código REAL do app e do teclado (react-native-web), com o login real
  * do Supabase. Duas telas, como no celular:
  *   • App: login, catálogo, atalhos e conta;
- *   • WhatsApp + Teclado: conversa de teste com o teclado Sales Copilot embaixo.
+ *   • WhatsApp + Teclado: conversa de teste com o teclado KEYCON embaixo.
  * Os dados ficam salvos no navegador (localStorage), separados do celular.
  */
 import './alertPolyfill';
@@ -64,7 +64,7 @@ function Chat({ visible }: { visible: boolean }) {
     listRef.current?.scrollTo({ top: listRef.current.scrollHeight });
   }, [messages]);
 
-  // Conecta o campo de mensagem ao teclado Sales Copilot
+  // Conecta o campo de mensagem ao teclado KEYCON
   useEffect(
     () =>
       WebKeyboardHost.attach({
@@ -153,7 +153,7 @@ function TestSite() {
     <div className="page">
       <header className="top">
         <div>
-          <h1>Sales Copilot</h1>
+          <h1>KEYCON</h1>
           <p>Versão de testes no navegador</p>
         </div>
         <nav>

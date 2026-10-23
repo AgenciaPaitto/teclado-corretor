@@ -1,19 +1,21 @@
 import React from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { KeyboardBridge } from '../../native/KeyboardBridge';
-import { makeStyles, radius, spacing } from '../theme';
+import { makeStyles, radius, spacing, touchTarget } from '../theme';
+import { KeyconMark } from './KeyconLogo';
 
 /**
- * Mostrado nas áreas do corretor (Produtos, Atalhos, Copilot, Mais) quando o
+ * Mostrado nas áreas do corretor (Produtos, Atalhos, IA, Mais) quando o
  * app não está logado. O teclado de letras (ABC) continua funcionando.
  */
 export function LoginRequiredPanel() {
   const styles = useStyles();
   return (
     <View style={styles.container} testID="login-required">
+      <KeyconMark size={36} />
       <Text style={styles.title}>Entre no app para usar o teclado</Text>
       <Text style={styles.desc}>
-        Seus produtos e atalhos aparecem aqui depois do login no app Sales Copilot. Enquanto isso, o
+        Seus produtos e atalhos aparecem aqui depois do login no app KEYCON. Enquanto isso, o
         botão ABC continua disponível para digitar.
       </Text>
       <Pressable
@@ -34,15 +36,16 @@ const useStyles = makeStyles(colors => ({
     padding: spacing.lg,
     gap: spacing.sm,
   },
-  title: { color: colors.text, fontSize: 15, fontWeight: '700', textAlign: 'center' },
-  desc: { color: colors.textMuted, fontSize: 12, lineHeight: 17, textAlign: 'center' },
+  title: { color: colors.text, fontSize: 17, fontWeight: '600', textAlign: 'center' },
+  desc: { color: colors.textMuted, fontSize: 13, lineHeight: 19, textAlign: 'center' },
   btn: {
     marginTop: spacing.sm,
     backgroundColor: colors.primary,
-    paddingVertical: 10,
-    paddingHorizontal: 20,
+    minHeight: touchTarget,
+    justifyContent: 'center',
+    paddingHorizontal: spacing.xl,
     borderRadius: radius.md,
   },
-  pressed: { opacity: 0.8 },
-  btnText: { color: colors.onPrimary, fontSize: 13, fontWeight: '600' },
+  pressed: { opacity: 0.85 },
+  btnText: { color: colors.onPrimary, fontSize: 15, fontWeight: '600' },
 }));

@@ -70,7 +70,7 @@ export const KeyboardBridge = {
   openInputMethodPicker: async () => false,
   openKeyboardSettings: async () => false,
   notifyReady: () => {},
-  reportError: (message: string) => console.error('[Sales Copilot]', message),
+  reportError: (message: string) => console.error('[KEYCON]', message),
   // Na web o campo de teste só aceita texto: fotos caem no envio do link
   getContentMimeTypes: async (): Promise<string[]> => [],
   commitImage: async (_url: string, _description: string): Promise<CommitImageResult> => 'unsupported',

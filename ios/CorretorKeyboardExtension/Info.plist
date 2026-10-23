@@ -4,7 +4,16 @@
 <plist version="1.0">
 <dict>
     <key>CFBundleDisplayName</key>
-    <string>Sales Copilot</string>
+    <string>KEYCON</string>
+    <!-- Fonte da marca (Inter). Adicione os arquivos de android/app/src/main/assets/fonts
+         ao "Copy Bundle Resources" deste target e do app; o Info.plist do app leva a mesma lista. -->
+    <key>UIAppFonts</key>
+    <array>
+        <string>Inter-Regular.otf</string>
+        <string>Inter-Medium.otf</string>
+        <string>Inter-SemiBold.otf</string>
+        <string>Inter-Bold.otf</string>
+    </array>
     <!-- App Group compartilhado com o app principal (lido pelo react-native-mmkv) -->
     <key>AppGroup</key>
     <string>group.com.corretorkeyboard</string>
@@ -18,7 +27,7 @@
             <false/>
             <key>PrimaryLanguage</key>
             <string>pt-BR</string>
-            <!-- Full Access: rede (AI Copilot) + leitura do UIPasteboard -->
+            <!-- Full Access: rede (IA) + leitura do UIPasteboard -->
             <key>RequestsOpenAccess</key>
             <true/>
         </dict>

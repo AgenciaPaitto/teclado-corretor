@@ -1,20 +1,24 @@
 import React, { memo } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { makeStyles, radius, spacing, useColors } from '../theme';
+import type { IconName } from './Icon';
+import { IconTile } from './Icon';
 
 interface Props {
   testID?: string;
   title: string;
   subtitle?: string;
   meta?: string;
+  /** Ícone funcional à esquerda, no tile cinza-claro do manual. */
+  icon?: IconName;
   onPress: () => void;
   onLongPress?: () => void;
 }
 
 /**
- * Card minimalista sem bordas, cantos coloridos ou emojis.
+ * Card de lista do KEYCON: superfície branca/grafite, sem bordas, raio de 12.
  */
-export const ItemCard = memo(({ testID, title, subtitle, meta, onPress, onLongPress }: Props) => {
+export const ItemCard = memo(({ testID, title, subtitle, meta, icon, onPress, onLongPress }: Props) => {
   const colors = useColors();
   const styles = useStyles();
   return (
@@ -24,6 +28,7 @@ export const ItemCard = memo(({ testID, title, subtitle, meta, onPress, onLongPr
       onLongPress={onLongPress}
       android_ripple={{ color: colors.surfaceActive }}
       style={({ pressed }) => [styles.card, pressed && styles.pressed]}>
+      {icon ? <IconTile name={icon} size={36} /> : null}
       <View style={styles.body}>
         <Text style={styles.title} numberOfLines={1}>{title}</Text>
         {subtitle ? <Text style={styles.subtitle} numberOfLines={2}>{subtitle}</Text> : null}
@@ -37,12 +42,13 @@ const useStyles = makeStyles(colors => ({
   card: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.sm,
+    gap: spacing.md,
     backgroundColor: colors.surface,
     borderRadius: radius.md,
-    paddingVertical: 12,
+    minHeight: 56,
+    paddingVertical: 10,
     paddingHorizontal: spacing.md,
-    marginBottom: 6,
+    marginBottom: spacing.sm,
   },
   pressed: {
     backgroundColor: colors.surfaceAlt,
@@ -52,15 +58,14 @@ const useStyles = makeStyles(colors => ({
   },
   title: {
     color: colors.text,
-    fontSize: 13,
+    fontSize: 15,
     fontWeight: '600',
-    letterSpacing: 0.1,
   },
   subtitle: {
     color: colors.textMuted,
-    fontSize: 12,
-    marginTop: 3,
-    lineHeight: 16,
+    fontSize: 13,
+    marginTop: 2,
+    lineHeight: 18,
   },
   meta: {
     color: colors.textSecondary,

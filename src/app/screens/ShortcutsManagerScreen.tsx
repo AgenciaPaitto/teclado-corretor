@@ -11,7 +11,8 @@ import {
 import { Repo } from '../../storage/storage';
 import type { AudioShortcut, ShortcutsData, TextShortcut } from '../../types';
 import { normalizeUrl } from '../../utils/formatters';
-import { makeStyles, radius, spacing, useColors } from '../../keyboard/theme';
+import { makeStyles, radius, spacing, touchTarget, typography, useColors } from '../../keyboard/theme';
+import { Icon, IconTile } from '../../keyboard/components/Icon';
 
 /** Formulários de criação/edição: id null = criando um atalho novo. */
 interface TextForm {
@@ -138,7 +139,7 @@ export function ShortcutsManagerScreen() {
     <View style={styles.container}>
       <View style={styles.headerBar}>
         <View>
-          <Text style={styles.badge}>Respostas Rápidas</Text>
+          <Text style={styles.badge}>Respostas rápidas</Text>
           <Text style={styles.headerTitle}>Atalhos do Teclado</Text>
         </View>
         <Pressable
@@ -147,8 +148,9 @@ export function ShortcutsManagerScreen() {
             if (activeTab === 'text') setTextForm({ id: null, title: '', text: '' });
             else setAudioForm({ id: null, title: '', url: '', duration: '', transcript: '' });
           }}>
+          <Icon name="adicionar" size={18} color={colors.onPrimary} />
           <Text style={styles.addBtnText}>
-            {activeTab === 'text' ? '+ Novo Texto' : '+ Novo Áudio'}
+            {activeTab === 'text' ? 'Novo texto' : 'Novo áudio'}
           </Text>
         </Pressable>
       </View>
@@ -273,7 +275,10 @@ export function ShortcutsManagerScreen() {
           ListEmptyComponent={<Text style={styles.emptyText}>Nenhum atalho de texto ainda.</Text>}
           renderItem={({ item }) => (
             <View style={styles.itemCard}>
-              <Text style={styles.itemTitle}>{item.title}</Text>
+              <View style={styles.itemHead}>
+                <IconTile name="respostas" size={36} />
+                <Text style={styles.itemTitle}>{item.title}</Text>
+              </View>
               <Text style={styles.itemSub} numberOfLines={2}>{item.text}</Text>
               {renderItemActions(
                 () => setTextForm({ id: item.id, title: item.title, text: item.text }),
@@ -290,7 +295,8 @@ export function ShortcutsManagerScreen() {
           ListEmptyComponent={<Text style={styles.emptyText}>Nenhum áudio cadastrado ainda.</Text>}
           renderItem={({ item }) => (
             <View style={styles.itemCard}>
-              <View style={styles.audioRow}>
+              <View style={styles.itemHead}>
+                <IconTile name="audio" size={36} />
                 <Text style={styles.itemTitle}>{item.title}</Text>
                 {item.duration ? <Text style={styles.durationBadge}>{item.duration}</Text> : null}
               </View>
@@ -318,160 +324,161 @@ export function ShortcutsManagerScreen() {
 const useStyles = makeStyles(colors => ({
   container: { flex: 1, backgroundColor: colors.bg },
   headerBar: {
-    padding: spacing.md,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    borderBottomWidth: 1,
-    borderBottomColor: colors.surfaceAlt,
+    gap: spacing.sm,
   },
   badge: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: colors.info,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    ...typography.overline,
+    color: colors.primaryText,
+    marginBottom: 2,
   },
   headerTitle: {
-    fontSize: 18,
-    fontWeight: '700',
+    ...typography.h2,
     color: colors.text,
   },
   addBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
     backgroundColor: colors.primary,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingHorizontal: spacing.md,
+    minHeight: touchTarget,
     borderRadius: radius.md,
   },
   addBtnText: {
     color: colors.onPrimary,
-    fontSize: 12,
-    fontWeight: '600',
+    ...typography.button,
   },
   tabToggle: {
     flexDirection: 'row',
-    gap: 8,
-    padding: spacing.md,
-    paddingBottom: 0,
+    gap: spacing.xs,
+    padding: spacing.xs,
+    marginHorizontal: spacing.lg,
+    backgroundColor: colors.surface,
+    borderRadius: radius.md,
   },
   toggleBtn: {
     flex: 1,
-    paddingVertical: 8,
-    backgroundColor: colors.surface,
-    borderRadius: radius.md,
+    minHeight: 40,
+    justifyContent: 'center',
+    borderRadius: radius.sm,
     alignItems: 'center',
   },
   toggleBtnActive: {
-    backgroundColor: colors.surfaceAlt,
+    backgroundColor: colors.primarySoft,
   },
   toggleText: {
-    fontSize: 12,
+    fontSize: 14,
     fontWeight: '500',
     color: colors.textMuted,
   },
   toggleTextActive: {
-    color: colors.text,
-    fontWeight: '700',
+    color: colors.primaryText,
+    fontWeight: '600',
   },
-  list: { padding: spacing.md, gap: 8 },
+  list: { padding: spacing.lg, gap: spacing.sm },
   itemCard: {
     backgroundColor: colors.surface,
-    padding: 14,
-    borderRadius: radius.md,
+    padding: spacing.lg,
+    borderRadius: radius.lg,
   },
-  itemTitle: { fontSize: 13, fontWeight: '700', color: colors.text },
-  itemSub: { fontSize: 12, color: colors.textMuted, marginTop: 4, lineHeight: 16 },
+  itemHead: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
+  itemTitle: { flex: 1, fontSize: 15, fontWeight: '600', color: colors.text },
+  itemSub: { fontSize: 14, color: colors.textMuted, marginTop: spacing.sm, lineHeight: 20 },
   itemActions: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
-    gap: 16,
-    marginTop: 8,
+    gap: spacing.xl,
+    marginTop: spacing.md,
   },
-  linkText: { color: colors.primary, fontSize: 12, fontWeight: '600' },
-  deleteText: { color: colors.danger, fontSize: 12, fontWeight: '600' },
+  linkText: { color: colors.primaryText, fontSize: 14, fontWeight: '600' },
+  deleteText: { color: colors.danger, fontSize: 14, fontWeight: '600' },
   emptyText: {
     color: colors.textMuted,
-    fontSize: 12,
+    fontSize: 14,
     textAlign: 'center',
-    paddingVertical: 12,
-  },
-  audioRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    paddingVertical: spacing.lg,
   },
   durationBadge: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: '600',
     color: colors.violet,
     backgroundColor: colors.violetBg,
-    paddingHorizontal: 6,
+    paddingHorizontal: spacing.sm,
     paddingVertical: 2,
-    borderRadius: 4,
+    borderRadius: radius.pill,
+    overflow: 'hidden',
   },
   transcriptText: {
-    fontSize: 11,
+    fontSize: 13,
     color: colors.textSecondary,
     fontStyle: 'italic',
-    marginTop: 4,
+    marginTop: spacing.sm,
   },
-  urlText: { fontSize: 10, color: colors.textMuted, marginTop: 4 },
+  urlText: { fontSize: 12, color: colors.textMuted, marginTop: 4 },
   formContainer: {
     backgroundColor: colors.surface,
-    padding: spacing.md,
-    margin: spacing.md,
-    borderRadius: radius.lg,
-    gap: 8,
-    maxHeight: 350,
+    padding: spacing.lg,
+    marginHorizontal: spacing.lg,
+    marginTop: spacing.md,
+    borderRadius: radius.xl,
+    gap: spacing.sm,
+    maxHeight: 380,
   },
   sectionTitle: {
-    fontSize: 13,
-    fontWeight: '700',
+    ...typography.title,
     color: colors.text,
     marginBottom: 4,
   },
   label: {
-    fontSize: 11,
-    fontWeight: '600',
+    ...typography.label,
     color: colors.textSecondary,
     marginTop: 4,
   },
   hint: {
-    fontSize: 10,
+    fontSize: 12,
     color: colors.textMuted,
     marginTop: 2,
-    lineHeight: 14,
+    lineHeight: 17,
   },
   input: {
     backgroundColor: colors.surfaceAlt,
     color: colors.text,
     borderRadius: radius.md,
-    padding: 10,
-    fontSize: 12,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 10,
+    minHeight: touchTarget,
+    fontSize: 15,
   },
   textArea: {
-    minHeight: 70,
+    minHeight: 80,
     textAlignVertical: 'top',
   },
   formBtnsRow: {
     flexDirection: 'row',
-    gap: 8,
-    marginTop: 10,
+    gap: spacing.sm,
+    marginTop: spacing.md,
   },
   cancelBtn: {
     flex: 1,
     backgroundColor: colors.surfaceAlt,
-    paddingVertical: 10,
+    minHeight: touchTarget,
+    justifyContent: 'center',
     borderRadius: radius.md,
     alignItems: 'center',
   },
-  cancelBtnText: { color: colors.textMuted, fontSize: 12, fontWeight: '600' },
+  cancelBtnText: { color: colors.text, ...typography.button },
   saveBtn: {
     flex: 1,
     backgroundColor: colors.primary,
-    paddingVertical: 10,
+    minHeight: touchTarget,
+    justifyContent: 'center',
     borderRadius: radius.md,
     alignItems: 'center',
   },
-  saveBtnText: { color: colors.onPrimary, fontSize: 12, fontWeight: '600' },
+  saveBtnText: { color: colors.onPrimary, ...typography.button },
 }));

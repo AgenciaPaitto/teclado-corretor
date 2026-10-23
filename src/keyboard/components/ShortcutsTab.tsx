@@ -31,7 +31,7 @@ export function ShortcutsTab({ shortcuts, broker, onInsert, onShare }: Props) {
           style={[styles.filterBtn, filter === 'text' && styles.filterBtnActive]}
           onPress={() => setFilter('text')}>
           <Text style={[styles.filterLabel, filter === 'text' && styles.filterLabelActive]}>
-            Mensagens de Texto ({shortcuts.texts.length})
+            Textos ({shortcuts.texts.length})
           </Text>
         </Pressable>
         <Pressable
@@ -54,6 +54,7 @@ export function ShortcutsTab({ shortcuts, broker, onInsert, onShare }: Props) {
               testID={`shortcut-text-${item.id}`}
               title={item.title}
               subtitle={applyTemplate(item.text, broker)}
+              icon="respostas"
               onPress={() => onInsert(applyTemplate(item.text, broker))}
             />
           )}
@@ -75,6 +76,7 @@ export function ShortcutsTab({ shortcuts, broker, onInsert, onShare }: Props) {
               title={item.title}
               subtitle={item.transcript ? `"${item.transcript}"` : undefined}
               meta={item.duration || undefined}
+              icon="audio"
               onPress={() => onShare([item.audioUrl], audioLink(item))}
               onLongPress={() => onInsert(audioLink(item))}
             />
@@ -91,28 +93,29 @@ const useStyles = makeStyles(colors => ({
     flexDirection: 'row',
     paddingHorizontal: spacing.sm,
     paddingVertical: 6,
-    gap: 8,
+    gap: spacing.sm,
     borderBottomWidth: 1,
-    borderBottomColor: colors.surfaceAlt,
+    borderBottomColor: colors.divider,
   },
   filterBtn: {
     flex: 1,
-    paddingVertical: 6,
+    minHeight: 36,
+    justifyContent: 'center',
     alignItems: 'center',
     borderRadius: radius.sm,
   },
   filterBtnActive: {
-    backgroundColor: colors.surfaceAlt,
+    backgroundColor: colors.primarySoft,
   },
   filterLabel: {
-    fontSize: 11,
+    fontSize: 13,
     color: colors.textMuted,
     fontWeight: '500',
   },
   filterLabelActive: {
-    color: colors.text,
+    color: colors.primaryText,
     fontWeight: '600',
   },
   list: { padding: spacing.sm },
-  hint: { color: colors.textMuted, fontSize: 11, marginBottom: 6, textAlign: 'center' },
+  hint: { color: colors.textMuted, fontSize: 12, marginBottom: 6, textAlign: 'center' },
 }));

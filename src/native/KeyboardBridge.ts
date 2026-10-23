@@ -58,9 +58,9 @@ export const KeyboardBridge = {
   switchKeyboard: () => (Native ? Native.switchKeyboard() : noop()),
   getTargetApp: () => (Native ? Native.getTargetApp() : Promise.resolve(null)),
   isKeyboardContext: () => (Native ? Native.isKeyboardContext() : Promise.resolve(false)),
-  /** Verifica se o Sales Copilot está ativado no sistema */
+  /** Verifica se o KEYCON está ativado no sistema */
   isKeyboardEnabled: () => (Native ? Native.isKeyboardEnabled() : Promise.resolve(false)),
-  /** Verifica se o Sales Copilot é o teclado selecionado atualmente */
+  /** Verifica se o KEYCON é o teclado selecionado atualmente */
   isKeyboardSelected: () => (Native ? Native.isKeyboardSelected() : Promise.resolve(false)),
   /** Abre o seletor rápido de teclados do sistema */
   openInputMethodPicker: () => (Native ? Native.openInputMethodPicker() : noop()),

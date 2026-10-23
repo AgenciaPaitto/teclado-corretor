@@ -40,7 +40,7 @@ import java.lang.ref.WeakReference
  * CustomKeyboardService
  * ---------------------------------------------------------------------------
  * Ponto de entrada do TECLADO no Android. O sistema cria esta classe quando o
- * usuário seleciona "Sales Copilot" e um campo de texto recebe foco em
+ * usuário seleciona "KEYCON" e um campo de texto recebe foco em
  * QUALQUER app (ex.: WhatsApp).
  *
  * Arquitetura da ponte:
@@ -194,7 +194,7 @@ class CustomKeyboardService : InputMethodService() {
         val container = KeyboardRootFrameLayout(themedContext, heightPx).apply {
             layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, heightPx)
             minimumHeight = heightPx
-            setBackgroundColor(Color.parseColor("#101216"))
+            setBackgroundColor(Color.parseColor("#1A1D24"))
         }
 
         // 1) Placeholder nativo imediato: garante visualização visível mesmo durante cold-start do JS
@@ -212,15 +212,15 @@ class CustomKeyboardService : InputMethodService() {
         val layout = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
-            setBackgroundColor(Color.parseColor("#101216"))
+            setBackgroundColor(Color.parseColor("#1A1D24"))
             val pad = (16 * density).toInt()
             setPadding(pad, 0, pad, 0)
             layoutParams = FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT)
         }
 
         val titleView = TextView(context).apply {
-            text = "Sales Copilot"
-            setTextColor(Color.parseColor("#F1F5F9"))
+            text = "KEYCON"
+            setTextColor(Color.parseColor("#FFFFFF"))
             textSize = 15f
             typeface = android.graphics.Typeface.DEFAULT_BOLD
             gravity = Gravity.CENTER
@@ -228,7 +228,7 @@ class CustomKeyboardService : InputMethodService() {
 
         val subtitleView = TextView(context).apply {
             text = "Carregando catálogo e atalhos..."
-            setTextColor(Color.parseColor("#94A3B8"))
+            setTextColor(Color.parseColor("#8C93A1"))
             textSize = 12f
             gravity = Gravity.CENTER
             setPadding(0, (6 * density).toInt(), 0, (12 * density).toInt())

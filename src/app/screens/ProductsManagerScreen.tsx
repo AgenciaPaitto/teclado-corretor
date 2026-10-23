@@ -11,7 +11,8 @@ import {
 import { Repo } from '../../storage/storage';
 import type { MediaItem, Product, ProductFolder } from '../../types';
 import { formatBRL, formatPrice, normalizeUrl, parseBRL } from '../../utils/formatters';
-import { makeStyles, radius, spacing, useColors } from '../../keyboard/theme';
+import { makeStyles, radius, spacing, touchTarget, typography, useColors } from '../../keyboard/theme';
+import { Icon, IconTile } from '../../keyboard/components/Icon';
 
 /** Formulário de pasta: id null = criando uma pasta nova. */
 interface FolderForm {
@@ -384,7 +385,8 @@ export function ProductsManagerScreen() {
           <Pressable
             style={styles.smallAddBtn}
             onPress={() => setMediaForm({ type, title: '', url: '', duration: '' })}>
-            <Text style={styles.smallAddBtnText}>+ Adicionar link</Text>
+            <Icon name="adicionar" size={16} color={colors.text} />
+            <Text style={styles.smallAddBtnText}>Adicionar link</Text>
           </Pressable>
         </View>
 
@@ -461,7 +463,8 @@ export function ProductsManagerScreen() {
     return (
       <ScrollView style={styles.container} contentContainerStyle={styles.content}>
         <Pressable style={styles.backBtn} onPress={() => openProduct(null)}>
-          <Text style={styles.backBtnText}>← Voltar aos produtos de {folder.name}</Text>
+          <Icon name="voltar" size={18} color={colors.textMuted} />
+          <Text style={styles.backBtnText}>Voltar aos produtos de {folder.name}</Text>
         </Pressable>
 
         {productForm ? (
@@ -503,8 +506,9 @@ export function ProductsManagerScreen() {
     return (
       <View style={styles.container}>
         <View style={styles.headerBar}>
-          <Pressable onPress={() => openFolder(null)}>
-            <Text style={styles.backBtnText}>← Todas as Pastas</Text>
+          <Pressable style={styles.headerBack} hitSlop={8} onPress={() => openFolder(null)}>
+            <Icon name="voltar" size={18} color={colors.textMuted} />
+            <Text style={styles.backBtnText}>Pastas</Text>
           </Pressable>
           <Text style={styles.headerTitle} numberOfLines={1}>{folder.name}</Text>
           <Pressable
@@ -513,7 +517,8 @@ export function ProductsManagerScreen() {
               setFolderForm(null);
               setProductForm(EMPTY_PRODUCT_FORM);
             }}>
-            <Text style={styles.addBtnText}>+ Novo Imóvel</Text>
+            <Icon name="adicionar" size={18} color={colors.onPrimary} />
+            <Text style={styles.addBtnText}>Novo Imóvel</Text>
           </Pressable>
         </View>
 
@@ -543,6 +548,7 @@ export function ProductsManagerScreen() {
             <Pressable
               style={styles.itemCard}
               onPress={() => openProduct(item.id)}>
+              <IconTile name="foto" size={40} />
               <View style={styles.itemInfo}>
                 <Text style={styles.itemTitle}>{item.title}</Text>
                 <Text style={styles.itemSub}>{formatPrice(item)} • {item.shortDescription}</Text>
@@ -566,7 +572,8 @@ export function ProductsManagerScreen() {
         <Pressable
           style={styles.addBtn}
           onPress={() => setFolderForm({ id: null, name: '', neighborhood: '' })}>
-          <Text style={styles.addBtnText}>+ Nova Pasta</Text>
+          <Icon name="novaPasta" size={18} color={colors.onPrimary} />
+          <Text style={styles.addBtnText}>Nova Pasta</Text>
         </Pressable>
       </View>
 
@@ -581,11 +588,12 @@ export function ProductsManagerScreen() {
           <Pressable
             style={styles.itemCard}
             onPress={() => openFolder(item.id)}>
+            <IconTile name="pasta" size={40} />
             <View style={styles.itemInfo}>
               <Text style={styles.itemTitle}>{item.name}</Text>
               <Text style={styles.itemSub}>{item.neighborhood || 'Região'} • {item.products.length} imóveis</Text>
             </View>
-            <Text style={styles.arrowIcon}>→</Text>
+            <Icon name="avancar" size={18} color={colors.textMuted} />
           </Pressable>
         )}
       />
@@ -595,99 +603,101 @@ export function ProductsManagerScreen() {
 
 const useStyles = makeStyles(colors => ({
   container: { flex: 1, backgroundColor: colors.bg },
-  content: { padding: spacing.md, paddingBottom: 40 },
+  content: { padding: spacing.lg, paddingBottom: spacing.xxl },
   headerBar: {
-    padding: spacing.md,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    gap: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.surfaceAlt,
+    gap: spacing.sm,
   },
+  headerBack: { flexDirection: 'row', alignItems: 'center', gap: 2 },
   headerTitle: {
     flexShrink: 1,
-    fontSize: 18,
-    fontWeight: '700',
+    ...typography.h2,
     color: colors.text,
   },
   badge: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: colors.info,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    ...typography.overline,
+    color: colors.primaryText,
+    marginBottom: 2,
   },
   addBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
     backgroundColor: colors.primary,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingHorizontal: spacing.md,
+    minHeight: touchTarget,
     borderRadius: radius.md,
   },
   addBtnText: {
     color: colors.onPrimary,
-    fontSize: 12,
-    fontWeight: '600',
+    ...typography.button,
   },
   folderActions: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
-    gap: 16,
-    paddingHorizontal: spacing.md,
-    paddingTop: spacing.sm,
+    gap: spacing.xl,
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.xs,
   },
-  linkText: { color: colors.primary, fontSize: 12, fontWeight: '600' },
-  deleteText: { color: colors.danger, fontSize: 12, fontWeight: '600' },
-  backBtn: { marginBottom: spacing.md },
-  backBtnText: { color: colors.textMuted, fontSize: 12, fontWeight: '600' },
+  linkText: { color: colors.primaryText, fontSize: 14, fontWeight: '600' },
+  deleteText: { color: colors.danger, fontSize: 14, fontWeight: '600' },
+  backBtn: { flexDirection: 'row', alignItems: 'center', gap: 2, marginBottom: spacing.md, minHeight: 32 },
+  backBtnText: { color: colors.textMuted, fontSize: 14, fontWeight: '600' },
   card: {
     backgroundColor: colors.surface,
-    padding: spacing.md,
-    borderRadius: radius.lg,
-    marginBottom: spacing.md,
-    gap: 8,
+    padding: spacing.lg,
+    borderRadius: radius.xl,
+    marginBottom: spacing.lg,
+    gap: spacing.sm,
   },
-  title: { fontSize: 18, fontWeight: '700', color: colors.text },
-  price: { fontSize: 16, fontWeight: '700', color: colors.success },
-  desc: { fontSize: 12, color: colors.textSecondary, lineHeight: 18 },
+  title: { ...typography.h2, color: colors.text },
+  price: { fontSize: 17, fontWeight: '700', color: colors.successText },
+  desc: { ...typography.body, color: colors.textSecondary },
   cardHeaderRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
   sectionTitle: {
-    fontSize: 13,
-    fontWeight: '700',
+    ...typography.title,
     color: colors.text,
     marginBottom: 4,
   },
   smallAddBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
     backgroundColor: colors.surfaceAlt,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
+    paddingHorizontal: spacing.md,
+    minHeight: 36,
     borderRadius: radius.sm,
   },
   smallAddBtnText: {
     color: colors.text,
-    fontSize: 11,
+    fontSize: 13,
     fontWeight: '600',
   },
   cloudInfo: {
-    fontSize: 11,
+    fontSize: 13,
     color: colors.textMuted,
-    lineHeight: 16,
-    marginBottom: spacing.md,
+    lineHeight: 19,
+    marginBottom: spacing.lg,
   },
   hint: {
-    fontSize: 10,
+    fontSize: 12,
     color: colors.textMuted,
     marginTop: 2,
+    lineHeight: 17,
   },
   uploadBox: {
     backgroundColor: colors.surfaceAlt,
-    padding: 10,
+    padding: spacing.md,
     borderRadius: radius.md,
-    marginVertical: 8,
+    marginVertical: spacing.sm,
     gap: 6,
   },
   mediaItemRow: {
@@ -695,51 +705,51 @@ const useStyles = makeStyles(colors => ({
     justifyContent: 'space-between',
     alignItems: 'center',
     backgroundColor: colors.surfaceAlt,
-    padding: 10,
+    padding: spacing.md,
     borderRadius: radius.sm,
     marginTop: 6,
   },
-  mediaInfo: { flex: 1, marginRight: 8 },
-  mediaTitle: { color: colors.text, fontSize: 12, fontWeight: '600' },
-  mediaUrl: { color: colors.textMuted, fontSize: 10, marginTop: 2 },
+  mediaInfo: { flex: 1, marginRight: spacing.sm },
+  mediaTitle: { color: colors.text, fontSize: 14, fontWeight: '600' },
+  mediaUrl: { color: colors.textMuted, fontSize: 12, marginTop: 2 },
   emptyText: {
     color: colors.textMuted,
-    fontSize: 12,
+    fontSize: 14,
     textAlign: 'center',
-    paddingVertical: 12,
+    paddingVertical: spacing.lg,
   },
-  list: { padding: spacing.md, gap: 8 },
+  list: { paddingHorizontal: spacing.lg, paddingVertical: spacing.sm, gap: spacing.sm },
   itemCard: {
     backgroundColor: colors.surface,
-    padding: 14,
-    borderRadius: radius.md,
+    padding: spacing.md,
+    borderRadius: radius.lg,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    gap: spacing.md,
   },
   itemInfo: { flex: 1 },
-  itemTitle: { fontSize: 14, fontWeight: '600', color: colors.text },
-  itemSub: { fontSize: 11, color: colors.textMuted, marginTop: 2 },
-  itemMeta: { fontSize: 11, color: colors.textMuted, fontWeight: '500' },
-  arrowIcon: { fontSize: 14, color: colors.textMuted, fontWeight: '700' },
+  itemTitle: { fontSize: 15, fontWeight: '600', color: colors.text },
+  itemSub: { fontSize: 13, color: colors.textMuted, marginTop: 2 },
+  itemMeta: { fontSize: 12, color: colors.textMuted, fontWeight: '500' },
   newFolderBox: {
     backgroundColor: colors.surface,
-    padding: spacing.md,
-    margin: spacing.md,
-    borderRadius: radius.lg,
-    gap: 8,
+    padding: spacing.lg,
+    marginHorizontal: spacing.lg,
+    marginBottom: spacing.md,
+    borderRadius: radius.xl,
+    gap: spacing.sm,
   },
   formContainer: {
     backgroundColor: colors.surface,
-    padding: spacing.md,
-    margin: spacing.md,
-    borderRadius: radius.lg,
-    gap: 8,
-    maxHeight: 400,
+    padding: spacing.lg,
+    marginHorizontal: spacing.lg,
+    marginBottom: spacing.md,
+    borderRadius: radius.xl,
+    gap: spacing.sm,
+    maxHeight: 420,
   },
   label: {
-    fontSize: 11,
-    fontWeight: '600',
+    ...typography.label,
     color: colors.textSecondary,
     marginTop: 4,
   },
@@ -747,56 +757,62 @@ const useStyles = makeStyles(colors => ({
     backgroundColor: colors.surfaceAlt,
     color: colors.text,
     borderRadius: radius.md,
-    padding: 10,
-    fontSize: 12,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 10,
+    minHeight: touchTarget,
+    fontSize: 15,
   },
   textArea: {
-    minHeight: 60,
+    minHeight: 80,
     textAlignVertical: 'top',
   },
   segmentRow: {
     flexDirection: 'row',
-    gap: 8,
+    gap: spacing.sm,
   },
   segmentBtn: {
     flex: 1,
-    paddingVertical: 8,
+    minHeight: touchTarget,
+    justifyContent: 'center',
     backgroundColor: colors.surfaceAlt,
     borderRadius: radius.md,
     alignItems: 'center',
   },
   segmentBtnActive: {
-    backgroundColor: colors.primary,
+    backgroundColor: colors.primarySoft,
   },
-  segmentText: { color: colors.textMuted, fontSize: 12, fontWeight: '600' },
-  segmentTextActive: { color: colors.onPrimary },
+  segmentText: { color: colors.textMuted, fontSize: 14, fontWeight: '600' },
+  segmentTextActive: { color: colors.primaryText },
   formBtnsRow: {
     flexDirection: 'row',
-    gap: 8,
-    marginTop: 10,
+    gap: spacing.sm,
+    marginTop: spacing.md,
   },
   cancelBtn: {
     flex: 1,
     backgroundColor: colors.surfaceAlt,
-    paddingVertical: 10,
+    minHeight: touchTarget,
+    justifyContent: 'center',
     borderRadius: radius.md,
     alignItems: 'center',
   },
-  cancelBtnText: { color: colors.textMuted, fontSize: 12, fontWeight: '600' },
+  cancelBtnText: { color: colors.text, ...typography.button },
   saveBtn: {
     flex: 1,
     backgroundColor: colors.primary,
-    paddingVertical: 10,
+    minHeight: touchTarget,
+    justifyContent: 'center',
     borderRadius: radius.md,
     alignItems: 'center',
   },
-  saveBtnText: { color: colors.onPrimary, fontSize: 12, fontWeight: '600' },
+  saveBtnText: { color: colors.onPrimary, ...typography.button },
   dangerBtn: {
     flex: 1,
     backgroundColor: colors.dangerBg,
-    paddingVertical: 10,
+    minHeight: touchTarget,
+    justifyContent: 'center',
     borderRadius: radius.md,
     alignItems: 'center',
   },
-  dangerBtnText: { color: colors.danger, fontSize: 12, fontWeight: '600' },
+  dangerBtnText: { color: colors.danger, ...typography.button },
 }));

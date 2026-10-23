@@ -2,7 +2,8 @@ import React, { useCallback, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 import { AIServiceError, analyzeClipboardMessage } from '../../services/aiService';
 import type { AISuggestion, SuggestionTone } from '../../types';
-import { makeStyles, radius, spacing, useColors } from '../theme';
+import { makeStyles, radius, spacing, touchTarget, useColors } from '../theme';
+import { Icon } from './Icon';
 
 interface Props {
   onInsert: (text: string) => void;
@@ -21,7 +22,8 @@ const TONE_LABEL: Record<SuggestionTone, string> = {
 };
 
 /**
- * AI Copilot minimalista — sem emojis, bordas ou cantos coloridos.
+ * IA do teclado: analisa a mensagem que o usuário copiou (o teclado não lê a
+ * conversa sozinho) e sugere respostas para revisar e inserir.
  */
 export function AICopilotTab({ onInsert }: Props) {
   const colors = useColors();
@@ -47,9 +49,12 @@ export function AICopilotTab({ onInsert }: Props) {
         onPress={analyze}
         style={({ pressed }) => [styles.cta, pressed && styles.ctaPressed]}>
         {state.status === 'loading' ? (
-          <ActivityIndicator color={colors.text} size="small" />
+          <ActivityIndicator color={colors.onPrimary} size="small" />
         ) : (
-          <Text style={styles.ctaText}>Analisar mensagem copiada</Text>
+          <>
+            <Icon name="ia" size={18} color={colors.onPrimary} />
+            <Text style={styles.ctaText}>Analisar mensagem copiada</Text>
+          </>
         )}
       </Pressable>
 
@@ -86,30 +91,32 @@ const useStyles = makeStyles(colors => ({
     padding: spacing.sm,
   },
   cta: {
-    backgroundColor: colors.surfaceAlt,
+    flexDirection: 'row',
+    gap: spacing.sm,
+    backgroundColor: colors.primary,
     borderRadius: radius.md,
-    paddingVertical: 11,
+    minHeight: touchTarget,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   ctaPressed: {
-    backgroundColor: colors.surfaceActive,
+    backgroundColor: colors.primaryStrong,
   },
   ctaText: {
-    color: colors.text,
+    color: colors.onPrimary,
     fontWeight: '600',
-    fontSize: 13,
-    letterSpacing: 0.1,
+    fontSize: 15,
   },
   hint: {
     color: colors.textMuted,
-    fontSize: 12,
+    fontSize: 13,
     textAlign: 'center',
     marginTop: spacing.md,
-    lineHeight: 18,
+    lineHeight: 19,
   },
   error: {
-    color: colors.textMuted,
-    fontSize: 12,
+    color: colors.danger,
+    fontSize: 13,
     textAlign: 'center',
     marginTop: spacing.md,
   },
@@ -120,7 +127,7 @@ const useStyles = makeStyles(colors => ({
   quote: {
     color: colors.textMuted,
     fontStyle: 'italic',
-    fontSize: 12,
+    fontSize: 13,
     marginBottom: spacing.sm,
   },
   card: {
@@ -133,16 +140,16 @@ const useStyles = makeStyles(colors => ({
     backgroundColor: colors.surfaceAlt,
   },
   tone: {
-    color: colors.textSecondary,
-    fontSize: 11,
+    color: colors.violet,
+    fontSize: 12,
     fontWeight: '600',
     marginBottom: 4,
     textTransform: 'uppercase',
-    letterSpacing: 0.4,
+    letterSpacing: 0.6,
   },
   cardText: {
     color: colors.text,
-    fontSize: 13,
-    lineHeight: 18,
+    fontSize: 14,
+    lineHeight: 20,
   },
 }));

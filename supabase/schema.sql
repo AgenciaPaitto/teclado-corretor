@@ -1,5 +1,5 @@
 -- =============================================================================
--- Sales Copilot — esquema do banco no Supabase
+-- KEYCON — esquema do banco no Supabase
 -- -----------------------------------------------------------------------------
 -- Como usar: Supabase → SQL Editor → New query → colar este arquivo → Run.
 -- Cada corretor só enxerga e altera os PRÓPRIOS dados (Row Level Security).

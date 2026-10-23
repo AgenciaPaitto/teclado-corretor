@@ -1,8 +1,10 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Platform, Pressable, Text, View } from 'react-native';
 import { KeyboardBridge } from '../../native/KeyboardBridge';
-import { makeStyles, radius } from '../theme';
+import { makeStyles, radius, useColors } from '../theme';
 import { createDeleteRepeater } from '../utils/deleteRepeater';
+import type { IconName } from './Icon';
+import { Icon } from './Icon';
 
 /**
  * Teclado de digitação próprio (QWERTY pt-BR), portado do simulador web.
@@ -135,6 +137,7 @@ export function TypingKeyboard() {
         {mode === 'alpha' ? (
           <Key
             label={shift === 'lock' ? '⇪' : '⇧'}
+            icon={shift === 'lock' ? 'capsLock' : 'shift'}
             kind="func"
             flex={1.5}
             active={shift !== 'off'}
@@ -149,7 +152,7 @@ export function TypingKeyboard() {
           />
         )}
         {row3.map(letterKey)}
-        <Key label="⌫" kind="func" flex={1.5} onPressIn={deleteRepeater.start} onPressOut={stopDelete} />
+        <Key label="⌫" icon="apagar" kind="func" flex={1.5} onPressIn={deleteRepeater.start} onPressOut={stopDelete} />
       </View>
       <View style={styles.row}>
         <Key
@@ -158,11 +161,11 @@ export function TypingKeyboard() {
           flex={1.5}
           onPress={() => changeMode(mode === 'alpha' ? 'numeric' : 'alpha')}
         />
-        <Key label="🌐" kind="func" onPress={() => KeyboardBridge.switchKeyboard()} />
+        <Key label="🌐" icon="globo" kind="func" onPress={() => KeyboardBridge.switchKeyboard()} />
         <Key label="," onPress={() => type(',')} />
         <Key label="espaço" kind="space" flex={4} onPress={() => type(' ')} />
         <Key label="." onPress={() => type('.')} />
-        <Key label="↵" kind="enter" flex={1.5} onPress={() => KeyboardBridge.sendEnter()} />
+        <Key label="↵" icon="enter" kind="enter" flex={1.5} onPress={() => KeyboardBridge.sendEnter()} />
       </View>
     </View>
   );
@@ -170,6 +173,8 @@ export function TypingKeyboard() {
 
 interface KeyProps {
   label: string;
+  /** Ícone no lugar do texto (o label continua no testID e na acessibilidade). */
+  icon?: IconName;
   kind?: 'char' | 'func' | 'space' | 'enter';
   flex?: number;
   active?: boolean;
@@ -179,11 +184,13 @@ interface KeyProps {
   onPressOut?: () => void;
 }
 
-function Key({ label, kind = 'char', flex = 1, active, onPress, onLongPress, onPressIn, onPressOut }: KeyProps) {
+function Key({ label, icon, kind = 'char', flex = 1, active, onPress, onLongPress, onPressIn, onPressOut }: KeyProps) {
+  const colors = useColors();
   const styles = useStyles();
   return (
     <Pressable
       testID={`key-${label}`}
+      accessibilityLabel={label}
       {...WEB_NO_PRESS_DELAY}
       onPress={onPress}
       onLongPress={onLongPress}
@@ -195,17 +202,21 @@ function Key({ label, kind = 'char', flex = 1, active, onPress, onLongPress, onP
         { flex },
         kind === 'func' && styles.keyFunc,
         kind === 'enter' && styles.keyEnter,
-        (pressed || active) && styles.keyPressed,
+        (pressed || active) && (kind === 'enter' ? styles.keyEnterPressed : styles.keyPressed),
       ]}>
-      <Text
-        style={[
-          styles.label,
-          kind === 'func' && styles.labelFunc,
-          kind === 'space' && styles.labelSpace,
-          kind === 'enter' && styles.labelEnter,
-        ]}>
-        {label}
-      </Text>
+      {icon ? (
+        <Icon name={icon} size={22} color={kind === 'enter' ? colors.onPrimary : colors.text} />
+      ) : (
+        <Text
+          style={[
+            styles.label,
+            kind === 'func' && styles.labelFunc,
+            kind === 'space' && styles.labelSpace,
+            kind === 'enter' && styles.labelEnter,
+          ]}>
+          {label}
+        </Text>
+      )}
     </Pressable>
   );
 }
@@ -233,12 +244,12 @@ const useStyles = makeStyles(colors => ({
     flexDirection: 'row',
     gap: 5,
     padding: 4,
-    borderRadius: radius.md,
+    borderRadius: radius.sm,
     backgroundColor: colors.surfaceActive,
     zIndex: 10,
   },
   key: {
-    borderRadius: radius.sm,
+    borderRadius: radius.key,
     backgroundColor: colors.key,
     alignItems: 'center',
     justifyContent: 'center',
@@ -249,20 +260,23 @@ const useStyles = makeStyles(colors => ({
   keyEnter: {
     backgroundColor: colors.primary,
   },
+  keyEnterPressed: {
+    backgroundColor: colors.primaryStrong,
+  },
   keyPressed: {
     backgroundColor: colors.keyActive,
   },
   label: {
     color: colors.text,
-    fontSize: 18,
+    fontSize: 19,
   },
   labelFunc: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '600',
-    color: colors.textSecondary,
+    color: colors.text,
   },
   labelSpace: {
-    fontSize: 12,
+    fontSize: 13,
     color: colors.textMuted,
   },
   labelEnter: {

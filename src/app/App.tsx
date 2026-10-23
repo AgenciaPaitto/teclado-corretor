@@ -1,5 +1,5 @@
 /**
- * App.tsx — Container App Principal do Corretor de Imóveis
+ * App.tsx — App KEYCON (container do teclado)
  * -------------------------------------------------------------
  * Gerencia a conta do corretor, onboarding e passo a passo de
  * instalação do teclado no Android e iOS, catálogo de produtos,
@@ -18,7 +18,10 @@ import { pullProfile, restoreSession, signOut, startAuthSync } from '../services
 import { supabase } from '../services/supabase';
 import { Repo } from '../storage/storage';
 import type { ThemePreference } from '../types';
-import { makeStyles, radius, ThemeProvider, useColors } from '../keyboard/theme';
+import { Icon } from '../keyboard/components/Icon';
+import type { IconName } from '../keyboard/components/Icon';
+import { KeyconLogo } from '../keyboard/components/KeyconLogo';
+import { makeStyles, radius, spacing, ThemeProvider, useColors } from '../keyboard/theme';
 import { AuthScreen } from './screens/AuthScreen';
 import { OnboardingGuideScreen } from './screens/OnboardingGuideScreen';
 import { ProductsManagerScreen } from './screens/ProductsManagerScreen';
@@ -26,6 +29,14 @@ import { ProfileSettingsScreen } from './screens/ProfileSettingsScreen';
 import { ShortcutsManagerScreen } from './screens/ShortcutsManagerScreen';
 
 type AppTab = 'onboarding' | 'products' | 'shortcuts' | 'profile';
+
+const NAV_ITEMS: Array<{ key: AppTab; label: string; icon: IconName }> = [
+  { key: 'onboarding', label: 'Instalação', icon: 'teclado' },
+  { key: 'products', label: 'Produtos', icon: 'arquivos' },
+  { key: 'shortcuts', label: 'Atalhos', icon: 'atalhos' },
+  // Configurações = engrenagem (manual de marca)
+  { key: 'profile', label: 'Conta', icon: 'configuracoes' },
+];
 
 export default function App() {
   const [theme, setTheme] = useState<ThemePreference>(() => Repo.getTheme());
@@ -81,20 +92,16 @@ function AppShell({ onThemeChange }: { onThemeChange: (theme: ThemePreference) =
 
   return (
     <SafeAreaView style={styles.root}>
-      <StatusBar barStyle={barStyle} backgroundColor={colors.bg} />
+      <StatusBar barStyle={barStyle} backgroundColor={colors.surface} />
 
-      {/* Top Header */}
+      {/* Cabeçalho: logotipo KEYCON + atalho para a conta */}
       <View style={styles.topHeader}>
-        <View>
-          <Text style={styles.appTitle}>Sales Copilot</Text>
-          <Text style={styles.appSubTitle}>Painel de Controle do Aplicativo</Text>
-        </View>
+        <KeyconLogo size={28} />
         <Pressable
-          style={styles.headerBadge}
+          style={styles.avatar}
+          accessibilityLabel="Abrir conta"
           onPress={() => setCurrentTab('profile')}>
-          <Text style={styles.headerBadgeText}>
-            {brokerName.split(' ')[0] || 'Perfil'}
-          </Text>
+          <Text style={styles.avatarText}>{initials(brokerName)}</Text>
         </Pressable>
       </View>
 
@@ -117,40 +124,32 @@ function AppShell({ onThemeChange }: { onThemeChange: (theme: ThemePreference) =
 
       {/* Menu Inferior de Navegação do App Container */}
       <View style={styles.navBar}>
-        <Pressable
-          style={[styles.navBtn, currentTab === 'onboarding' && styles.navBtnActive]}
-          onPress={() => setCurrentTab('onboarding')}>
-          <Text style={[styles.navLabel, currentTab === 'onboarding' && styles.navLabelActive]}>
-            Instalação
-          </Text>
-        </Pressable>
-
-        <Pressable
-          style={[styles.navBtn, currentTab === 'products' && styles.navBtnActive]}
-          onPress={() => setCurrentTab('products')}>
-          <Text style={[styles.navLabel, currentTab === 'products' && styles.navLabelActive]}>
-            Produtos & Fotos
-          </Text>
-        </Pressable>
-
-        <Pressable
-          style={[styles.navBtn, currentTab === 'shortcuts' && styles.navBtnActive]}
-          onPress={() => setCurrentTab('shortcuts')}>
-          <Text style={[styles.navLabel, currentTab === 'shortcuts' && styles.navLabelActive]}>
-            Atalhos
-          </Text>
-        </Pressable>
-
-        <Pressable
-          style={[styles.navBtn, currentTab === 'profile' && styles.navBtnActive]}
-          onPress={() => setCurrentTab('profile')}>
-          <Text style={[styles.navLabel, currentTab === 'profile' && styles.navLabelActive]}>
-            Conta
-          </Text>
-        </Pressable>
+        {NAV_ITEMS.map(item => {
+          const active = currentTab === item.key;
+          return (
+            <Pressable
+              key={item.key}
+              accessibilityRole="tab"
+              accessibilityState={{ selected: active }}
+              style={styles.navBtn}
+              onPress={() => setCurrentTab(item.key)}>
+              <Icon name={item.icon} size={22} color={active ? colors.primary : colors.textMuted} />
+              <Text style={[styles.navLabel, active && styles.navLabelActive]}>{item.label}</Text>
+            </Pressable>
+          );
+        })}
       </View>
     </SafeAreaView>
   );
+}
+
+/** Iniciais do corretor para o avatar do cabeçalho (ex.: "Ana Souza" → "AS"). */
+function initials(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return 'K';
+  const first = parts[0][0];
+  const last = parts.length > 1 ? parts[parts.length - 1][0] : '';
+  return (first + last).toUpperCase();
 }
 
 const useStyles = makeStyles(colors => ({
@@ -162,33 +161,25 @@ const useStyles = makeStyles(colors => ({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+    minHeight: 56,
     borderBottomWidth: 1,
-    borderBottomColor: colors.surfaceAlt,
+    borderBottomColor: colors.divider,
     backgroundColor: colors.surface,
   },
-  appTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: colors.text,
-    letterSpacing: -0.2,
-  },
-  appSubTitle: {
-    fontSize: 11,
-    color: colors.textMuted,
-    marginTop: 1,
-  },
-  headerBadge: {
-    backgroundColor: colors.surfaceAlt,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
+  avatar: {
+    width: 40,
+    height: 40,
     borderRadius: radius.pill,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  headerBadgeText: {
-    color: colors.text,
-    fontSize: 12,
-    fontWeight: '600',
+  avatarText: {
+    color: colors.onPrimary,
+    fontSize: 14,
+    fontWeight: '700',
   },
   screenBody: {
     flex: 1,
@@ -197,27 +188,25 @@ const useStyles = makeStyles(colors => ({
     flexDirection: 'row',
     backgroundColor: colors.surface,
     borderTopWidth: 1,
-    borderTopColor: colors.surfaceAlt,
-    paddingVertical: 6,
-    paddingHorizontal: 8,
-    gap: 4,
+    borderTopColor: colors.divider,
+    paddingTop: 6,
+    paddingBottom: spacing.sm,
+    paddingHorizontal: spacing.sm,
   },
   navBtn: {
     flex: 1,
-    paddingVertical: 8,
+    minHeight: 52,
     alignItems: 'center',
-    borderRadius: radius.md,
-  },
-  navBtnActive: {
-    backgroundColor: colors.surfaceAlt,
+    justifyContent: 'center',
+    gap: 3,
   },
   navLabel: {
-    fontSize: 11,
+    fontSize: 12,
     color: colors.textMuted,
     fontWeight: '500',
   },
   navLabelActive: {
-    color: colors.text,
-    fontWeight: '700',
+    color: colors.primaryText,
+    fontWeight: '600',
   },
 }));

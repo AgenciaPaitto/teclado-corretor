@@ -1,7 +1,7 @@
 /**
- * CorretorKeyboard.tsx — Componente RAIZ do teclado (Minimalista).
+ * CorretorKeyboard.tsx — Componente RAIZ do teclado KEYCON.
  * Menu com os botões do sistema mantido SEMPRE VISÍVEL no topo do teclado:
- * ABC (teclado de letras próprio), Produtos, Atalhos, Copilot e Mais.
+ * ABC (teclado de letras próprio), Produtos, Atalhos, IA e Mais.
  */
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Animated, Text, View } from 'react-native';
@@ -70,7 +70,7 @@ function ErrorFallback({ message, onRetry }: { message: string | null; onRetry: 
   const styles = useStyles();
   return (
     <View style={[styles.root, styles.errorContainer]}>
-      <Text style={styles.errorTitle}>Sales Copilot</Text>
+      <Text style={styles.errorTitle}>KEYCON</Text>
       <Text style={styles.errorSubtitle}>{message || 'Erro ao inicializar visualização'}</Text>
       <Text style={styles.errorButton} onPress={onRetry}>
         Tentar novamente
@@ -268,14 +268,14 @@ const useStyles = makeStyles(colors => ({
     alignSelf: 'center',
     maxWidth: '90%',
     backgroundColor: colors.toastBg,
-    borderRadius: radius.lg,
+    borderRadius: radius.sm,
     paddingHorizontal: 16,
-    paddingVertical: 7,
+    paddingVertical: 8,
     zIndex: 99,
   },
   toastText: {
-    color: colors.textSecondary,
-    fontSize: 12,
+    color: colors.toastText,
+    fontSize: 13,
     fontWeight: '500',
     textAlign: 'center',
   },
@@ -286,20 +286,21 @@ const useStyles = makeStyles(colors => ({
   },
   errorTitle: {
     color: colors.text,
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: '700',
+    letterSpacing: 0.5,
     marginBottom: 6,
   },
   errorSubtitle: {
     color: colors.danger,
-    fontSize: 12,
+    fontSize: 13,
     textAlign: 'center',
     marginBottom: 12,
   },
   errorButton: {
-    color: colors.accent,
-    fontSize: 13,
+    color: colors.primaryText,
+    fontSize: 15,
     fontWeight: '600',
-    padding: 8,
+    padding: 12,
   },
 }));

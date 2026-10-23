@@ -4,12 +4,15 @@ import {
   Alert,
   Pressable,
   ScrollView,
+  StyleSheet,
   Text,
   TextInput,
   View,
 } from 'react-native';
+import Svg, { Defs, RadialGradient, Rect, Stop } from 'react-native-svg';
 import { AuthError, signIn, signUp } from '../../services/auth';
-import { makeStyles, radius, spacing, useColors } from '../../keyboard/theme';
+import { KeyconMark } from '../../keyboard/components/KeyconLogo';
+import { brand, makeStyles, radius, spacing, touchTarget, typography, useColors } from '../../keyboard/theme';
 
 interface Props {
   onSuccess: () => void;
@@ -78,112 +81,130 @@ export function AuthScreen({ onSuccess }: Props) {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <View style={styles.header}>
-        <Text style={styles.badge}>Acesso do Corretor</Text>
-        <Text style={styles.title}>
-          {isRegister ? 'Crie sua Conta' : 'Acesse sua Conta'}
-        </Text>
-        <Text style={styles.subtitle}>
-          Configure seu perfil profissional para sincronizar seus dados, imóveis e atalhos com o teclado.
-        </Text>
+      {/* Abertura: grafite com brilho coral, símbolo K e slogan (manual de marca) */}
+      <View style={styles.hero}>
+        <Svg style={StyleSheet.absoluteFill} width="100%" height="100%">
+          <Defs>
+            <RadialGradient id="authGlow" cx="88%" cy="0%" r="85%" fx="88%" fy="0%">
+              <Stop offset="0" stopColor={brand.coral} stopOpacity={0.6} />
+              <Stop offset="0.45" stopColor={brand.coral} stopOpacity={0.18} />
+              <Stop offset="1" stopColor={brand.coral} stopOpacity={0} />
+            </RadialGradient>
+          </Defs>
+          <Rect width="100%" height="100%" fill="url(#authGlow)" />
+        </Svg>
+        <KeyconMark size={72} />
+        <Text style={styles.heroBrand}>KEYCON</Text>
+        <Text style={styles.heroTagline}>Seu negócio na ponta dos dedos.</Text>
       </View>
 
-      <View style={styles.tabToggle}>
-        <Pressable
-          style={[styles.toggleBtn, !isRegister && styles.toggleBtnActive]}
-          onPress={() => setIsRegister(false)}>
-          <Text style={[styles.toggleText, !isRegister && styles.toggleTextActive]}>
-            Entrar
+      <View style={styles.body}>
+        <View style={styles.header}>
+          <Text style={styles.title}>
+            {isRegister ? 'Crie sua conta' : 'Entre na sua conta'}
           </Text>
-        </Pressable>
-        <Pressable
-          style={[styles.toggleBtn, isRegister && styles.toggleBtnActive]}
-          onPress={() => setIsRegister(true)}>
-          <Text style={[styles.toggleText, isRegister && styles.toggleTextActive]}>
-            Criar Nova Conta
+          <Text style={styles.subtitle}>
+            Seus dados, imóveis e atalhos ficam sincronizados com o teclado.
           </Text>
-        </Pressable>
-      </View>
+        </View>
 
-      <View style={styles.formCard}>
-        {isRegister && (
-          <>
-            <Text style={styles.label}>Nome Completo</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Ex: Ana Souza"
-              placeholderTextColor={colors.textMuted}
-              value={name}
-              onChangeText={setName}
-            />
-          </>
-        )}
-
-        <Text style={styles.label}>E-mail</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="seu.email@imobiliaria.com.br"
-          placeholderTextColor={colors.textMuted}
-          keyboardType="email-address"
-          autoCapitalize="none"
-          value={email}
-          onChangeText={setEmail}
-        />
-
-        <Text style={styles.label}>Senha</Text>
-        <TextInput
-          style={styles.input}
-          placeholder={isRegister ? 'Crie uma senha (mínimo 6 caracteres)' : 'Sua senha de acesso'}
-          placeholderTextColor={colors.textMuted}
-          secureTextEntry
-          value={password}
-          onChangeText={setPassword}
-        />
-
-        {isRegister && (
-          <>
-            <Text style={styles.label}>Número do CRECI (com UF)</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Ex: 123456-F/SP"
-              placeholderTextColor={colors.textMuted}
-              value={creci}
-              onChangeText={setCreci}
-            />
-
-            <Text style={styles.label}>Nome da Imobiliária / Agência</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Ex: Prime Imóveis"
-              placeholderTextColor={colors.textMuted}
-              value={agency}
-              onChangeText={setAgency}
-            />
-
-            <Text style={styles.label}>Telefone com WhatsApp</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Ex: (11) 98888-7777"
-              placeholderTextColor={colors.textMuted}
-              keyboardType="phone-pad"
-              value={phone}
-              onChangeText={setPhone}
-            />
-          </>
-        )}
-
-        <Pressable
-          style={[styles.submitBtn, loading && styles.submitBtnDisabled]}
-          disabled={loading}
-          onPress={handleSubmit}>
-          {loading ? (
-            <ActivityIndicator color={colors.onPrimary} />
-          ) : (
-            <Text style={styles.submitBtnText}>
-              {isRegister ? 'Concluir Cadastro & Entrar' : 'Entrar no Sistema'}
+        <View style={styles.tabToggle}>
+          <Pressable
+            style={[styles.toggleBtn, !isRegister && styles.toggleBtnActive]}
+            onPress={() => setIsRegister(false)}>
+            <Text style={[styles.toggleText, !isRegister && styles.toggleTextActive]}>
+              Entrar
             </Text>
+          </Pressable>
+          <Pressable
+            style={[styles.toggleBtn, isRegister && styles.toggleBtnActive]}
+            onPress={() => setIsRegister(true)}>
+            <Text style={[styles.toggleText, isRegister && styles.toggleTextActive]}>
+              Criar conta
+            </Text>
+          </Pressable>
+        </View>
+
+        <View style={styles.formCard}>
+          {isRegister && (
+            <>
+              <Text style={styles.label}>Nome Completo</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Ex: Ana Souza"
+                placeholderTextColor={colors.textMuted}
+                value={name}
+                onChangeText={setName}
+              />
+            </>
           )}
-        </Pressable>
+
+          <Text style={styles.label}>E-mail</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="seu.email@imobiliaria.com.br"
+            placeholderTextColor={colors.textMuted}
+            keyboardType="email-address"
+            autoCapitalize="none"
+            value={email}
+            onChangeText={setEmail}
+          />
+
+          <Text style={styles.label}>Senha</Text>
+          <TextInput
+            style={styles.input}
+            placeholder={isRegister ? 'Crie uma senha (mínimo 6 caracteres)' : 'Sua senha de acesso'}
+            placeholderTextColor={colors.textMuted}
+            secureTextEntry
+            value={password}
+            onChangeText={setPassword}
+          />
+
+          {isRegister && (
+            <>
+              <Text style={styles.label}>Número do CRECI (com UF)</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Ex: 123456-F/SP"
+                placeholderTextColor={colors.textMuted}
+                value={creci}
+                onChangeText={setCreci}
+              />
+
+              <Text style={styles.label}>Nome da Imobiliária / Agência</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Ex: Prime Imóveis"
+                placeholderTextColor={colors.textMuted}
+                value={agency}
+                onChangeText={setAgency}
+              />
+
+              <Text style={styles.label}>Telefone com WhatsApp</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Ex: (11) 98888-7777"
+                placeholderTextColor={colors.textMuted}
+                keyboardType="phone-pad"
+                value={phone}
+                onChangeText={setPhone}
+              />
+            </>
+          )}
+
+          <Pressable
+            style={({ pressed }) => [styles.submitBtn, pressed && styles.submitBtnPressed, loading && styles.submitBtnDisabled]}
+            disabled={loading}
+            onPress={handleSubmit}>
+            {loading ? (
+              <ActivityIndicator color={colors.onPrimary} />
+            ) : (
+              <Text style={styles.submitBtnText}>
+                {isRegister ? 'Criar conta e entrar' : 'Entrar'}
+              </Text>
+            )}
+          </Pressable>
+        </View>
       </View>
     </ScrollView>
   );
@@ -191,84 +212,103 @@ export function AuthScreen({ onSuccess }: Props) {
 
 const useStyles = makeStyles(colors => ({
   container: { flex: 1, backgroundColor: colors.bg },
-  content: { padding: spacing.md, paddingBottom: 40 },
-  header: { marginBottom: spacing.md },
-  badge: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: colors.info,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginBottom: 4,
+  content: { paddingBottom: spacing.xxl },
+  hero: {
+    alignItems: 'center',
+    paddingTop: spacing.xxl + spacing.lg,
+    paddingBottom: spacing.xxl,
+    backgroundColor: brand.graphite,
+    borderBottomLeftRadius: radius.xl + 4,
+    borderBottomRightRadius: radius.xl + 4,
+    overflow: 'hidden',
   },
-  title: {
-    fontSize: 22,
+  heroBrand: {
+    color: brand.white,
+    fontSize: 28,
     fontWeight: '700',
+    letterSpacing: 1,
+    marginTop: spacing.md,
+  },
+  heroTagline: {
+    color: '#C9CDD6',
+    fontSize: 15,
+    marginTop: spacing.xs,
+  },
+  body: { padding: spacing.lg },
+  header: { marginBottom: spacing.lg, marginTop: spacing.sm },
+  title: {
+    ...typography.h2,
     color: colors.text,
-    letterSpacing: -0.3,
-    marginBottom: 4,
+    marginBottom: spacing.xs,
   },
   subtitle: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    lineHeight: 18,
+    ...typography.body,
+    color: colors.textMuted,
   },
   tabToggle: {
     flexDirection: 'row',
-    gap: 8,
-    marginBottom: spacing.md,
+    gap: spacing.xs,
+    padding: spacing.xs,
+    marginBottom: spacing.lg,
+    backgroundColor: colors.surface,
+    borderRadius: radius.md,
   },
   toggleBtn: {
     flex: 1,
-    paddingVertical: 10,
-    backgroundColor: colors.surface,
-    borderRadius: radius.md,
+    minHeight: 40,
+    justifyContent: 'center',
+    borderRadius: radius.sm,
     alignItems: 'center',
   },
   toggleBtnActive: {
-    backgroundColor: colors.surfaceAlt,
+    backgroundColor: colors.primarySoft,
   },
   toggleText: {
-    fontSize: 12,
+    fontSize: 14,
     fontWeight: '500',
     color: colors.textMuted,
   },
   toggleTextActive: {
-    color: colors.text,
-    fontWeight: '700',
+    color: colors.primaryText,
+    fontWeight: '600',
   },
   formCard: {
     backgroundColor: colors.surface,
-    padding: spacing.md,
-    borderRadius: radius.lg,
-    gap: 10,
+    padding: spacing.lg,
+    borderRadius: radius.xl,
+    gap: spacing.sm,
   },
   label: {
-    fontSize: 11,
-    fontWeight: '600',
+    ...typography.label,
     color: colors.textSecondary,
-    marginBottom: 2,
+    marginTop: spacing.xs,
   },
   input: {
     backgroundColor: colors.surfaceAlt,
     color: colors.text,
     borderRadius: radius.md,
-    padding: 12,
-    fontSize: 13,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 12,
+    minHeight: touchTarget + 4,
+    fontSize: 15,
   },
   submitBtn: {
     backgroundColor: colors.primary,
-    paddingVertical: 14,
+    minHeight: touchTarget + 4,
+    justifyContent: 'center',
     borderRadius: radius.md,
     alignItems: 'center',
-    marginTop: 10,
+    marginTop: spacing.md,
+  },
+  submitBtnPressed: {
+    backgroundColor: colors.primaryStrong,
   },
   submitBtnDisabled: {
     opacity: 0.7,
   },
   submitBtnText: {
     color: colors.onPrimary,
-    fontSize: 13,
-    fontWeight: '700',
+    fontSize: 16,
+    fontWeight: '600',
   },
 }));

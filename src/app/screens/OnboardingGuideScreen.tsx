@@ -9,7 +9,9 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { makeStyles, radius, spacing, useColors } from '../../keyboard/theme';
+import { makeStyles, radius, spacing, touchTarget, typography, useColors } from '../../keyboard/theme';
+import { Icon } from '../../keyboard/components/Icon';
+import { KeyconMark } from '../../keyboard/components/KeyconLogo';
 import { KeyboardBridge } from '../../native/KeyboardBridge';
 
 export function OnboardingGuideScreen() {
@@ -65,8 +67,13 @@ export function OnboardingGuideScreen() {
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       {/* Banner Introdutório */}
       <View style={styles.heroCard}>
-        <Text style={styles.heroBadge}>Ativação do Teclado</Text>
-        <Text style={styles.heroTitle}>Sales Copilot</Text>
+        <View style={styles.heroTop}>
+          <KeyconMark size={40} />
+          <View style={styles.heroTitles}>
+            <Text style={styles.heroBadge}>Ativação do teclado</Text>
+            <Text style={styles.heroTitle}>KEYCON</Text>
+          </View>
+        </View>
         <Text style={styles.heroDesc}>
           Para usar o teclado no WhatsApp e em qualquer aplicativo, siga os dois passos
           rápidos de ativação abaixo.
@@ -98,11 +105,15 @@ export function OnboardingGuideScreen() {
 
           {/* Status Geral */}
           <View style={[styles.statusBox, isSelected ? styles.statusBoxReady : styles.statusBoxPending]}>
-            <Text style={styles.statusBoxIcon}>{isSelected ? '✓' : 'ℹ'}</Text>
+            <Icon
+              name={isSelected ? 'check' : 'info'}
+              size={22}
+              color={isSelected ? colors.successText : colors.textMuted}
+            />
             <View style={styles.statusBoxContent}>
               <Text style={styles.statusBoxTitle}>
                 {isSelected
-                  ? 'Sales Copilot Ativo e Pronto!'
+                  ? 'KEYCON ativo e pronto!'
                   : isEnabled
                   ? 'Habilitado, aguardando seleção como teclado atual'
                   : 'Teclado ainda não habilitado no sistema'}
@@ -111,7 +122,7 @@ export function OnboardingGuideScreen() {
                 {isSelected
                   ? 'Você já pode digitar ou testar no campo abaixo e usar no WhatsApp.'
                   : isEnabled
-                  ? 'Toque no Passo 2 abaixo para selecionar o Sales Copilot.'
+                  ? 'Toque no Passo 2 abaixo para selecionar o KEYCON.'
                   : 'Toque no Passo 1 abaixo para ligar a chave do teclado.'}
               </Text>
             </View>
@@ -127,7 +138,7 @@ export function OnboardingGuideScreen() {
                 Passo 1: Habilitar em 'Gerenciar Teclados'
               </Text>
               <Text style={styles.stepDesc}>
-                Ative a chave ao lado de <Text style={styles.bold}>Sales Copilot</Text> nas configurações do seu celular.
+                Ative a chave ao lado de <Text style={styles.bold}>KEYCON</Text> nas configurações do seu celular.
               </Text>
               <Pressable
                 style={[styles.actionBtn, isEnabled && styles.actionBtnDone]}
@@ -149,13 +160,13 @@ export function OnboardingGuideScreen() {
                 Passo 2: Selecionar como Teclado Ativo
               </Text>
               <Text style={styles.stepDesc}>
-                O Android exige escolher qual teclado você deseja usar no momento. Toque no botão abaixo e escolha <Text style={styles.bold}>Sales Copilot</Text>.
+                O Android exige escolher qual teclado você deseja usar no momento. Toque no botão abaixo e escolha <Text style={styles.bold}>KEYCON</Text>.
               </Text>
               <Pressable
                 style={[styles.actionBtnPrimary, isSelected && styles.actionBtnDone]}
                 onPress={openPicker}>
                 <Text style={[styles.actionBtnPrimaryText, isSelected && styles.actionBtnDoneText]}>
-                  {isSelected ? '✓ Selecionado como Teclado Atual' : '2. Selecionar Sales Copilot Agora'}
+                  {isSelected ? '✓ Selecionado como Teclado Atual' : '2. Selecionar KEYCON Agora'}
                 </Text>
               </Pressable>
             </View>
@@ -163,9 +174,9 @@ export function OnboardingGuideScreen() {
 
           {/* Dica para alternar no dia a dia */}
           <View style={styles.tipBox}>
-            <Text style={styles.tipTitle}>💡 Como alternar no dia a dia:</Text>
+            <Text style={styles.tipTitle}>Como alternar no dia a dia</Text>
             <Text style={styles.tipDesc}>
-              Quando estiver no WhatsApp ou em qualquer aplicativo, use o botão de globo (🌐) ou o ícone de teclado na barra inferior de navegação do Android para alternar entre o Sales Copilot e o teclado tradicional a qualquer momento.
+              Quando estiver no WhatsApp ou em qualquer aplicativo, use o botão de globo (🌐) ou o ícone de teclado na barra inferior de navegação do Android para alternar entre o KEYCON e o teclado tradicional a qualquer momento.
             </Text>
           </View>
         </View>
@@ -187,9 +198,9 @@ export function OnboardingGuideScreen() {
           <View style={styles.stepRow}>
             <View style={styles.stepNum}><Text style={styles.stepNumText}>2</Text></View>
             <View style={styles.stepBody}>
-              <Text style={styles.stepHeading}>Selecione 'Sales Copilot'</Text>
+              <Text style={styles.stepHeading}>Selecione 'KEYCON'</Text>
               <Text style={styles.stepDesc}>
-                Na seção de teclados de terceiros, selecione <Text style={styles.bold}>Sales Copilot</Text>.
+                Na seção de teclados de terceiros, selecione <Text style={styles.bold}>KEYCON</Text>.
               </Text>
             </View>
           </View>
@@ -199,7 +210,7 @@ export function OnboardingGuideScreen() {
             <View style={styles.stepBody}>
               <Text style={styles.stepHeading}>ATIVAR 'Permitir Acesso Total'</Text>
               <Text style={styles.stepDesc}>
-                Toque em <Text style={styles.bold}>Sales Copilot</Text> na lista de teclados adicionados e ative <Text style={styles.bold}>Permitir Acesso Total</Text>. Esse passo é fundamental para o Copilot de IA e fotos na nuvem.
+                Toque em <Text style={styles.bold}>KEYCON</Text> na lista de teclados adicionados e ative <Text style={styles.bold}>Permitir Acesso Total</Text>. Esse passo é fundamental para a IA e as fotos na nuvem.
               </Text>
             </View>
           </View>
@@ -209,7 +220,7 @@ export function OnboardingGuideScreen() {
             <View style={styles.stepBody}>
               <Text style={styles.stepHeading}>Alternar no WhatsApp</Text>
               <Text style={styles.stepDesc}>
-                No WhatsApp, toque e segure no ícone do Globo (🌐) na parte inferior esquerda e escolha o Sales Copilot.
+                No WhatsApp, toque e segure no ícone do Globo (🌐) na parte inferior esquerda e escolha o KEYCON.
               </Text>
             </View>
           </View>
@@ -246,75 +257,75 @@ export function OnboardingGuideScreen() {
 
 const useStyles = makeStyles(colors => ({
   container: { flex: 1, backgroundColor: colors.bg },
-  content: { padding: spacing.md, paddingBottom: 40 },
+  content: { padding: spacing.lg, paddingBottom: spacing.xxl },
   heroCard: {
     backgroundColor: colors.surface,
-    padding: spacing.md,
-    borderRadius: radius.lg,
-    marginBottom: spacing.md,
+    padding: spacing.lg,
+    borderRadius: radius.xl,
+    marginBottom: spacing.lg,
+    gap: spacing.md,
   },
+  heroTop: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
+  heroTitles: { flex: 1 },
   heroBadge: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: colors.info,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginBottom: 4,
+    ...typography.overline,
+    color: colors.primaryText,
+    marginBottom: 2,
   },
   heroTitle: {
-    fontSize: 20,
+    ...typography.h2,
     fontWeight: '700',
+    letterSpacing: 0.5,
     color: colors.text,
-    letterSpacing: -0.3,
-    marginBottom: 6,
   },
   heroDesc: {
-    fontSize: 12,
+    ...typography.body,
     color: colors.textSecondary,
-    lineHeight: 18,
   },
   platformSelector: {
     flexDirection: 'row',
-    gap: 8,
-    marginBottom: spacing.md,
+    gap: spacing.xs,
+    padding: spacing.xs,
+    marginBottom: spacing.lg,
+    backgroundColor: colors.surface,
+    borderRadius: radius.md,
   },
   platBtn: {
     flex: 1,
-    paddingVertical: 10,
-    backgroundColor: colors.surface,
-    borderRadius: radius.md,
+    minHeight: 40,
+    justifyContent: 'center',
+    borderRadius: radius.sm,
     alignItems: 'center',
   },
   platBtnActive: {
-    backgroundColor: colors.surfaceAlt,
+    backgroundColor: colors.primarySoft,
   },
   platText: {
-    fontSize: 12,
+    fontSize: 14,
     fontWeight: '500',
     color: colors.textMuted,
   },
   platTextActive: {
-    color: colors.text,
-    fontWeight: '700',
+    color: colors.primaryText,
+    fontWeight: '600',
   },
   stepsCard: {
     backgroundColor: colors.surface,
-    padding: spacing.md,
-    borderRadius: radius.lg,
-    marginBottom: spacing.md,
-    gap: 16,
+    padding: spacing.lg,
+    borderRadius: radius.xl,
+    marginBottom: spacing.lg,
+    gap: spacing.lg,
   },
   stepsTitle: {
-    fontSize: 14,
-    fontWeight: '700',
+    ...typography.title,
     color: colors.text,
   },
   statusBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 12,
+    padding: spacing.md,
     borderRadius: radius.md,
-    gap: 10,
+    gap: spacing.md,
   },
   statusBoxReady: {
     backgroundColor: colors.successBg,
@@ -322,59 +333,53 @@ const useStyles = makeStyles(colors => ({
   statusBoxPending: {
     backgroundColor: colors.surfaceAlt,
   },
-  statusBoxIcon: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: colors.success,
-  },
   statusBoxContent: {
     flex: 1,
   },
   statusBoxTitle: {
-    fontSize: 12,
-    fontWeight: '700',
+    fontSize: 15,
+    fontWeight: '600',
     color: colors.text,
     marginBottom: 2,
   },
   statusBoxSubtitle: {
-    fontSize: 11,
+    fontSize: 13,
     color: colors.textSecondary,
-    lineHeight: 15,
+    lineHeight: 19,
   },
   stepRow: {
     flexDirection: 'row',
-    gap: 12,
+    gap: spacing.md,
     alignItems: 'flex-start',
   },
   stepNum: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: colors.surfaceAlt,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: colors.primarySoft,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 2,
   },
   stepNumDone: {
     backgroundColor: colors.successStrong,
   },
   stepNumText: {
     color: colors.text,
-    fontSize: 11,
+    fontSize: 13,
     fontWeight: '700',
   },
   stepBody: { flex: 1 },
   stepHeading: {
-    fontSize: 12,
+    fontSize: 15,
     fontWeight: '600',
     color: colors.text,
     marginBottom: 2,
   },
   stepDesc: {
-    fontSize: 11,
+    fontSize: 14,
     color: colors.textMuted,
-    lineHeight: 16,
-    marginBottom: 8,
+    lineHeight: 20,
+    marginBottom: spacing.sm,
   },
   bold: {
     color: colors.text,
@@ -382,8 +387,9 @@ const useStyles = makeStyles(colors => ({
   },
   actionBtn: {
     backgroundColor: colors.surfaceAlt,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
+    minHeight: touchTarget,
+    justifyContent: 'center',
+    paddingHorizontal: spacing.md,
     borderRadius: radius.md,
     alignItems: 'center',
   },
@@ -392,74 +398,71 @@ const useStyles = makeStyles(colors => ({
   },
   actionBtnText: {
     color: colors.text,
-    fontSize: 12,
-    fontWeight: '600',
+    ...typography.button,
   },
   actionBtnPrimary: {
-    backgroundColor: colors.primaryStrong,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
+    backgroundColor: colors.primary,
+    minHeight: touchTarget,
+    justifyContent: 'center',
+    paddingHorizontal: spacing.md,
     borderRadius: radius.md,
     alignItems: 'center',
   },
   actionBtnPrimaryText: {
     color: colors.onPrimary,
-    fontSize: 12,
-    fontWeight: '700',
+    ...typography.button,
   },
   actionBtnDoneText: {
     color: colors.successText,
   },
   tipBox: {
     backgroundColor: colors.surfaceAlt,
-    padding: 10,
+    padding: spacing.md,
     borderRadius: radius.md,
-    marginTop: 4,
   },
   tipTitle: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: colors.info,
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.text,
     marginBottom: 2,
   },
   tipDesc: {
-    fontSize: 10,
+    fontSize: 13,
     color: colors.textMuted,
-    lineHeight: 14,
+    lineHeight: 19,
   },
   testCard: {
     backgroundColor: colors.surface,
-    padding: spacing.md,
-    borderRadius: radius.lg,
-    gap: 8,
+    padding: spacing.lg,
+    borderRadius: radius.xl,
+    gap: spacing.sm,
   },
   testTitle: {
-    fontSize: 13,
-    fontWeight: '700',
+    ...typography.title,
     color: colors.text,
   },
   testDesc: {
-    fontSize: 11,
+    fontSize: 14,
     color: colors.textMuted,
-    lineHeight: 16,
+    lineHeight: 20,
   },
   testInput: {
     backgroundColor: colors.surfaceAlt,
     color: colors.text,
     borderRadius: radius.md,
-    padding: 12,
-    fontSize: 13,
-    minHeight: 70,
+    padding: spacing.md,
+    fontSize: 15,
+    minHeight: 80,
     textAlignVertical: 'top',
   },
   clearBtn: {
     alignSelf: 'flex-end',
-    paddingVertical: 4,
-    paddingHorizontal: 8,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.sm,
   },
   clearBtnText: {
-    fontSize: 11,
-    color: colors.textMuted,
-    fontWeight: '500',
+    fontSize: 13,
+    color: colors.primaryText,
+    fontWeight: '600',
   },
 }));

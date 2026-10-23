@@ -1,5 +1,5 @@
 /**
- * Build da versão web de testes do Sales Copilot (react-native-web + Vite).
+ * Build da versão web de testes do KEYCON (react-native-web + Vite).
  *   npm run web:dev    → servidor local para desenvolvimento
  *   npm run web:build  → gera a pasta dist/ (estática, pronta para qualquer servidor)
  */
@@ -23,7 +23,11 @@ export default defineConfig({
     global: 'globalThis',
   },
   resolve: {
-    alias: { 'react-native': 'react-native-web' },
+    alias: {
+      'react-native': 'react-native-web',
+      // O react-native-svg importa o registro de assets do RN (Flow); na web usa o do react-native-web
+      '@react-native/assets-registry/registry': 'react-native-web/dist/modules/AssetRegistry',
+    },
     extensions,
   },
   optimizeDeps: {

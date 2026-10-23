@@ -1,4 +1,6 @@
-# 🏡 Sales Copilot — Teclado para corretores (React Native + TypeScript)
+# KEYCON — Teclado com CRM para corretores (React Native + TypeScript)
+
+> Seu negócio na ponta dos dedos.
 
 Teclado de sistema (IME Android / Keyboard Extension iOS) para corretores de imóveis,
 utilizável dentro do WhatsApp ou de qualquer app. O app principal só faz login e configuração.
@@ -35,13 +37,25 @@ utilizável dentro do WhatsApp ou de qualquer app. O app principal só faz login
 | `src/storage/storage.ts` | Repositório MMKV compartilhado |
 | `backend/server.ts` | Rota Node.js que chama a OpenAI com saída JSON estruturada |
 
+## Identidade visual (manual KEYCON v1.0)
+
+| O quê | Onde |
+|---|---|
+| Cores (grafite `#242833`, coral `#F17860`, cloud `#F1F2F4`, branco), status, raios, espaçamentos, escala tipográfica | `src/keyboard/theme.ts` |
+| Fonte Inter 400/500/600/700 (aplicada sozinha pelo `makeStyles`) | `android/app/src/main/assets/fonts/` |
+| Ícones funcionais (cores do manual; Configurações = engrenagem) | `src/keyboard/components/Icon.tsx` |
+| Símbolo K e logotipo KEYCON (vetor aproximado, só para a interface) | `src/keyboard/components/KeyconLogo.tsx` |
+
+Coral só em ações, marca e estados ativos; grafite como cor estrutural. O ícone oficial do app
+(launcher / App Store) é a arte renderizada em PNG 1024 × 1024 sem transparência — **não** usar o K vetorial.
+
 ## Passo a passo
 
 ### 1. Criar o projeto base e copiar os arquivos
 ```bash
 npx @react-native-community/cli@latest init CorretorKeyboard --version 0.74.5 --package-name com.corretorkeyboard
 cd CorretorKeyboard
-npm i react-native-mmkv@^2.12.2 @react-native-clipboard/clipboard
+npm i react-native-mmkv@^2.12.2 @react-native-clipboard/clipboard react-native-svg@15.8.0
 ```
 Copie `src/`, `index.js`, `backend/` e os arquivos de `android/` e `ios/` deste repositório por cima.
 
@@ -55,7 +69,7 @@ Copie `src/`, `index.js`, `backend/` e os arquivos de `android/` e `ios/` deste 
        PackageList(this).packages.apply { add(KeyboardBridgePackage()) }
    ```
 4. `npm run android` → no app, toque em **Abrir configurações de teclado** → ative
-   “Sales Copilot” → no WhatsApp, troque de teclado (ícone ⌨️ na barra de navegação).
+   “KEYCON” → no WhatsApp, troque de teclado (ícone ⌨️ na barra de navegação).
 
 ### 3. iOS
 1. Xcode → File › New › Target › **Custom Keyboard Extension** (`CorretorKeyboardExtension`).
@@ -69,7 +83,11 @@ Copie `src/`, `index.js`, `backend/` e os arquivos de `android/` e `ios/` deste 
 4. Ative **App Groups** (`group.com.corretorkeyboard`) no app **e** na extensão, e adicione a
    chave `AppGroup` também no `Info.plist` do app (o MMKV lê esta chave).
 5. Inclua `main.jsbundle` no "Copy Bundle Resources" da extensão (build de release).
-6. Ajustes › Geral › Teclado › Teclados › Adicionar › “Sales Copilot” → **Permitir Acesso Total**.
+6. Fonte da marca: arraste os 4 arquivos `Inter-*.otf` de `android/app/src/main/assets/fonts/` para o
+   Xcode, marcando os dois targets (app e extensão), e adicione a lista `UIAppFonts` (igual à do
+   `Info.plist` da extensão) também no `Info.plist` do app. Depois rode `cd ios && pod install`
+   (o `react-native-svg` tem parte nativa).
+7. Ajustes › Geral › Teclado › Teclados › Adicionar › “KEYCON” → **Permitir Acesso Total**.
 
 ### 4. Backend de IA
 ```bash

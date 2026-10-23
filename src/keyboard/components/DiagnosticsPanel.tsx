@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 import { KeyboardBridge } from '../../native/KeyboardBridge';
 import { acceptsMime } from '../../utils/mime';
-import { makeStyles, radius, spacing, useColors } from '../theme';
+import { makeStyles, radius, spacing, touchTarget, useColors } from '../theme';
 
 interface Props {
   onInsert: (text: string) => void;
@@ -59,7 +59,7 @@ export function DiagnosticsPanel({ onInsert }: Props) {
   const formats = mimeTypes.length > 0 ? mimeTypes.join(', ') : 'Nenhum (o campo só aceita texto)';
 
   const report = [
-    'Diagnóstico do Sales Copilot',
+    'Diagnóstico do KEYCON',
     `App em foco: ${targetApp || 'desconhecido'}`,
     `Formatos aceitos: ${formats}`,
     ...checks.map(c => `${c.label} direto na conversa: ${c.ok ? 'sim' : 'não'}`),
@@ -84,8 +84,8 @@ export function DiagnosticsPanel({ onInsert }: Props) {
         <Pressable style={styles.btn} onPress={load}>
           <Text style={styles.btnText}>Atualizar</Text>
         </Pressable>
-        <Pressable style={styles.btn} onPress={() => onInsert(report)}>
-          <Text style={styles.btnText}>Inserir relatório</Text>
+        <Pressable style={[styles.btn, styles.btnPrimary]} onPress={() => onInsert(report)}>
+          <Text style={[styles.btnText, styles.btnPrimaryText]}>Inserir relatório</Text>
         </Pressable>
       </View>
     </ScrollView>
@@ -105,25 +105,28 @@ function Row({ label, value, highlight }: { label: string; value: string; highli
 const useStyles = makeStyles(colors => ({
   container: { padding: spacing.sm, gap: spacing.sm },
   loading: { marginTop: spacing.lg },
-  error: { color: colors.textMuted, fontSize: 12, textAlign: 'center', marginTop: spacing.lg, padding: spacing.md },
-  hint: { color: colors.textMuted, fontSize: 11, lineHeight: 15 },
+  error: { color: colors.danger, fontSize: 13, textAlign: 'center', marginTop: spacing.lg, padding: spacing.md },
+  hint: { color: colors.textMuted, fontSize: 12, lineHeight: 17 },
   card: {
     backgroundColor: colors.surface,
     borderRadius: radius.md,
     padding: spacing.md,
-    gap: 8,
+    gap: spacing.sm,
   },
   row: { gap: 2 },
-  rowLabel: { color: colors.textMuted, fontSize: 11 },
-  rowValue: { color: colors.text, fontSize: 12, fontWeight: '600' },
-  rowValueOk: { color: colors.success },
-  actions: { flexDirection: 'row', gap: 8 },
+  rowLabel: { color: colors.textMuted, fontSize: 12 },
+  rowValue: { color: colors.text, fontSize: 14, fontWeight: '600' },
+  rowValueOk: { color: colors.successText },
+  actions: { flexDirection: 'row', gap: spacing.sm },
   btn: {
     flex: 1,
     backgroundColor: colors.surfaceAlt,
-    paddingVertical: 9,
+    minHeight: touchTarget,
+    justifyContent: 'center',
     borderRadius: radius.sm,
     alignItems: 'center',
   },
-  btnText: { color: colors.text, fontSize: 12, fontWeight: '600' },
+  btnPrimary: { backgroundColor: colors.primary },
+  btnText: { color: colors.text, fontSize: 15, fontWeight: '600' },
+  btnPrimaryText: { color: colors.onPrimary },
 }));

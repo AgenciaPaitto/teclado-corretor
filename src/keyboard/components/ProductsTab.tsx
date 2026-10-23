@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import { FlatList, Pressable, ScrollView, Text, View } from 'react-native';
 import type { MediaItem, Product, ProductFolder } from '../../types';
 import { formatPrice, formatProductMessage } from '../../utils/formatters';
-import { makeStyles, radius, spacing } from '../theme';
+import { makeStyles, radius, spacing, touchTarget, useColors } from '../theme';
+import { Icon } from './Icon';
 import { ItemCard } from './ItemCard';
 
 interface Props {
@@ -24,6 +25,7 @@ type ProductDetailView = 'details' | 'photos' | 'videos';
  * Mídias hospedadas em Cloud Object Storage sem ocupar armazenamento do dispositivo.
  */
 export function ProductsTab({ folders, onInsert, onSendImage, onShare }: Props) {
+  const colors = useColors();
   const styles = useStyles();
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
   const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
@@ -47,6 +49,7 @@ export function ProductsTab({ folders, onInsert, onSendImage, onShare }: Props) 
             title={item.name}
             subtitle={item.neighborhood || 'Região'}
             meta={`${item.products.length} itens`}
+            icon="pasta"
             onPress={() => setSelectedFolderId(item.id)}
           />
         )}
@@ -59,6 +62,7 @@ export function ProductsTab({ folders, onInsert, onSendImage, onShare }: Props) 
     return (
       <View style={styles.flex}>
         <Pressable testID="folder-back" onPress={() => setSelectedFolderId(null)} style={styles.breadcrumb}>
+          <Icon name="voltar" size={18} color={colors.textMuted} />
           <Text style={styles.back}>Voltar</Text>
           <Text style={styles.crumbTitle} numberOfLines={1}>{folder.name}</Text>
         </Pressable>
@@ -88,6 +92,7 @@ export function ProductsTab({ folders, onInsert, onSendImage, onShare }: Props) 
   return (
     <View style={styles.flex}>
       <Pressable testID="product-back" onPress={() => setSelectedProductId(null)} style={styles.breadcrumb}>
+        <Icon name="voltar" size={18} color={colors.textMuted} />
         <Text style={styles.back}>Voltar</Text>
         <Text style={styles.crumbTitle} numberOfLines={1}>{product.title}</Text>
       </Pressable>
@@ -156,8 +161,11 @@ export function ProductsTab({ folders, onInsert, onSendImage, onShare }: Props) 
                 style={styles.mediaCard}
                 onPress={() => onSendImage(item.url, item.title)}
                 onLongPress={() => onInsert(photoLink(item))}>
-                <Text style={styles.mediaTitle}>{item.title}</Text>
-                <Text style={styles.mediaMeta}>Toque: enviar a foto • Segure: enviar o link</Text>
+                <Icon name="foto" size={20} />
+                <View style={styles.flex}>
+                  <Text style={styles.mediaTitle}>{item.title}</Text>
+                  <Text style={styles.mediaMeta}>Toque: enviar a foto • Segure: enviar o link</Text>
+                </View>
               </Pressable>
             )}
           />
@@ -175,10 +183,13 @@ export function ProductsTab({ folders, onInsert, onSendImage, onShare }: Props) 
                 style={styles.mediaCard}
                 onPress={() => onShare([item.url], videoLink(item))}
                 onLongPress={() => onInsert(videoLink(item))}>
-                <Text style={styles.mediaTitle}>{item.title}</Text>
-                <Text style={styles.mediaMeta}>
-                  {item.duration ? `${item.duration} • ` : ''}Toque: enviar o vídeo • Segure: enviar o link
-                </Text>
+                <Icon name="video" size={20} />
+                <View style={styles.flex}>
+                  <Text style={styles.mediaTitle}>{item.title}</Text>
+                  <Text style={styles.mediaMeta}>
+                    {item.duration ? `${item.duration} • ` : ''}Toque: enviar o vídeo • Segure: enviar o link
+                  </Text>
+                </View>
               </Pressable>
             )}
           />
@@ -191,41 +202,42 @@ export function ProductsTab({ folders, onInsert, onSendImage, onShare }: Props) 
 const useStyles = makeStyles(colors => ({
   flex: { flex: 1 },
   list: { padding: spacing.sm },
-  empty: { color: colors.textMuted, textAlign: 'center', marginTop: 24, fontSize: 13 },
+  empty: { color: colors.textMuted, textAlign: 'center', marginTop: spacing.xl, fontSize: 13 },
   breadcrumb: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.md,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
+    gap: spacing.xs,
+    minHeight: touchTarget,
+    paddingHorizontal: spacing.sm,
     backgroundColor: colors.bg,
   },
-  back: { color: colors.textMuted, fontWeight: '600', fontSize: 12 },
-  crumbTitle: { color: colors.text, fontWeight: '600', fontSize: 13, flex: 1 },
+  back: { color: colors.textMuted, fontWeight: '600', fontSize: 13, marginRight: spacing.sm },
+  crumbTitle: { color: colors.text, fontWeight: '600', fontSize: 15, flex: 1 },
   subTabBar: {
     flexDirection: 'row',
     paddingHorizontal: spacing.sm,
     gap: 6,
     paddingBottom: 6,
     borderBottomWidth: 1,
-    borderBottomColor: colors.surfaceAlt,
+    borderBottomColor: colors.divider,
   },
   subTab: {
     flex: 1,
     alignItems: 'center',
-    paddingVertical: 6,
+    justifyContent: 'center',
+    minHeight: 36,
     borderRadius: radius.sm,
   },
   subTabActive: {
-    backgroundColor: colors.surfaceAlt,
+    backgroundColor: colors.primarySoft,
   },
   subTabLabel: {
-    fontSize: 11,
+    fontSize: 13,
     color: colors.textMuted,
     fontWeight: '500',
   },
   subTabLabelActive: {
-    color: colors.text,
+    color: colors.primaryText,
     fontWeight: '600',
   },
   productBody: {
@@ -233,49 +245,54 @@ const useStyles = makeStyles(colors => ({
     padding: spacing.sm,
   },
   detailsContainer: {
-    padding: spacing.sm,
+    padding: spacing.md,
     backgroundColor: colors.surface,
     borderRadius: radius.md,
-    gap: 8,
+    gap: spacing.sm,
   },
   productPrice: {
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: '700',
     color: colors.text,
   },
   productDesc: {
-    fontSize: 12,
+    fontSize: 14,
     color: colors.textSecondary,
-    lineHeight: 18,
+    lineHeight: 20,
   },
   actionBtn: {
-    backgroundColor: colors.surfaceAlt,
-    paddingVertical: 8,
+    backgroundColor: colors.primary,
+    minHeight: touchTarget,
+    justifyContent: 'center',
     borderRadius: radius.sm,
     alignItems: 'center',
     marginTop: 6,
+    marginBottom: 6,
   },
   actionBtnText: {
-    color: colors.text,
-    fontSize: 12,
+    color: colors.onPrimary,
+    fontSize: 15,
     fontWeight: '600',
   },
   mediaList: {
     gap: 6,
   },
   mediaCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
     backgroundColor: colors.surface,
-    padding: 10,
-    borderRadius: radius.sm,
+    padding: spacing.md,
+    borderRadius: radius.md,
   },
   mediaTitle: {
     color: colors.text,
-    fontSize: 12,
+    fontSize: 14,
     fontWeight: '600',
   },
   mediaMeta: {
     color: colors.textMuted,
-    fontSize: 11,
+    fontSize: 12,
     marginTop: 2,
   },
 }));

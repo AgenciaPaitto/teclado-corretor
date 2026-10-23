@@ -9,7 +9,8 @@ import {
 } from 'react-native';
 import { Repo } from '../../storage/storage';
 import type { BrokerProfile, ThemePreference } from '../../types';
-import { makeStyles, radius, spacing } from '../../keyboard/theme';
+import { makeStyles, radius, spacing, touchTarget, typography, useColors } from '../../keyboard/theme';
+import { Icon } from '../../keyboard/components/Icon';
 import { AI_CONFIG } from '../../services/aiService';
 import { AuthError, currentEmail, pushProfile } from '../../services/auth';
 
@@ -20,6 +21,7 @@ interface Props {
 }
 
 export function ProfileSettingsScreen({ onLogout, onThemeChange, onProfileChange }: Props) {
+  const colors = useColors();
   const styles = useStyles();
   const [broker, setBroker] = useState<BrokerProfile>(() => Repo.getBroker());
   const [theme, setTheme] = useState<ThemePreference>(() => Repo.getTheme());
@@ -101,7 +103,7 @@ export function ProfileSettingsScreen({ onLogout, onThemeChange, onProfileChange
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <View style={styles.header}>
-        <Text style={styles.badge}>Configurações Gerais</Text>
+        <Text style={styles.badge}>Configurações gerais</Text>
         <Text style={styles.title}>Perfil & Sistema</Text>
       </View>
 
@@ -202,7 +204,7 @@ export function ProfileSettingsScreen({ onLogout, onThemeChange, onProfileChange
                 </Text>
                 <Text style={styles.themeSubDesc}>{opt.desc}</Text>
               </View>
-              {isSelected && <Text style={styles.checkmark}>✓</Text>}
+              {isSelected && <Icon name="check" size={20} color={colors.primaryText} />}
             </Pressable>
           );
         })}
@@ -233,8 +235,8 @@ export function ProfileSettingsScreen({ onLogout, onThemeChange, onProfileChange
           <Text style={[styles.statusDot, AI_CONFIG.useMock && styles.statusDotPending]}>●</Text>
           <Text style={styles.statusText}>
             {AI_CONFIG.useMock
-              ? 'AI Copilot em modo demonstração (servidor não configurado)'
-              : 'AI Copilot conectado ao servidor'}
+              ? 'IA em modo demonstração (servidor não configurado)'
+              : 'IA conectada ao servidor'}
           </Text>
         </View>
       </View>
@@ -246,7 +248,8 @@ export function ProfileSettingsScreen({ onLogout, onThemeChange, onProfileChange
         </Pressable>
 
         <Pressable style={styles.logoutBtn} onPress={onLogout}>
-          <Text style={styles.logoutBtnText}>Sair da Conta</Text>
+          <Icon name="sair" size={18} color={colors.danger} />
+          <Text style={styles.logoutBtnText}>Sair da conta</Text>
         </Pressable>
       </View>
     </ScrollView>
@@ -255,28 +258,23 @@ export function ProfileSettingsScreen({ onLogout, onThemeChange, onProfileChange
 
 const useStyles = makeStyles(colors => ({
   container: { flex: 1, backgroundColor: colors.bg },
-  content: { padding: spacing.md, paddingBottom: 40 },
-  header: { marginBottom: spacing.md },
+  content: { padding: spacing.lg, paddingBottom: spacing.xxl },
+  header: { marginBottom: spacing.lg },
   badge: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: colors.info,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginBottom: 4,
+    ...typography.overline,
+    color: colors.primaryText,
+    marginBottom: 2,
   },
   title: {
-    fontSize: 22,
-    fontWeight: '700',
+    ...typography.h2,
     color: colors.text,
-    letterSpacing: -0.3,
   },
   card: {
     backgroundColor: colors.surface,
-    padding: spacing.md,
-    borderRadius: radius.lg,
-    marginBottom: spacing.md,
-    gap: 8,
+    padding: spacing.lg,
+    borderRadius: radius.xl,
+    marginBottom: spacing.lg,
+    gap: spacing.sm,
   },
   cardHeader: {
     flexDirection: 'row',
@@ -285,88 +283,92 @@ const useStyles = makeStyles(colors => ({
     marginBottom: 4,
   },
   sectionTitle: {
-    fontSize: 13,
-    fontWeight: '700',
+    ...typography.title,
     color: colors.text,
   },
   sectionDesc: {
-    fontSize: 11,
+    fontSize: 13,
     color: colors.textMuted,
     marginBottom: 4,
   },
   editBtnText: {
-    color: colors.primary,
-    fontSize: 12,
+    color: colors.primaryText,
+    fontSize: 14,
     fontWeight: '600',
   },
-  profileDetails: { gap: 6 },
+  profileDetails: { gap: 2 },
   detailRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingVertical: 4,
+    gap: spacing.md,
+    paddingVertical: 10,
     borderBottomWidth: 1,
-    borderBottomColor: colors.surfaceAlt,
+    borderBottomColor: colors.divider,
   },
-  detailLabel: { fontSize: 12, color: colors.textMuted },
-  detailValue: { fontSize: 12, fontWeight: '600', color: colors.text },
-  formGap: { gap: 8 },
-  label: { fontSize: 11, fontWeight: '600', color: colors.textSecondary },
+  detailLabel: { fontSize: 14, color: colors.textMuted },
+  detailValue: { flexShrink: 1, textAlign: 'right', fontSize: 14, fontWeight: '600', color: colors.text },
+  formGap: { gap: spacing.sm },
+  label: { ...typography.label, color: colors.textSecondary },
   input: {
     backgroundColor: colors.surfaceAlt,
     color: colors.text,
     borderRadius: radius.md,
-    padding: 10,
-    fontSize: 12,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 10,
+    minHeight: touchTarget,
+    fontSize: 15,
   },
   saveBtn: {
     backgroundColor: colors.primary,
-    paddingVertical: 10,
+    minHeight: touchTarget,
+    justifyContent: 'center',
     borderRadius: radius.md,
     alignItems: 'center',
-    marginTop: 6,
+    marginTop: spacing.sm,
   },
-  saveBtnText: { color: colors.onPrimary, fontSize: 12, fontWeight: '600' },
+  saveBtnText: { color: colors.onPrimary, ...typography.button },
   themeOptionRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     backgroundColor: colors.surfaceAlt,
-    padding: 12,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
     borderRadius: radius.md,
     marginTop: 4,
   },
   themeOptionRowActive: {
-    borderWidth: 1,
-    borderColor: colors.primary,
+    backgroundColor: colors.primarySoft,
   },
-  themeLabel: { fontSize: 12, fontWeight: '500', color: colors.textSecondary },
-  themeLabelActive: { color: colors.text, fontWeight: '700' },
-  themeSubDesc: { fontSize: 10, color: colors.textMuted, marginTop: 2 },
-  checkmark: { color: colors.primary, fontWeight: '700', fontSize: 14 },
+  themeLabel: { fontSize: 15, fontWeight: '500', color: colors.textSecondary },
+  themeLabelActive: { color: colors.text, fontWeight: '600' },
+  themeSubDesc: { fontSize: 12, color: colors.textMuted, marginTop: 2 },
   statusRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    paddingVertical: 3,
+    gap: spacing.sm,
+    paddingVertical: 4,
   },
-  statusDot: { color: colors.success, fontSize: 10 },
+  statusDot: { color: colors.success, fontSize: 12 },
   statusDotPending: { color: colors.warning },
-  statusText: { color: colors.textSecondary, fontSize: 11, flex: 1 },
-  actionsCard: { gap: 8, marginTop: 4 },
+  statusText: { color: colors.textSecondary, fontSize: 13, lineHeight: 19, flex: 1 },
+  actionsCard: { gap: spacing.sm, marginTop: 4 },
   resetBtn: {
     backgroundColor: colors.surface,
-    paddingVertical: 12,
+    minHeight: touchTarget,
+    justifyContent: 'center',
     borderRadius: radius.md,
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: colors.surfaceAlt,
   },
-  resetBtnText: { color: colors.textMuted, fontSize: 12, fontWeight: '500' },
+  resetBtnText: { color: colors.textSecondary, ...typography.button, fontWeight: '500' },
   logoutBtn: {
+    flexDirection: 'row',
+    gap: spacing.sm,
     backgroundColor: colors.dangerBg,
-    paddingVertical: 12,
+    minHeight: touchTarget,
+    justifyContent: 'center',
     borderRadius: radius.md,
     alignItems: 'center',
   },
-  logoutBtnText: { color: colors.danger, fontSize: 12, fontWeight: '600' },
+  logoutBtnText: { color: colors.danger, ...typography.button },
 }));
