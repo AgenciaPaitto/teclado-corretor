@@ -44,10 +44,12 @@ utilizável dentro do WhatsApp ou de qualquer app. O app principal só faz login
 | Cores (grafite `#242833`, coral `#F17860`, cloud `#F1F2F4`, branco), status, raios, espaçamentos, escala tipográfica | `src/keyboard/theme.ts` |
 | Fonte Inter 400/500/600/700 (aplicada sozinha pelo `makeStyles`) | `android/app/src/main/assets/fonts/` |
 | Ícones funcionais (cores do manual; Configurações = engrenagem) | `src/keyboard/components/Icon.tsx` |
-| Símbolo K e logotipo KEYCON (vetor aproximado, só para a interface) | `src/keyboard/components/KeyconLogo.tsx` |
+| Artes originais da marca (ícone, símbolo K, logotipos com e sem slogan) | `assets/` |
+| Versões otimizadas usadas no app + componente `KeyconLogo` / `KeyconMark` | `src/assets/brand/`, `src/keyboard/components/KeyconLogo.tsx` |
+| Ícone do app no Android (clássico, redondo e adaptativo) | `android/app/src/main/res/mipmap-*` |
+| Ícone do iPhone (App Store, 1024 × 1024 sem transparência) | `ios/AppIcon/AppIcon-1024.png` → arraste para o AppIcon no Xcode |
 
-Coral só em ações, marca e estados ativos; grafite como cor estrutural. O ícone oficial do app
-(launcher / App Store) é a arte renderizada em PNG 1024 × 1024 sem transparência — **não** usar o K vetorial.
+Coral só em ações, marca e estados ativos; grafite como cor estrutural.
 
 ## Passo a passo
 

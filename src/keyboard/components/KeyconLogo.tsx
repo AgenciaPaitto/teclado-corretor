@@ -1,80 +1,61 @@
 import React, { memo } from 'react';
-import { Text, View } from 'react-native';
-import Svg, { Defs, Line, LinearGradient, Stop } from 'react-native-svg';
-import { makeStyles } from '../theme';
+import { Image } from 'react-native';
+import type { ImageSourcePropType } from 'react-native';
+import { useColors } from '../theme';
+import symbolPng from '../../assets/brand/keycon-symbol.png';
+import logoLightPng from '../../assets/brand/keycon-logo-light.png';
+import logoDarkPng from '../../assets/brand/keycon-logo-dark.png';
+import sloganLightPng from '../../assets/brand/keycon-logo-slogan-light.png';
+import sloganDarkPng from '../../assets/brand/keycon-logo-slogan-dark.png';
 
 /**
- * Símbolo K coral do KEYCON (duas hastes + perna, com degradê para dar volume).
- *
- * ATENÇÃO (manual, pág. 3 e 15): este vetor é uma APROXIMAÇÃO para uso dentro
- * da interface. O ícone oficial do app (App Store / launcher) é a arte
- * renderizada em PNG 1024 × 1024 — não substituir pelo K vetorial.
+ * Marca oficial do KEYCON (artes em assets/, versões otimizadas em
+ * src/assets/brand). "light"/"dark" é a cor do TEXTO: texto claro para fundos
+ * escuros e texto grafite para fundos claros.
  */
+
+/** No Metro o import de PNG vira um id; no Vite (web) vira uma URL. */
+function source(mod: unknown): ImageSourcePropType {
+  return typeof mod === 'string' ? { uri: mod } : (mod as ImageSourcePropType);
+}
+
+// Proporções das artes originais (largura / altura)
+const SYMBOL_RATIO = 1334 / 1244;
+const LOGO_RATIO = 1569 / 335;
+const SLOGAN_RATIO = 1586 / 334;
+
+/** Símbolo K — para espaços pequenos (manual: usar o K sem o nome). */
 export const KeyconMark = memo(({ size = 32 }: { size?: number }) => (
-  <Svg width={size} height={size} viewBox="0 0 64 64">
-    <Defs>
-      <LinearGradient id="keyconStem" gradientUnits="userSpaceOnUse" x1="17" y1="7" x2="17" y2="43">
-        <Stop offset="0" stopColor="#FF9A80" />
-        <Stop offset="1" stopColor="#F17860" />
-      </LinearGradient>
-      <LinearGradient id="keyconLeg" gradientUnits="userSpaceOnUse" x1="24" y1="26" x2="55" y2="57">
-        <Stop offset="0" stopColor="#F17860" />
-        <Stop offset="1" stopColor="#E65B43" />
-      </LinearGradient>
-      <LinearGradient id="keyconArm" gradientUnits="userSpaceOnUse" x1="10" y1="56" x2="54" y2="10">
-        <Stop offset="0" stopColor="#FFC9B8" />
-        <Stop offset="1" stopColor="#F58468" />
-      </LinearGradient>
-    </Defs>
-    <Line x1="31" y1="33" x2="48" y2="50" stroke="url(#keyconLeg)" strokeWidth="14" strokeLinecap="round" />
-    <Line x1="17" y1="14" x2="17" y2="36" stroke="url(#keyconStem)" strokeWidth="14" strokeLinecap="round" />
-    <Line
-      x1="17"
-      y1="49"
-      x2="47"
-      y2="17"
-      stroke="url(#keyconArm)"
-      strokeWidth="14"
-      strokeLinecap="round"
-      strokeOpacity={0.95}
-    />
-  </Svg>
+  <Image
+    source={source(symbolPng)}
+    style={{ width: Math.round(size * SYMBOL_RATIO), height: size }}
+    resizeMode="contain"
+    accessibilityLabel="KEYCON"
+  />
 ));
 
 interface LogoProps {
-  /** Altura do símbolo; a assinatura acompanha a proporção. */
+  /** Altura da imagem. */
   size?: number;
-  /** Cor da assinatura KEYCON (grafite no claro, branco no escuro). */
-  color?: string;
-  layout?: 'horizontal' | 'vertical';
+  /** Versão com o slogan embaixo do nome. */
+  slogan?: boolean;
+  /** Força a cor do texto; sem isso, segue o tema (claro → texto grafite). */
+  textTone?: 'light' | 'dark';
 }
 
-/** Logotipo completo: símbolo K + assinatura KEYCON. */
-export const KeyconLogo = memo(({ size = 28, color, layout = 'horizontal' }: LogoProps) => {
-  const styles = useStyles();
-  const vertical = layout === 'vertical';
+/** Logotipo horizontal: símbolo K + KEYCON (com ou sem slogan). */
+export const KeyconLogo = memo(({ size = 28, slogan = false, textTone }: LogoProps) => {
+  const colors = useColors();
+  const tone = textTone ?? (colors.scheme === 'dark' ? 'light' : 'dark');
+  const mod = slogan
+    ? tone === 'light' ? sloganLightPng : sloganDarkPng
+    : tone === 'light' ? logoLightPng : logoDarkPng;
   return (
-    <View style={vertical ? styles.vertical : styles.horizontal} accessibilityRole="image" accessibilityLabel="KEYCON">
-      <KeyconMark size={size} />
-      <Text
-        style={[
-          styles.wordmark,
-          { fontSize: Math.round(size * (vertical ? 0.42 : 0.68)) },
-          color ? { color } : null,
-        ]}>
-        KEYCON
-      </Text>
-    </View>
+    <Image
+      source={source(mod)}
+      style={{ width: Math.round(size * (slogan ? SLOGAN_RATIO : LOGO_RATIO)), height: size }}
+      resizeMode="contain"
+      accessibilityLabel="KEYCON"
+    />
   );
 });
-
-const useStyles = makeStyles(colors => ({
-  horizontal: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  vertical: { alignItems: 'center', gap: 8 },
-  wordmark: {
-    color: colors.text,
-    fontSize: 19,
-    fontWeight: '700',
-    letterSpacing: 0.5,
-  },
-}));

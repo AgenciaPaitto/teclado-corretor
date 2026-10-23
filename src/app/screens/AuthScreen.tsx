@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import Svg, { Defs, RadialGradient, Rect, Stop } from 'react-native-svg';
 import { AuthError, signIn, signUp } from '../../services/auth';
-import { KeyconMark } from '../../keyboard/components/KeyconLogo';
+import { KeyconLogo } from '../../keyboard/components/KeyconLogo';
 import { brand, makeStyles, radius, spacing, touchTarget, typography, useColors } from '../../keyboard/theme';
 
 interface Props {
@@ -81,7 +81,7 @@ export function AuthScreen({ onSuccess }: Props) {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      {/* Abertura: grafite com brilho coral, símbolo K e slogan (manual de marca) */}
+      {/* Abertura: grafite com brilho coral e o logotipo (manual de marca) */}
       <View style={styles.hero}>
         <Svg style={StyleSheet.absoluteFill} width="100%" height="100%">
           <Defs>
@@ -93,9 +93,8 @@ export function AuthScreen({ onSuccess }: Props) {
           </Defs>
           <Rect width="100%" height="100%" fill="url(#authGlow)" />
         </Svg>
-        <KeyconMark size={72} />
-        <Text style={styles.heroBrand}>KEYCON</Text>
-        <Text style={styles.heroTagline}>Seu negócio na ponta dos dedos.</Text>
+        {/* Logotipo oficial com slogan (texto claro: o fundo aqui é sempre grafite) */}
+        <KeyconLogo size={64} slogan textTone="light" />
       </View>
 
       <View style={styles.body}>
@@ -221,18 +220,6 @@ const useStyles = makeStyles(colors => ({
     borderBottomLeftRadius: radius.xl + 4,
     borderBottomRightRadius: radius.xl + 4,
     overflow: 'hidden',
-  },
-  heroBrand: {
-    color: brand.white,
-    fontSize: 28,
-    fontWeight: '700',
-    letterSpacing: 1,
-    marginTop: spacing.md,
-  },
-  heroTagline: {
-    color: '#C9CDD6',
-    fontSize: 15,
-    marginTop: spacing.xs,
   },
   body: { padding: spacing.lg },
   header: { marginBottom: spacing.lg, marginTop: spacing.sm },
