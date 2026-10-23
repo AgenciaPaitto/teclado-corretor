@@ -1,7 +1,8 @@
 import React from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { KeyboardBridge } from '../../native/KeyboardBridge';
-import { makeStyles, radius, spacing, touchTarget } from '../theme';
+import { coralGlass, makeStyles, onCoralText, radius, spacing, touchTarget } from '../theme';
+import { CoralSheen } from './Glass';
 import { KeyconMark } from './KeyconLogo';
 
 /**
@@ -22,6 +23,7 @@ export function LoginRequiredPanel() {
         testID="login-open-app"
         style={({ pressed }) => [styles.btn, pressed && styles.pressed]}
         onPress={() => KeyboardBridge.openApp()}>
+        <CoralSheen radius={radius.md} />
         <Text style={styles.btnText}>Abrir o app e entrar</Text>
       </Pressable>
     </View>
@@ -45,7 +47,8 @@ const useStyles = makeStyles(colors => ({
     justifyContent: 'center',
     paddingHorizontal: spacing.xl,
     borderRadius: radius.md,
+    ...coralGlass(colors, { pill: false }),
   },
   pressed: { opacity: 0.85 },
-  btnText: { color: colors.onPrimary, fontSize: 15, fontWeight: '600' },
+  btnText: { color: colors.onPrimary, fontSize: 15, fontWeight: '600', ...onCoralText },
 }));

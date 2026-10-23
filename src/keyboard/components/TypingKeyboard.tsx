@@ -1,10 +1,10 @@
 import React, { forwardRef, memo, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
-import { Platform, Pressable, Text, View } from 'react-native';
+import { Text, View } from 'react-native';
 import type { GestureResponderEvent, LayoutChangeEvent, NativeTouchEvent } from 'react-native';
 import { KeyboardBridge } from '../../native/KeyboardBridge';
 import type { InputContext } from '../../native/KeyboardBridge';
-import { makeStyles, radius, useColors } from '../theme';
-import { buildLexicon, suggest } from '../typing/lexicon';
+import { makeStyles, onCoralText, radius, useColors } from '../theme';
+import { buildLexicon, predictNext, suggest } from '../typing/lexicon';
 import { resolveLetter } from '../typing/keyResolver';
 import type { KeyRect } from '../typing/keyResolver';
 import { TypingContext } from '../typing/typingContext';
@@ -29,10 +29,16 @@ import type { SuggestionBarHandle, SuggestionItem } from './SuggestionBar';
  *    destaque da tecla apertada).
  *
  * Modos: letras, números (?123) e símbolos (=\<). Shift: um toque = próxima
- * letra maiúscula; dois toques rápidos = caps lock. Maiúscula automática no
+ * letra maiúscula; dois toques rápidos ou segurar 1 s = caps lock. Maiúscula automática no
  * começo da mensagem e depois de . ! ?. Depois de um símbolo (ou do espaço)
  * o teclado volta sozinho para as letras. Dois espaços seguidos viram ". ".
- * Segurar uma vogal (ou c/n) mostra os acentos. Segurar ⌫ apaga continuamente.
+ * Segurar uma vogal (ou c/n) abre os acentos acima da tecla: arraste o dedo
+ * até o escolhido e solte (soltar fecha a opção); o "ç" fica no "c".
+ *
+ * Corretor: as sugestões levam em conta a palavra anterior da frase; logo
+ * depois do espaço aparecem as próximas palavras prováveis. Ao apertar espaço
+ * ou pontuação com uma palavra errada, ela é corrigida sozinha; ⌫ logo em
+ * seguida desfaz a correção (e o teclado não insiste naquela palavra). Segurar ⌫ apaga continuamente.
  */
 
 type Mode = 'alpha' | 'numeric' | 'symbols';
@@ -41,7 +47,8 @@ type ShiftState = 'off' | 'once' | 'lock';
 const ROWS: Record<Mode, [string[], string[], string[]]> = {
   alpha: [
     ['q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p'],
-    ['a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l', 'ç'],
+    // Sem "ç": fica ao segurar o "c" (ACCENTS). A fileira fica centralizada (ver rowInset)
+    ['a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l'],
     ['z', 'x', 'c', 'v', 'b', 'n', 'm'],
   ],
   numeric: [
@@ -88,9 +95,24 @@ interface KeyDef {
   letter?: string;
 }
 
+/** Largura de toda fileira, em teclas: a mais cheia (q…p) tem 10. */
+const ROW_UNITS = 10;
+
+/**
+ * Respiro de cada lado de uma fileira mais curta, em teclas (a…l: 9 teclas →
+ * meia tecla de cada lado), para as teclas ficarem centralizadas e do mesmo
+ * tamanho das de cima.
+ */
+function rowInset(row: KeyDef[]): number {
+  const total = row.reduce((sum, k) => sum + k.flex, 0);
+  return total < ROW_UNITS ? (ROW_UNITS - total) / 2 : 0;
+}
+
 const ROW_GAP = 6;
 const KEY_GAP = 5;
 const LONG_PRESS_MS = 350;
+/** Segurar o shift por este tempo trava as maiúsculas. */
+const CAPS_HOLD_MS = 1000;
 const DOUBLE_TAP_MS = 300;
 const DOUBLE_SPACE_MS = 450;
 const REPEAT_DELAY_MS = 400;
@@ -158,6 +180,25 @@ interface ActiveTouch {
   /** Já agiu (shift/⌫ agem ao encostar; letras ao soltar ou no toque seguinte). */
   done: boolean;
   timer: ReturnType<typeof setTimeout> | null;
+  /** Segurando uma letra: opções de acento abertas acima dela. */
+  accent?: AccentSession;
+}
+
+interface AccentSession {
+  options: string[];
+  /** Opção sob o dedo (0 = a própria letra). */
+  index: number;
+  /** Onde começa a fileira de opções e a largura de cada uma (área das teclas). */
+  x0: number;
+  optW: number;
+}
+
+/** Última correção automática, para o ⌫ logo em seguida desfazer. */
+interface LastFix {
+  original: string;
+  fixed: string;
+  /** O que entrou depois da palavra (espaço ou pontuação). */
+  trail: string;
 }
 
 /**
@@ -187,7 +228,6 @@ export function TypingKeyboard({ sink }: Props = {}) {
   const internal = !!sink;
   const [mode, setModeState] = useState<Mode>('alpha');
   const [shift, setShiftState] = useState<ShiftState>('off');
-  const [accentBase, setAccentBase] = useState<string | null>(null);
 
   // Os toques chegam fora do ciclo do React: o estado atual fica também em refs
   const modeRef = useRef<Mode>('alpha');
@@ -196,6 +236,9 @@ export function TypingKeyboard({ sink }: Props = {}) {
   const lastSpaceAt = useRef(0);
   /** A sugestão escolhida acabou de inserir um espaço automático. */
   const autoSpace = useRef(false);
+  const lastFix = useRef<LastFix | null>(null);
+  /** Palavras que a pessoa desfez a correção: não corrige de novo (nesta sessão). */
+  const keepAsTyped = useRef(new Set<string>());
 
   const setMode = useCallback((m: Mode) => {
     modeRef.current = m;
@@ -212,6 +255,7 @@ export function TypingKeyboard({ sink }: Props = {}) {
 
   const suggestionBar = useRef<SuggestionBarHandle>(null);
   const feedback = useRef<PressFeedbackHandle>(null);
+  const accentPopup = useRef<AccentPopupHandle>(null);
 
   /** Depois de cada edição: maiúscula automática + sugestões da palavra atual. */
   const refresh = useRef(() => {});
@@ -219,12 +263,57 @@ export function TypingKeyboard({ sink }: Props = {}) {
     () => new TypingContext(() => refresh.current(), () => out.current.getInputContext()),
   );
   refresh.current = () => {
-    if (shiftRef.current !== 'lock') setShift(context.atSentenceStart() ? 'once' : 'off');
-    const word = context.allowsSuggestions() ? context.currentWord() : '';
-    const { unknown, words } = suggest(word);
+    const sentenceStart = context.atSentenceStart();
+    if (shiftRef.current !== 'lock') setShift(sentenceStart ? 'once' : 'off');
+    if (!context.allowsSuggestions()) {
+      suggestionBar.current?.show([]);
+      return;
+    }
+    const word = context.currentWord();
+    const prev = context.previousWord();
+    if (!word) {
+      // Logo depois do espaço (ou no começo): as próximas palavras prováveis
+      const last = context.lastChar();
+      const atGap = last === '' || /\s/.test(last);
+      const next = atGap && prev ? predictNext(prev) : [];
+      const cased = (w: string) => (sentenceStart ? w.charAt(0).toUpperCase() + w.slice(1) : w);
+      suggestionBar.current?.show(next.map(text => ({ text: cased(text), literal: false })));
+      return;
+    }
+    const { unknown, words } = suggest(word, 3, prev);
     const items: SuggestionItem[] = words.map(text => ({ text, literal: false }));
     if (unknown) items.unshift({ text: word, literal: true });
     suggestionBar.current?.show(items.slice(0, 3));
+  };
+
+  /**
+   * Correção automática antes do espaço ou da pontuação (`trail`). Não mexe em
+   * nomes (maiúscula no meio da frase), em palavras que a pessoa já desfez nem
+   * fora do modo de letras.
+   */
+  const applyAutocorrect = (trail: string): boolean => {
+    if (!context.allowsSuggestions() || modeRef.current !== 'alpha') return false;
+    const word = context.currentWord();
+    if (!word || keepAsTyped.current.has(word.toLowerCase())) return false;
+    if (word[0] !== word[0].toLowerCase() && !context.wordStartsSentence()) return false;
+    const { autocorrect } = suggest(word, 3, context.previousWord());
+    if (!autocorrect || autocorrect === word) return false;
+    out.current.replaceTextBeforeCursor(word.length, autocorrect + trail);
+    context.replace(word.length, autocorrect + trail);
+    lastFix.current = { original: word, fixed: autocorrect, trail };
+    return true;
+  };
+
+  /** ⌫ logo depois de uma correção automática: volta ao que foi digitado. */
+  const undoAutocorrect = (): boolean => {
+    const fix = lastFix.current;
+    lastFix.current = null;
+    if (!fix || !context.endsWith(fix.fixed + fix.trail)) return false;
+    const count = fix.fixed.length + fix.trail.length;
+    out.current.replaceTextBeforeCursor(count, fix.original);
+    context.replace(count, fix.original);
+    keepAsTyped.current.add(fix.original.toLowerCase());
+    return true;
   };
 
   // Dicionário montado logo depois de abrir (fora do caminho do 1º toque)
@@ -256,20 +345,22 @@ export function TypingKeyboard({ sink }: Props = {}) {
     (v: string) => {
       const lastIsAutoSpace = autoSpace.current && context.lastChar() === ' ';
       autoSpace.current = false;
+      lastFix.current = null;
       if (lastIsAutoSpace && SNAP_PUNCTUATION.includes(v)) {
         // "palavra ." → "palavra. "
         out.current.replaceTextBeforeCursor(1, `${v} `);
         context.replace(1, `${v} `);
-      } else {
+      } else if (!(SNAP_PUNCTUATION.includes(v) && applyAutocorrect(v))) {
         out.current.insertText(v);
         context.insert(v);
       }
       if (shiftRef.current === 'once') setShift('off');
       // Depois de um símbolo, volta para as letras (números continuam)
       if (modeRef.current !== 'alpha' && !/^[0-9]$/.test(v)) setMode('alpha');
-      setAccentBase(null);
       refresh.current();
     },
+    // applyAutocorrect só lê refs e o contexto
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [context, setMode, setShift],
   );
 
@@ -279,17 +370,23 @@ export function TypingKeyboard({ sink }: Props = {}) {
     autoSpace.current = false;
     if (now - lastSpaceAt.current < DOUBLE_SPACE_MS && before === ' ') {
       // Dois espaços seguidos: ponto final (como no iPhone)
+      lastFix.current = null;
       out.current.replaceTextBeforeCursor(1, '. ');
       context.replace(1, '. ');
       lastSpaceAt.current = 0;
     } else {
-      out.current.insertText(' ');
-      context.insert(' ');
+      lastFix.current = null;
+      // Palavra errada + espaço: corrige sozinho
+      if (!applyAutocorrect(' ')) {
+        out.current.insertText(' ');
+        context.insert(' ');
+      }
       lastSpaceAt.current = now;
     }
     if (modeRef.current !== 'alpha') setMode('alpha');
-    setAccentBase(null);
     refresh.current();
+    // applyAutocorrect só lê refs e o contexto
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [context, setMode]);
 
   const onShift = useCallback(() => {
@@ -306,8 +403,12 @@ export function TypingKeyboard({ sink }: Props = {}) {
   const [deleteRepeater] = useState(() =>
     createDeleteRepeater(
       () => {
-        context.deleteOne();
         autoSpace.current = false;
+        if (undoAutocorrect()) {
+          refresh.current();
+          return Promise.resolve(true);
+        }
+        context.deleteOne();
         refresh.current();
         return out.current.deleteBackward();
       },
@@ -333,6 +434,7 @@ export function TypingKeyboard({ sink }: Props = {}) {
           break;
         case 'enter':
           autoSpace.current = false;
+          lastFix.current = null;
           out.current.sendEnter();
           // No formulário, ↵ passa para o próximo campo (o texto não ganha quebra)
           if (!internal) context.insert('\n');
@@ -340,7 +442,6 @@ export function TypingKeyboard({ sink }: Props = {}) {
           break;
         case 'mode':
           setMode(a.to);
-          setAccentBase(null);
           break;
         case 'globe':
           KeyboardBridge.switchKeyboard();
@@ -355,7 +456,14 @@ export function TypingKeyboard({ sink }: Props = {}) {
   const pickSuggestion = useCallback(
     (item: SuggestionItem) => {
       const word = context.currentWord();
-      if (item.literal || !word) {
+      lastFix.current = null;
+      if (!word && !item.literal) {
+        // Próxima palavra prevista
+        out.current.insertText(`${item.text} `);
+        context.insert(`${item.text} `);
+      } else if (item.literal || !word) {
+        // Manter o que foi digitado (e não corrigir mais essa palavra)
+        if (word) keepAsTyped.current.add(word.toLowerCase());
         out.current.insertText(' ');
         context.insert(' ');
       } else {
@@ -375,9 +483,11 @@ export function TypingKeyboard({ sink }: Props = {}) {
   const areaRef = useRef<View>(null);
   const origin = useRef<{ x: number; y: number } | null>(null);
   const rowBoxes = useRef<Box[]>([]);
+  const areaWidth = useRef(0);
   const touches = useRef(new Map<string, ActiveTouch>());
 
-  const measureOrigin = useCallback(() => {
+  const measureOrigin = useCallback((e?: LayoutChangeEvent) => {
+    if (e) areaWidth.current = e.nativeEvent.layout.width;
     areaRef.current?.measure((_x, _y, _w, _h, pageX, pageY) => {
       if (typeof pageX === 'number' && typeof pageY === 'number') origin.current = { x: pageX, y: pageY };
     });
@@ -389,9 +499,12 @@ export function TypingKeyboard({ sink }: Props = {}) {
     rowsRef.current.forEach((row, i) => {
       const box = rowBoxes.current[i];
       if (!box) return;
-      const totalFlex = row.reduce((sum, k) => sum + k.flex, 0);
-      const unit = (box.w - KEY_GAP * (row.length - 1)) / totalFlex;
-      let x = box.x;
+      // Mesma conta do flex da fileira, com os respiros das pontas
+      const inset = rowInset(row);
+      const totalFlex = row.reduce((sum, k) => sum + k.flex, 0) + inset * 2;
+      const gaps = row.length - 1 + (inset ? 2 : 0);
+      const unit = (box.w - KEY_GAP * gaps) / totalFlex;
+      let x = box.x + (inset ? inset * unit + KEY_GAP : 0);
       for (const key of row) {
         const w = unit * key.flex;
         out.push({ x, y: box.y, w, h: box.h, key });
@@ -406,16 +519,32 @@ export function TypingKeyboard({ sink }: Props = {}) {
       ? { x: t.pageX - origin.current.x, y: t.pageY - origin.current.y }
       : { x: t.locationX, y: t.locationY };
 
+  /** Digita a opção de acento sob o dedo e fecha as opções. */
+  const commitAccent = useCallback(
+    (active: ActiveTouch) => {
+      const session = active.accent;
+      if (!session) return;
+      active.accent = undefined;
+      accentPopup.current?.hide();
+      typeText(session.options[session.index]);
+    },
+    [typeText],
+  );
+
   /** Confirma a tecla de um toque que ainda não agiu (soltou o dedo ou outro dedo encostou). */
   const finish = useCallback(
     (active: ActiveTouch) => {
       if (active.timer) clearTimeout(active.timer);
       active.timer = null;
+      if (active.accent) {
+        commitAccent(active);
+        return;
+      }
       if (active.done) return;
       active.done = true;
       run(active.key);
     },
-    [run],
+    [commitAccent, run],
   );
 
   const onTouchDown = useCallback(
@@ -437,6 +566,11 @@ export function TypingKeyboard({ sink }: Props = {}) {
       if (key.action.t === 'shift') {
         active.done = true;
         onShift();
+        // Segurou o shift: trava as maiúsculas
+        active.timer = setTimeout(() => {
+          active.timer = null;
+          setShift('lock');
+        }, CAPS_HOLD_MS);
       } else if (key.action.t === 'delete') {
         active.done = true;
         deleteRepeater.start();
@@ -445,17 +579,40 @@ export function TypingKeyboard({ sink }: Props = {}) {
         active.timer = setTimeout(() => {
           active.timer = null;
           if (active.done) return;
-          // Segurou: mostra os acentos em vez de digitar a letra
+          // Segurou: abre os acentos acima da tecla. A própria letra fica sob o
+          // dedo; arrastar escolhe, soltar digita a escolhida e fecha.
           active.done = true;
           feedback.current?.release(id);
-          setAccentBase(letter);
+          const upper = shiftRef.current !== 'off';
+          const options = [letter, ...ACCENTS[letter]].map(c => (upper ? c.toUpperCase() : c));
+          const optW = Math.max(hit.w, 30);
+          const total = optW * options.length;
+          let x0 = hit.x;
+          if (areaWidth.current && x0 + total > areaWidth.current - 2) x0 = Math.max(2, areaWidth.current - 2 - total);
+          active.accent = { options, index: 0, x0, optW };
+          accentPopup.current?.show({ x: x0, y: hit.y - hit.h - 10, w: optW, h: hit.h + 4, options, index: 0 });
         }, LONG_PRESS_MS);
       }
     },
     // pointOf só lê refs
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [context, deleteRepeater, finish, keyRects, onShift],
+    [context, deleteRepeater, finish, keyRects, onShift, setShift],
   );
+
+  /** Dedo arrastando: com os acentos abertos, escolhe a opção sob ele. */
+  const onTouchMove = useCallback((t: NativeTouchEvent) => {
+    const active = touches.current.get(String(t.identifier));
+    const session = active?.accent;
+    if (!session) return;
+    const { x } = pointOf(t);
+    const index = Math.max(0, Math.min(session.options.length - 1, Math.floor((x - session.x0) / session.optW)));
+    if (index !== session.index) {
+      session.index = index;
+      accentPopup.current?.select(index);
+    }
+    // pointOf só lê refs
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const onTouchUp = useCallback(
     (id: string) => {
@@ -473,6 +630,7 @@ export function TypingKeyboard({ sink }: Props = {}) {
     touches.current.forEach(a => a.timer && clearTimeout(a.timer));
     touches.current.clear();
     feedback.current?.clear();
+    accentPopup.current?.hide();
     stopDelete();
   }, [stopDelete]);
 
@@ -484,20 +642,21 @@ export function TypingKeyboard({ sink }: Props = {}) {
       onResponderStart: (e: GestureResponderEvent) => {
         for (const t of pointsOf(e)) onTouchDown(t);
       },
+      onResponderMove: (e: GestureResponderEvent) => {
+        for (const t of pointsOf(e)) onTouchMove(t);
+      },
       onResponderEnd: (e: GestureResponderEvent) => {
         for (const t of pointsOf(e)) onTouchUp(String(t.identifier));
       },
       onResponderTerminate: cancelAll,
     }),
-    [cancelAll, onTouchDown, onTouchUp],
+    [cancelAll, onTouchDown, onTouchMove, onTouchUp],
   );
 
   const onRowLayout = (i: number) => (e: LayoutChangeEvent) => {
     const { x, y, width, height } = e.nativeEvent.layout;
     rowBoxes.current[i] = { x, y, w: width, h: height };
   };
-
-  const display = (c: string) => (shift !== 'off' ? c.toUpperCase() : c);
 
   return (
     <View style={styles.container} testID="typing-keyboard">
@@ -508,6 +667,7 @@ export function TypingKeyboard({ sink }: Props = {}) {
         <View style={styles.rows} pointerEvents="none">
           {rows.map((row, i) => (
             <View key={i} style={styles.row} onLayout={onRowLayout(i)}>
+              {rowInset(row) > 0 && <View style={{ flex: rowInset(row) }} />}
               {row.map(k => (
                 <KeyView
                   key={k.id}
@@ -518,20 +678,13 @@ export function TypingKeyboard({ sink }: Props = {}) {
                   active={k.action.t === 'shift' && shift !== 'off'}
                 />
               ))}
+              {rowInset(row) > 0 && <View style={{ flex: rowInset(row) }} />}
             </View>
           ))}
         </View>
         <PressFeedback ref={feedback} />
+        <AccentPopup ref={accentPopup} />
       </View>
-
-      {accentBase && (
-        <View style={styles.accentBar}>
-          {ACCENTS[accentBase].map(a => (
-            <AccentKey key={a} label={display(a)} onPress={() => typeText(display(a))} />
-          ))}
-          <AccentKey label="✕" onPress={() => setAccentBase(null)} />
-        </View>
-      )}
     </View>
   );
 }
@@ -576,21 +729,58 @@ const KeyView = memo(({ label, icon, kind, flex, active }: KeyViewProps) => {
   );
 });
 
-/** Na web o Pressable espera 50 ms antes do toque; aqui não precisa. */
-const WEB_NO_PRESS_DELAY = Platform.OS === 'web' ? ({ delayPressIn: 0 } as object) : {};
+// ── Acentos: opções acima da tecla segurada ───────────────────────────
 
-function AccentKey({ label, onPress }: { label: string; onPress: () => void }) {
-  const styles = useStyles();
-  return (
-    <Pressable
-      {...WEB_NO_PRESS_DELAY}
-      testID={`key-${label}`}
-      onPress={onPress}
-      style={({ pressed }) => [styles.key, styles.accentKey, pressed && styles.keyPressed]}>
-      <Text style={styles.label}>{label}</Text>
-    </Pressable>
-  );
+interface AccentPopupHandle {
+  show(state: AccentPopupState): void;
+  select(index: number): void;
+  hide(): void;
 }
+
+interface AccentPopupState {
+  x: number;
+  y: number;
+  /** Largura e altura de cada opção. */
+  w: number;
+  h: number;
+  options: string[];
+  index: number;
+}
+
+/** Fileira de acentos; a opção sob o dedo fica em coral. Só desenho (o toque é da área). */
+const AccentPopup = memo(
+  forwardRef<AccentPopupHandle>((_props, ref) => {
+    const styles = useStyles();
+    const [state, setState] = useState<AccentPopupState | null>(null);
+
+    useImperativeHandle(
+      ref,
+      () => ({
+        show: setState,
+        select: index => setState(s => (s && s.index !== index ? { ...s, index } : s)),
+        hide: () => setState(null),
+      }),
+      [],
+    );
+
+    if (!state) return null;
+    return (
+      <View
+        pointerEvents="none"
+        testID="accent-popup"
+        style={[styles.accentPopup, { left: state.x - 4, top: state.y - 4, height: state.h + 8 }]}>
+        {state.options.map((option, i) => (
+          <View
+            key={option}
+            testID={`accent-${option}`}
+            style={[styles.accentOption, { width: state.w, height: state.h }, i === state.index && styles.accentOptionActive]}>
+            <Text style={[styles.accentLabel, i === state.index && styles.accentLabelActive]}>{option}</Text>
+          </View>
+        ))}
+      </View>
+    );
+  }),
+);
 
 // ── Destaque da tecla apertada (balão com a letra, como no celular) ─────
 
@@ -678,21 +868,35 @@ const useStyles = makeStyles(colors => ({
     flexDirection: 'row',
     gap: KEY_GAP,
   },
-  accentBar: {
+  accentPopup: {
     position: 'absolute',
-    top: 0,
-    left: 3,
-    right: 3,
-    height: 44,
     flexDirection: 'row',
-    gap: KEY_GAP,
     padding: 4,
     borderRadius: radius.sm,
-    backgroundColor: colors.surfaceActive,
+    backgroundColor: colors.key,
     zIndex: 10,
+    shadowColor: '#000',
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 8,
   },
-  accentKey: {
-    flex: 1,
+  accentOption: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: radius.key,
+  },
+  accentOptionActive: {
+    backgroundColor: colors.primary,
+  },
+  accentLabel: {
+    color: colors.text,
+    fontSize: 22,
+  },
+  accentLabelActive: {
+    ...onCoralText,
+    color: colors.onPrimary,
+    fontWeight: '600',
   },
   key: {
     borderRadius: radius.key,

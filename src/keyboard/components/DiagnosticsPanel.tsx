@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 import { KeyboardBridge } from '../../native/KeyboardBridge';
 import { acceptsMime } from '../../utils/mime';
-import { makeStyles, radius, spacing, touchTarget, useColors } from '../theme';
+import { glassBorder, makeStyles, onCoralText, radius, spacing, touchTarget, useColors } from '../theme';
 
 interface Props {
   onInsert: (text: string) => void;
@@ -109,6 +109,7 @@ const useStyles = makeStyles(colors => ({
   hint: { color: colors.textMuted, fontSize: 12, lineHeight: 17 },
   card: {
     backgroundColor: colors.surface,
+    ...glassBorder(colors),
     borderRadius: radius.md,
     padding: spacing.md,
     gap: spacing.sm,
@@ -128,5 +129,5 @@ const useStyles = makeStyles(colors => ({
   },
   btnPrimary: { backgroundColor: colors.primary },
   btnText: { color: colors.text, fontSize: 15, fontWeight: '600' },
-  btnPrimaryText: { color: colors.onPrimary },
+  btnPrimaryText: { color: colors.onPrimary, ...onCoralText },
 }));

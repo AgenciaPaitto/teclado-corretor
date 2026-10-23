@@ -16,7 +16,7 @@ import {
 } from '../../agenda/agenda';
 import { Repo } from '../../storage/storage';
 import type { AgendaKind, CRMLead, ScheduleItem } from '../../types';
-import { makeStyles, radius, spacing, touchTarget, useColors } from '../theme';
+import { glassBorder, makeStyles, radius, spacing, touchTarget, useColors } from '../theme';
 import { Icon } from './Icon';
 import { Header } from './KeyboardCRM';
 import { ChoiceRow, KeyboardFormField, KeyboardFormKeys, useKeyboardForm } from './KeyboardForm';
@@ -269,7 +269,7 @@ function AgendaForm({
 const useStyles = makeStyles(colors => ({
   flex: { flex: 1 },
   list: { paddingHorizontal: spacing.md, paddingBottom: spacing.lg, gap: spacing.sm },
-  calendarBox: { backgroundColor: colors.surface, borderRadius: radius.lg, padding: spacing.sm, marginBottom: spacing.xs },
+  calendarBox: { backgroundColor: colors.surface, ...glassBorder(colors), borderRadius: radius.lg, padding: spacing.sm, marginBottom: spacing.xs },
   dayTitle: { fontSize: 14, fontWeight: '600', color: colors.text, paddingHorizontal: spacing.sm, paddingTop: spacing.sm },
   empty: { fontSize: 13, color: colors.textMuted, textAlign: 'center', paddingVertical: spacing.lg },
   item: {
@@ -277,6 +277,7 @@ const useStyles = makeStyles(colors => ({
     alignItems: 'center',
     gap: spacing.md,
     backgroundColor: colors.surface,
+    ...glassBorder(colors),
     borderRadius: radius.md,
     padding: spacing.md,
     minHeight: touchTarget + 12,
@@ -312,6 +313,7 @@ const useStyles = makeStyles(colors => ({
     alignItems: 'center',
     justifyContent: 'space-between',
     backgroundColor: colors.surface,
+    ...glassBorder(colors),
     borderRadius: radius.md,
     paddingHorizontal: spacing.sm,
     minHeight: touchTarget,

@@ -1,6 +1,6 @@
 import React, { memo } from 'react';
 import { Pressable, Text, View } from 'react-native';
-import { makeStyles, radius, spacing, useColors } from '../theme';
+import { glassBorder, makeStyles, radius, spacing, useColors } from '../theme';
 import type { IconName } from './Icon';
 import { IconTile } from './Icon';
 
@@ -44,6 +44,7 @@ const useStyles = makeStyles(colors => ({
     alignItems: 'center',
     gap: spacing.md,
     backgroundColor: colors.surface,
+    ...glassBorder(colors),
     borderRadius: radius.md,
     minHeight: 56,
     paddingVertical: 10,

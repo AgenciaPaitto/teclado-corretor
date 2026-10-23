@@ -3,7 +3,8 @@ import { FlatList, Pressable, ScrollView, Text, View } from 'react-native';
 import type { SegmentProfile } from '../../segments/segments';
 import type { MediaItem, Product, ProductFolder } from '../../types';
 import { attributeLines, formatPrice, formatProductMessage } from '../../utils/formatters';
-import { makeStyles, radius, spacing, touchTarget, useColors } from '../theme';
+import { coralGlass, glassBorder, makeStyles, onCoralText, radius, spacing, touchTarget, useColors } from '../theme';
+import { CoralSheen } from './Glass';
 import { Icon } from './Icon';
 import { ItemCard } from './ItemCard';
 
@@ -142,6 +143,7 @@ export function ProductsTab({ folders, segment, onInsert, onSendImage, onShare }
             <Pressable
               style={styles.actionBtn}
               onPress={() => onInsert(formatProductMessage(product, folder, segment))}>
+              <CoralSheen radius={radius.sm} />
               <Text style={styles.actionBtnText}>Inserir ficha do {segment.terms.item}</Text>
             </Pressable>
           </ScrollView>
@@ -164,6 +166,7 @@ export function ProductsTab({ folders, segment, onInsert, onSendImage, onShare }
                       product.photos.map(photoLink).join('\n'),
                     )
                   }>
+                  <CoralSheen radius={radius.sm} />
                   <Text style={styles.actionBtnText}>Enviar todas as fotos ({product.photos.length})</Text>
                 </Pressable>
               ) : null
@@ -259,6 +262,7 @@ const useStyles = makeStyles(colors => ({
   detailsContainer: {
     padding: spacing.md,
     backgroundColor: colors.surface,
+    ...glassBorder(colors),
     borderRadius: radius.md,
     gap: spacing.sm,
   },
@@ -284,8 +288,10 @@ const useStyles = makeStyles(colors => ({
     alignItems: 'center',
     marginTop: 6,
     marginBottom: 6,
+    ...coralGlass(colors, { pill: false }),
   },
   actionBtnText: {
+    ...onCoralText,
     color: colors.onPrimary,
     fontSize: 15,
     fontWeight: '600',
@@ -298,6 +304,7 @@ const useStyles = makeStyles(colors => ({
     alignItems: 'center',
     gap: spacing.md,
     backgroundColor: colors.surface,
+    ...glassBorder(colors),
     padding: spacing.md,
     borderRadius: radius.md,
   },

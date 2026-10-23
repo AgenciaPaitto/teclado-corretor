@@ -14,7 +14,7 @@ import { AuthError, signIn, signUp } from '../../services/auth';
 import type { SegmentId } from '../../types';
 import { SegmentPicker } from '../components/SegmentPicker';
 import { KeyconLogo } from '../../keyboard/components/KeyconLogo';
-import { coralGlass, glassBorder, brand, makeStyles, radius, spacing, touchTarget, typography, useColors } from '../../keyboard/theme';
+import { brand, coralGlass, glassBorder, makeStyles, onCoralText, radius, spacing, touchTarget, typography, useColors } from '../../keyboard/theme';
 import { CoralSheen } from '../components/ui';
 
 interface Props {
@@ -45,7 +45,7 @@ export function AuthScreen({ onSuccess }: Props) {
     }
 
     if (isRegister && !segment) {
-      Alert.alert('Atenção', 'Escolha o ramo do seu negócio. Se não encontrar o seu, escolha "Outro / Geral".');
+      Alert.alert('Atenção', 'Escolha o ramo do seu negócio. Se não encontrar o seu, escolha "Outro".');
       return;
     }
 
@@ -311,6 +311,7 @@ const useStyles = makeStyles(colors => ({
     opacity: 0.7,
   },
   submitBtnText: {
+    ...onCoralText,
     color: colors.onPrimary,
     fontSize: 16,
     fontWeight: '600',

@@ -10,7 +10,8 @@ import type { SegmentProfile } from '../../segments/segments';
 import { Repo } from '../../storage/storage';
 import type { CRMLead, ScheduleItem } from '../../types';
 import { formatFollowUp } from '../../utils/formatters';
-import { makeStyles, radius, spacing, touchTarget, useColors } from '../theme';
+import { coralGlass, glassBorder, makeStyles, onCoralText, radius, spacing, touchTarget, useColors } from '../theme';
+import { CoralSheen } from './Glass';
 import { Icon } from './Icon';
 import { ChoiceRow, KeyboardFormField, KeyboardFormKeys, useKeyboardForm } from './KeyboardForm';
 import type { FormFieldSpec } from './KeyboardForm';
@@ -288,6 +289,7 @@ function Action({ icon, label, primary, onPress }: { icon: 'respostas' | 'calend
       accessibilityRole="button"
       style={({ pressed }) => [styles.action, primary && styles.actionPrimary, pressed && styles.pressed]}
       onPress={onPress}>
+      {primary && <CoralSheen radius={radius.md} />}
       <Icon name={icon} size={18} color={primary ? colors.onPrimary : colors.text} />
       <Text style={[styles.actionText, primary && styles.actionTextPrimary]} numberOfLines={1}>
         {label}
@@ -394,10 +396,13 @@ export function Header({
           testID={`header-action-${actionLabel}`}
           accessibilityRole="button"
           disabled={disabled}
-          style={[styles.headerAction, secondary && styles.headerActionSecondary, disabled && styles.disabled]}
+          style={[styles.headerAction, !secondary && styles.headerActionPrimary, secondary && styles.headerActionSecondary, disabled && styles.disabled]}
           onPress={onAction}>
+          {!secondary && <CoralSheen radius={radius.sm} />}
           {!secondary && actionLabel !== 'Salvar' && <Icon name="adicionar" size={16} color={colors.onPrimary} />}
-          <Text style={[styles.headerActionText, secondary && styles.headerActionTextSecondary]}>{actionLabel}</Text>
+          <Text style={[styles.headerActionText, !secondary && onCoralText, secondary && styles.headerActionTextSecondary]}>
+            {actionLabel}
+          </Text>
         </Pressable>
       ) : null}
     </View>
@@ -437,7 +442,8 @@ const useStyles = makeStyles(colors => ({
     minHeight: 36,
     borderRadius: radius.sm,
   },
-  headerActionSecondary: { backgroundColor: colors.surface },
+  headerActionPrimary: { ...coralGlass(colors, { pill: false }) },
+  headerActionSecondary: { backgroundColor: colors.surface, ...glassBorder(colors) },
   headerActionText: { fontSize: 14, fontWeight: '600', color: colors.onPrimary },
   headerActionTextSecondary: { color: colors.text },
   // Sem isto a faixa horizontal estica e ocupa a tela toda
@@ -464,6 +470,7 @@ const useStyles = makeStyles(colors => ({
     alignItems: 'center',
     gap: spacing.md,
     backgroundColor: colors.surface,
+    ...glassBorder(colors),
     borderRadius: radius.md,
     padding: spacing.md,
   },
@@ -503,13 +510,14 @@ const useStyles = makeStyles(colors => ({
     paddingHorizontal: spacing.md,
     borderRadius: radius.md,
     backgroundColor: colors.surface,
+    ...glassBorder(colors),
   },
-  actionPrimary: { backgroundColor: colors.primary, justifyContent: 'center' },
+  actionPrimary: { backgroundColor: colors.primary, justifyContent: 'center', ...coralGlass(colors, { pill: false }) },
   actionText: { fontSize: 14, fontWeight: '600', color: colors.text },
-  actionTextPrimary: { color: colors.onPrimary },
-  agendaRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, backgroundColor: colors.surface, borderRadius: radius.sm, padding: spacing.sm },
+  actionTextPrimary: { color: colors.onPrimary, ...onCoralText },
+  agendaRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, backgroundColor: colors.surface, ...glassBorder(colors), borderRadius: radius.sm, padding: spacing.sm },
   agendaText: { flex: 1, fontSize: 13, color: colors.text },
-  notes: { fontSize: 14, lineHeight: 20, color: colors.textSecondary, backgroundColor: colors.surface, borderRadius: radius.sm, padding: spacing.md },
+  notes: { fontSize: 14, lineHeight: 20, color: colors.textSecondary, backgroundColor: colors.surface, ...glassBorder(colors), borderRadius: radius.sm, padding: spacing.md },
   deleteBtn: { alignSelf: 'center', padding: spacing.md, marginTop: spacing.sm },
   deleteText: { fontSize: 14, fontWeight: '600', color: colors.danger },
   form: { paddingHorizontal: spacing.md, paddingBottom: spacing.md, gap: spacing.sm },

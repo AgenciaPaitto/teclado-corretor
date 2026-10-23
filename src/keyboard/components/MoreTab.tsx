@@ -3,7 +3,7 @@ import { Pressable, ScrollView, Text, View } from 'react-native';
 import { upcoming } from '../../agenda/agenda';
 import type { SegmentProfile } from '../../segments/segments';
 import type { CRMLead, MoreSubMenu, ScheduleItem, ThemePreference } from '../../types';
-import { makeStyles, radius, spacing, touchTarget, useColors } from '../theme';
+import { glassBorder, makeStyles, radius, spacing, touchTarget, useColors } from '../theme';
 import { DiagnosticsPanel } from './DiagnosticsPanel';
 import { Icon, IconTile } from './Icon';
 import { KeyboardAgenda } from './KeyboardAgenda';
@@ -207,6 +207,7 @@ const useStyles = makeStyles(colors => ({
     alignItems: 'center',
     gap: spacing.md,
     backgroundColor: colors.surface,
+    ...glassBorder(colors),
     padding: spacing.md,
     borderRadius: radius.md,
   },
@@ -253,6 +254,7 @@ const useStyles = makeStyles(colors => ({
     justifyContent: 'space-between',
     alignItems: 'center',
     backgroundColor: colors.surface,
+    ...glassBorder(colors),
     minHeight: touchTarget,
     paddingHorizontal: spacing.lg,
     borderRadius: radius.md,

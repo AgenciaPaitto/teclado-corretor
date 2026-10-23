@@ -14,6 +14,7 @@ import { ProductsTab } from './components/ProductsTab';
 import { ShortcutsTab } from './components/ShortcutsTab';
 import { SystemMenuBar } from './components/SystemMenuBar';
 import { TypingKeyboard } from './components/TypingKeyboard';
+import { Aurora } from './components/Glass';
 import { useKeyboardData } from './hooks/useKeyboardData';
 import { buildLexicon } from './typing/lexicon';
 import { getSegment } from '../segments/segments';
@@ -217,6 +218,8 @@ function CorretorKeyboardContent({ data, loggedIn, onThemeChange, onDataChanged 
 
   return (
     <View style={styles.root} testID="corretor-keyboard">
+      {/* Liquid Glass discreto: aurora suave atrás do menu, dos cards e das teclas */}
+      <Aurora intensity={0.55} />
       {/* Menu com os botões do sistema SEMPRE VISÍVEL no topo */}
       <SystemMenuBar active={tab} onChange={handleTabChange} catalogLabel={segment.terms.catalog} />
 
@@ -265,7 +268,8 @@ function CorretorKeyboardContent({ data, loggedIn, onThemeChange, onDataChanged 
 function KeyboardRoot() {
   const { data, loggedIn, setTheme, reload } = useKeyboardData();
   return (
-    <ThemeProvider preference={data.theme}>
+    // Paleta de vidro (Liquid Glass), como no app; as teclas continuam sólidas
+    <ThemeProvider preference={data.theme} glass>
       <CorretorKeyboardContent data={data} loggedIn={loggedIn} onThemeChange={setTheme} onDataChanged={reload} />
     </ThemeProvider>
   );
@@ -284,7 +288,7 @@ export default function CorretorKeyboard() {
 const useStyles = makeStyles(colors => ({
   root: {
     flex: 1,
-    backgroundColor: colors.bg,
+    backgroundColor: colors.canvas,
   },
   content: {
     flex: 1,

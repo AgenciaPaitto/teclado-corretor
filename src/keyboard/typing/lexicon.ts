@@ -2,13 +2,16 @@
  * Motor de palavras do teclado (português do Brasil).
  *
  *  - suggest(): completa a palavra, corrige erro de digitação e devolve o
- *    acento ("voce" → "você") para a barra de sugestões;
+ *    acento ("voce" → "você") para a barra de sugestões, levando em conta a
+ *    palavra anterior da frase (bigramsPt), e diz se dá para corrigir sozinho;
+ *  - predictNext(): as próximas palavras prováveis, logo depois do espaço;
  *  - nextLetterLogProb(): chance de cada letra ser a próxima da palavra — é o
  *    que deixa a "área invisível" da tecla provável maior (ver keyResolver).
  *
  * Tudo roda no próprio aparelho, sem internet. O índice é montado uma vez
  * (buildLexicon), fora do primeiro toque, e cada consulta leva < 1 ms.
  */
+import { BIGRAMS_PT } from './bigramsPt';
 import { WORDS_PT } from './wordsPt';
 
 const ACCENT_MAP: Record<string, string> = {
@@ -177,30 +180,85 @@ export interface Suggestions {
   unknown: boolean;
   /** Até 3 sugestões, a melhor primeiro, já com maiúsculas como a digitada. */
   words: string[];
+  /**
+   * Correção que entra sozinha ao apertar espaço ou pontuação (é a 1ª de
+   * `words`), ou null quando não há certeza suficiente.
+   */
+  autocorrect: string | null;
 }
 
-/** Sugestões para a palavra que está sendo digitada. */
-export function suggest(typed: string, limit = 3): Suggestions {
-  const lex = lexicon;
-  const lowerTyped = typed.toLowerCase();
-  if (!lex || !typed) return { unknown: false, words: [] };
+/** De onde veio cada candidata: só acento e erro de digitação corrigem sozinhos. */
+type Kind = 'abbr' | 'accent' | 'complete' | 'fix';
 
+interface Candidate {
+  word: string;
+  score: number;
+  kind: Kind;
+  /** Quanto a palavra anterior "pede" esta (0 = nada). */
+  context: number;
+}
+
+/** Peso da frase: cada ponto de força (1–9) da palavra anterior vale isto no placar. */
+const CONTEXT_WEIGHT = 0.45;
+/** Vantagem mínima da melhor correção sobre a 2ª para corrigir sozinha. */
+const AUTOCORRECT_MARGIN = 0.6;
+
+const ONLY_LETTERS = /^[a-zà-öø-ÿ]+(?:-[a-zà-öø-ÿ]+)*$/i;
+
+/** Palavra anterior → seguintes → força (1–9). "^" = começo de frase. */
+let bigrams: Map<string, Map<string, number>> | null = null;
+/** Palavras vistas em frases em português (tabela de seguintes). */
+let seenInSentences: Set<string> | null = null;
+/** Até esta posição na lista de frequência, a palavra é comum o bastante para corrigir sozinha. */
+const COMMON_RANK = 3000;
+
+function loadBigrams(): Map<string, Map<string, number>> {
+  if (bigrams) return bigrams;
+  const map = new Map<string, Map<string, number>>();
+  for (const line of BIGRAMS_PT.split('\n')) {
+    const tab = line.indexOf('\t');
+    if (tab < 0) continue;
+    const next = new Map<string, number>();
+    for (const pair of line.slice(tab + 1).split(' ')) {
+      const colon = pair.lastIndexOf(':');
+      if (colon > 0) next.set(pair.slice(0, colon), Number(pair.slice(colon + 1)) || 1);
+    }
+    map.set(line.slice(0, tab), next);
+  }
+  bigrams = map;
+  const seen = new Set<string>(map.keys());
+  for (const next of map.values()) for (const w of next.keys()) seen.add(w);
+  seenInSentences = seen;
+  return map;
+}
+
+/** Força com que `prev` pede `word` (0 quando não há registro). */
+function contextStrength(prev: string | undefined, word: string): number {
+  if (!prev) return 0;
+  return loadBigrams().get(prev)?.get(word) ?? 0;
+}
+
+/** Todas as candidatas para `typed`, com placar e origem. */
+function candidatesFor(lex: Lexicon, typed: string, prev?: string): Candidate[] {
+  const lowerTyped = typed.toLowerCase();
   const key = toKey(typed);
   const known = lex.words.has(lowerTyped);
-  const scores = new Map<string, number>();
-  const offer = (entry: Entry, score: number) => {
-    if (entry.word === lowerTyped || NEVER_SUGGEST.has(entry.word)) return;
-    const prev = scores.get(entry.word);
-    if (prev === undefined || score > prev) scores.set(entry.word, score);
+  const found = new Map<string, Candidate>();
+  const offer = (word: string, base: number, kind: Kind) => {
+    if (word === lowerTyped || NEVER_SUGGEST.has(word)) return;
+    const context = contextStrength(prev, word);
+    const score = base + CONTEXT_WEIGHT * context;
+    const old = found.get(word);
+    if (!old || score > old.score) found.set(word, { word, score, kind, context });
   };
   const freq = (e: Entry) => Math.log(weightOf(e.rank));
 
-  // 0) Abreviação de conversa: "vc" → "você"
+  // 0) Abreviação de conversa: "vc" → "você" (só na barra, nunca sozinha)
   const expanded = ABBREVIATIONS[lowerTyped];
-  if (expanded) scores.set(expanded, 100);
+  if (expanded) offer(expanded, 100, 'abbr');
 
   // 1) Mesma palavra com acento: "voce" → "você", "nao" → "não"
-  for (const e of lex.byKey.get(key) ?? []) offer(e, freq(e) + (known ? 0.5 : 4));
+  for (const e of lex.byKey.get(key) ?? []) offer(e.word, freq(e) + (known ? 0.5 : 4), 'accent');
 
   // 2) Completar a palavra (as mais usadas que começam assim)
   const [start, end] = prefixRange(lex, key);
@@ -216,19 +274,88 @@ export function suggest(typed: string, limit = 3): Suggestions {
       best.sort((a, b) => a.rank - b.rank);
     }
   }
-  for (const e of best) offer(e, freq(e) - 0.15 * (e.key.length - key.length));
+  // A frase também entra aqui: depois de "bom", "di" já sugere "dia"
+  if (prev) {
+    for (const [word] of loadBigrams().get(prev) ?? []) {
+      const forms = lex.byKey.get(toKey(word));
+      const e = forms?.find(f => f.word === word);
+      if (e && e.key.startsWith(key) && e.key.length > key.length && !best.includes(e)) best.push(e);
+    }
+  }
+  for (const e of best) offer(e.word, freq(e) - 0.15 * (e.key.length - key.length), 'complete');
 
   // 3) Corrigir erro de digitação (só se a palavra não existe)
   if (!known && key.length >= 2) {
     for (const [candidate, cost] of editsOf(key)) {
       const forms = lex.byKey.get(candidate);
-      if (forms) for (const e of forms) offer(e, freq(e) - cost + 1);
+      if (forms) for (const e of forms) offer(e.word, freq(e) - cost + 1, 'fix');
     }
   }
+  return [...found.values()].sort((a, b) => b.score - a.score);
+}
 
-  const words = [...scores.entries()]
+/**
+ * Sugestões para a palavra que está sendo digitada.
+ * `prev`: palavra anterior da frase, em minúsculas ("^" = começo de frase).
+ */
+export function suggest(typed: string, limit = 3, prev?: string): Suggestions {
+  const lex = lexicon;
+  if (!lex || !typed) return { unknown: false, words: [], autocorrect: null };
+  const known = lex.words.has(typed.toLowerCase());
+  const all = candidatesFor(lex, typed, prev);
+  const fix = pickAutocorrect(lex, typed, known, all);
+  // A correção automática vai na frente (é a que aparece em destaque)
+  const ordered = fix ? [fix, ...all.filter(c => c !== fix)] : all;
+  const words = ordered.slice(0, limit).map(c => matchCase(typed, c.word));
+  return {
+    unknown: !known && words.length > 0,
+    words,
+    autocorrect: fix ? matchCase(typed, fix.word) : null,
+  };
+}
+
+/**
+ * Correção automática: só quando a palavra digitada não existe, é uma palavra
+ * de letras (sem número, link ou e-mail), não é abreviação e a melhor correção
+ * (acento ou erro de digitação) ganha com folga das outras.
+ */
+function pickAutocorrect(lex: Lexicon, typed: string, known: boolean, all: Candidate[]): Candidate | null {
+  if (known || typed.length < 2 || !ONLY_LETTERS.test(typed)) return null;
+  if (ABBREVIATIONS[typed.toLowerCase()]) return null;
+  const typedLength = toKey(typed).length;
+  loadBigrams();
+  const fixes = all.filter(c => {
+    // Só palavras comuns ou vistas em frases em português: a lista de
+    // frequência vem de legendas e tem nomes e palavras em inglês ("yard")
+    const rank = lex.byKey.get(toKey(c.word))?.find(e => e.word === c.word)?.rank ?? Infinity;
+    if (rank > COMMON_RANK && !seenInSentences?.has(c.word)) return false;
+    if (c.kind === 'accent' || c.kind === 'fix') return true;
+    // Faltou só a última letra: "obrigad" → "obrigado"
+    return c.kind === 'complete' && toKey(c.word).length === typedLength + 1;
+  });
+  const best = fixes[0];
+  if (!best) return null;
+  // Acento é certeiro: "voce" → "você"
+  if (best.kind === 'accent') return best;
+  // Rival que só muda a última letra (obrigado/obrigada, casa/casas) não trava:
+  // vale a mais comum
+  const stem = (w: string) => toKey(w).slice(0, -1);
+  const rival = fixes.slice(1).find(c => stem(c.word) !== stem(best.word));
+  if (rival && best.score - rival.score < AUTOCORRECT_MARGIN && best.context <= rival.context) return null;
+  return best;
+}
+
+/** Próximas palavras prováveis depois de `prev` (barra logo após o espaço). */
+export function predictNext(prev: string, limit = 3): string[] {
+  if (!lexicon) return [];
+  const next = loadBigrams().get(prev);
+  if (!next) return [];
+  return [...next.entries()]
+    .filter(([w]) => !NEVER_SUGGEST.has(w))
     .sort((a, b) => b[1] - a[1])
     .slice(0, limit)
-    .map(([word]) => matchCase(typed, word));
-  return { unknown: !known && words.length > 0, words };
+    .map(([w]) => w);
 }
+
+/** Mantém maiúsculas como a pessoa digitou (para quem aplica a correção). */
+export { matchCase };

@@ -11,7 +11,7 @@ import {
 import { Repo } from '../../storage/storage';
 import type { AudioShortcut, ShortcutsData, TextShortcut } from '../../types';
 import { normalizeUrl } from '../../utils/formatters';
-import { coralGlass, glassBorder, makeStyles, radius, spacing, touchTarget, typography, useColors } from '../../keyboard/theme';
+import { coralGlass, glassBorder, makeStyles, onCoralText, radius, spacing, touchTarget, typography, useColors } from '../../keyboard/theme';
 import { Icon, IconTile } from '../../keyboard/components/Icon';
 import { CoralSheen, EmptyState } from '../components/ui';
 
@@ -375,6 +375,7 @@ const useStyles = makeStyles(colors => ({
     ...coralGlass(colors),
   },
   addBtnText: {
+    ...onCoralText,
     color: colors.onPrimary,
     ...typography.button,
   },
@@ -509,5 +510,5 @@ const useStyles = makeStyles(colors => ({
     alignItems: 'center',
     ...coralGlass(colors),
   },
-  saveBtnText: { color: colors.onPrimary, ...typography.button },
+  saveBtnText: { color: colors.onPrimary, ...typography.button, ...onCoralText },
 }));

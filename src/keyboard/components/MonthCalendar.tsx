@@ -1,7 +1,7 @@
 import React, { memo } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { MONTHS, WEEKDAYS_SHORT, monthGrid, todayISO } from '../../agenda/agenda';
-import { makeStyles, radius, spacing, useColors } from '../theme';
+import { makeStyles, onCoralText, radius, spacing, useColors } from '../theme';
 import { Icon } from './Icon';
 
 export interface CalendarMonth {
@@ -102,7 +102,7 @@ const useStyles = makeStyles(colors => ({
   daySelected: { backgroundColor: colors.primary },
   dayToday: { borderWidth: 1.5, borderColor: colors.primary },
   dayText: { fontSize: 14, color: colors.text },
-  dayTextSelected: { color: colors.onPrimary, fontWeight: '700' },
+  dayTextSelected: { color: colors.onPrimary, fontWeight: '700', ...onCoralText },
   dayTextToday: { color: colors.primaryText, fontWeight: '700' },
   dot: { width: 4, height: 4, borderRadius: 2, marginTop: 1 },
   dotOn: { backgroundColor: colors.primary },

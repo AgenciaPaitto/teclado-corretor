@@ -11,7 +11,7 @@ import { Repo } from '../../storage/storage';
 import type { CRMLead } from '../../types';
 import { Icon } from '../../keyboard/components/Icon';
 import { ChoiceRow } from '../../keyboard/components/KeyboardForm';
-import { coralGlass, glassBorder, makeStyles, radius, spacing, touchTarget, typography, useColors } from '../../keyboard/theme';
+import { coralGlass, glassBorder, makeStyles, onCoralText, radius, spacing, touchTarget, typography, useColors } from '../../keyboard/theme';
 import { CoralSheen, Button, Card, CardText, CardTitle, EmptyState, Page, ScreenTitle, SubHeader } from '../components/ui';
 import { useStoredList } from '../hooks/useStoredList';
 
@@ -308,7 +308,7 @@ const useStyles = makeStyles(colors => ({
     borderRadius: radius.md,
     ...coralGlass(colors),
   },
-  addBtnText: { color: colors.onPrimary, ...typography.button },
+  addBtnText: { color: colors.onPrimary, ...typography.button, ...onCoralText },
   search: {
     backgroundColor: colors.surface,
     ...glassBorder(colors),

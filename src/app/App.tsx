@@ -22,8 +22,8 @@ import type { SellerProfile, ThemePreference } from '../types';
 import { Icon } from '../keyboard/components/Icon';
 import type { IconName } from '../keyboard/components/Icon';
 import { KeyconLogo } from '../keyboard/components/KeyconLogo';
-import { glassBorder, makeStyles, radius, spacing, ThemeProvider, useColors } from '../keyboard/theme';
-import { Aurora } from './components/Aurora';
+import { glassBorder, makeStyles, onCoralText, radius, spacing, ThemeProvider, useColors } from '../keyboard/theme';
+import { Aurora } from '../keyboard/components/Glass';
 import { AuthScreen } from './screens/AuthScreen';
 import { HomeScreen } from './screens/HomeScreen';
 import type { AppTarget } from './screens/HomeScreen';
@@ -243,6 +243,7 @@ const useStyles = makeStyles(colors => ({
     justifyContent: 'center',
   },
   avatarText: {
+    ...onCoralText,
     color: colors.onPrimary,
     fontSize: 14,
     fontWeight: '700',

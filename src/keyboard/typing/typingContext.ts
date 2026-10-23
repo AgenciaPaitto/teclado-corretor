@@ -49,6 +49,28 @@ export class TypingContext {
     return this.before.slice(i).replace(/^-+/, '');
   }
 
+  /**
+   * Palavra anterior à atual, em minúsculas, para o corretor entender a frase.
+   * "^" quando a atual começa a frase (campo vazio, depois de . ! ? ou de uma
+   * quebra de linha); undefined quando antes dela vem outra coisa (número, link).
+   */
+  previousWord(): string | undefined {
+    const head = this.before.slice(0, this.before.length - this.currentWord().length);
+    if (head.trim() === '' || /[.!?…]\s*$/.test(head) || /\n\s*$/.test(head)) return '^';
+    const m = /([A-Za-zÀ-ÖØ-öø-ÿ]+(?:-[A-Za-zÀ-ÖØ-öø-ÿ]+)*)[\s,]+$/.exec(head);
+    return m ? m[1].toLowerCase() : undefined;
+  }
+
+  /** A palavra atual começa a frase (maiúscula ali é só a automática, não um nome). */
+  wordStartsSentence(): boolean {
+    return this.previousWord() === '^';
+  }
+
+  /** O texto logo antes do cursor termina com `text`? */
+  endsWith(text: string): boolean {
+    return this.before.endsWith(text);
+  }
+
   /** Último caractere antes do cursor ('' se o campo está vazio). */
   lastChar(): string {
     return this.before.slice(-1);

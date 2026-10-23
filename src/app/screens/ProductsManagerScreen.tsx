@@ -13,7 +13,7 @@ import type { SegmentField, SegmentProfile } from '../../segments/segments';
 import { Repo } from '../../storage/storage';
 import type { MediaItem, Product, ProductAttribute, ProductFolder } from '../../types';
 import { attributeLines, formatBRL, formatPrice, normalizeUrl, parseBRL } from '../../utils/formatters';
-import { coralGlass, glassBorder, makeStyles, radius, spacing, touchTarget, typography, useColors } from '../../keyboard/theme';
+import { coralGlass, glassBorder, makeStyles, onCoralText, radius, spacing, touchTarget, typography, useColors } from '../../keyboard/theme';
 import { Icon, IconTile } from '../../keyboard/components/Icon';
 import { CoralSheen, EmptyState } from '../components/ui';
 
@@ -702,6 +702,7 @@ const useStyles = makeStyles(colors => ({
     ...coralGlass(colors),
   },
   addBtnText: {
+    ...onCoralText,
     color: colors.onPrimary,
     ...typography.button,
   },
@@ -875,7 +876,7 @@ const useStyles = makeStyles(colors => ({
     alignItems: 'center',
     ...coralGlass(colors),
   },
-  saveBtnText: { color: colors.onPrimary, ...typography.button },
+  saveBtnText: { color: colors.onPrimary, ...typography.button, ...onCoralText },
   dangerBtn: {
     flex: 1,
     backgroundColor: colors.dangerBg,

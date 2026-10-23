@@ -104,11 +104,23 @@ Peças comuns (card, linha de menu, botão, estado vazio): `src/app/components/u
 | Toques com vários dedos (digitação rápida sem perder teclas) | `src/keyboard/components/TypingKeyboard.tsx` |
 | "Tecla invisível": a área de cada letra se ajusta à palavra | `src/keyboard/typing/keyResolver.ts` |
 | Sugestões, correção, acentos e abreviações (vc → você) | `src/keyboard/typing/lexicon.ts` |
+| Frase: palavra anterior, próxima palavra prevista, correção automática no espaço | `lexicon.ts` + `src/keyboard/typing/bigramsPt.ts` |
 | Texto antes do cursor (maiúscula automática, palavra atual) | `src/keyboard/typing/typingContext.ts` |
 
 Maiúscula automática no começo da mensagem e depois de `. ! ?`; volta às letras depois de um
 símbolo ou do espaço; dois espaços viram `. `; ao escolher uma sugestão, a pontuação seguinte
 "puxa" o espaço (`palavra .` → `palavra. `). E-mail, link e senha não recebem maiúscula nem sugestões.
+
+- Shift: um toque = próxima maiúscula; dois toques ou **segurar 1 s** = maiúsculas travadas.
+- Acentos: segurar a letra abre as opções acima dela; arraste o dedo até a escolhida e solte
+  (o "ç" fica no "c"). A fileira do meio (a…l) fica centralizada.
+- Correção automática: ao apertar espaço ou pontuação, uma palavra que não existe vira a correção
+  mais provável para a frase. ⌫ logo em seguida desfaz, e o teclado não insiste naquela palavra.
+  Nunca corrige palavras que existem, abreviações (vc, tbm), nomes no meio da frase, e-mail e links.
+
+**Frases (palavra seguinte):** `src/keyboard/typing/bigramsPt.ts`, gerado por
+`scripts/build_bigrams.py` a partir das frases em português do [Tatoeba](https://tatoeba.org),
+licença [CC BY 2.0 FR](https://creativecommons.org/licenses/by/2.0/fr/) (crédito na tela Sobre e licenças).
 
 **Dicionário:** `src/keyboard/typing/wordsPt.ts` — 40 mil palavras do pt-BR filtradas de
 [FrequencyWords](https://github.com/hermitdave/FrequencyWords) (Hermit Dave, legendas do OpenSubtitles),

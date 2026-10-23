@@ -6,7 +6,7 @@ import { Alert, Linking, Pressable, Text, TextInput, View } from 'react-native';
 import { Repo } from '../../storage/storage';
 import type { SegmentId, SellerProfile, ThemePreference } from '../../types';
 import { getSegment } from '../../segments/segments';
-import { makeStyles, radius, spacing, touchTarget, typography, useColors } from '../../keyboard/theme';
+import { makeStyles, onCoralText, radius, spacing, touchTarget, typography, useColors } from '../../keyboard/theme';
 import { Icon } from '../../keyboard/components/Icon';
 import { AI_CONFIG } from '../../services/aiService';
 import { AuthError, currentEmail, pushProfile } from '../../services/auth';
@@ -295,6 +295,18 @@ function AboutSection({ onBack }: { onBack: () => void }) {
         />
       </Card>
       <Card>
+        <CardTitle>Frases do corretor</CardTitle>
+        <CardText>
+          Palavras que costumam vir em sequência, tiradas das frases em português do Tatoeba (tatoeba.org),
+          licença Creative Commons BY 2.0 FR.
+        </CardText>
+        <Button
+          label="Ver licença"
+          variant="secondary"
+          onPress={() => Linking.openURL('https://creativecommons.org/licenses/by/2.0/fr/').catch(() => {})}
+        />
+      </Card>
+      <Card>
         <CardTitle>Fonte</CardTitle>
         <CardText>Inter, de Rasmus Andersson, licença SIL Open Font License 1.1.</CardText>
       </Card>
@@ -313,7 +325,7 @@ const useStyles = makeStyles(colors => ({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  avatarText: { color: colors.onPrimary, fontSize: 18, fontWeight: '700' },
+  avatarText: { color: colors.onPrimary, fontSize: 18, fontWeight: '700', ...onCoralText },
   profileName: { ...typography.title, color: colors.text },
   profileSub: { fontSize: 13, color: colors.textMuted, marginTop: 2 },
   field: { gap: spacing.xs },

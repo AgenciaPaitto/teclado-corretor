@@ -2,20 +2,30 @@ import React from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { SEGMENTS } from '../../segments/segments';
 import type { SegmentId } from '../../types';
-import { IconTile } from '../../keyboard/components/Icon';
-import { makeStyles, radius, spacing, useColors } from '../../keyboard/theme';
+import { Icon } from '../../keyboard/components/Icon';
+import { glassBorder, makeStyles, radius, spacing, useColors } from '../../keyboard/theme';
 
 interface Props {
   value: SegmentId | null;
   onChange: (segment: SegmentId) => void;
 }
 
-/** Cartões com os ramos (2 por linha). O ramo geral fica por último. */
+/** Nome curto no botão (a descrição completa vai para o leitor de tela). */
+const SHORT_LABEL: Partial<Record<SegmentId, string>> = {
+  retail: 'Varejo',
+  beauty: 'Beleza',
+  general: 'Outro',
+};
+
+/**
+ * Ramos em botões compactos (ícone + nome), que se acomodam em linhas.
+ * O escolhido fica em coral suave. O ramo geral ("Outro") vem por último.
+ */
 export function SegmentPicker({ value, onChange }: Props) {
   const colors = useColors();
   const styles = useStyles();
   return (
-    <View style={styles.grid} accessibilityRole="radiogroup">
+    <View style={styles.wrap} accessibilityRole="radiogroup">
       {SEGMENTS.map(s => {
         const selected = s.id === value;
         return (
@@ -26,16 +36,11 @@ export function SegmentPicker({ value, onChange }: Props) {
             accessibilityState={{ selected }}
             accessibilityLabel={`${s.label}: ${s.description}`}
             onPress={() => onChange(s.id)}
-            style={({ pressed }) => [styles.card, selected && styles.cardSelected, pressed && styles.pressed]}>
-            <IconTile name={s.icon} size={36} color={selected ? colors.primary : undefined} />
-            <View style={styles.info}>
-              <Text style={[styles.label, selected && styles.labelSelected]} numberOfLines={1}>
-                {s.id === 'general' ? 'Outro / Geral' : s.label}
-              </Text>
-              <Text style={styles.description} numberOfLines={2}>
-                {s.description}
-              </Text>
-            </View>
+            style={({ pressed }) => [styles.chip, selected && styles.chipSelected, pressed && styles.pressed]}>
+            <Icon name={s.icon} size={16} color={selected ? colors.primaryText : colors.textSecondary} />
+            <Text style={[styles.label, selected && styles.labelSelected]} numberOfLines={1}>
+              {SHORT_LABEL[s.id] ?? s.label}
+            </Text>
           </Pressable>
         );
       })}
@@ -44,45 +49,35 @@ export function SegmentPicker({ value, onChange }: Props) {
 }
 
 const useStyles = makeStyles(colors => ({
-  grid: {
+  wrap: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: spacing.sm,
   },
-  card: {
-    // 2 colunas com o espaço do meio
-    flexBasis: '47%',
-    flexGrow: 1,
+  chip: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.sm,
-    minHeight: 64,
-    padding: spacing.sm,
-    borderRadius: radius.md,
-    borderWidth: 1.5,
-    borderColor: 'transparent',
+    gap: 6,
+    minHeight: 40,
+    paddingHorizontal: spacing.md,
+    borderRadius: radius.pill,
     backgroundColor: colors.surfaceAlt,
+    ...glassBorder(colors),
   },
-  cardSelected: {
-    borderColor: colors.primary,
+  chipSelected: {
     backgroundColor: colors.primarySoft,
+    borderColor: colors.primary,
+    borderTopColor: colors.primary,
+    borderWidth: 1,
   },
-  pressed: {
-    opacity: 0.75,
-  },
-  info: { flex: 1 },
+  pressed: { opacity: 0.75 },
   label: {
     fontSize: 14,
-    fontWeight: '600',
-    color: colors.text,
+    fontWeight: '500',
+    color: colors.textSecondary,
   },
   labelSelected: {
     color: colors.primaryText,
-  },
-  description: {
-    fontSize: 12,
-    lineHeight: 16,
-    color: colors.textMuted,
-    marginTop: 1,
+    fontWeight: '600',
   },
 }));

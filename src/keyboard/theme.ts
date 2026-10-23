@@ -106,8 +106,8 @@ export const darkColors: Palette = {
   primaryStrong: '#E2654D',
   primaryText: brand.coral,
   primarySoft: 'rgba(241, 120, 96, 0.16)',
-  // Grafite sobre coral (5,3:1); branco dava só 2,8:1
-  onPrimary: brand.graphite,
+  // Branco sobre coral, com a sombra onCoralText para destacar
+  onPrimary: '#FFFFFF',
   info: '#3B82F6',
   success: '#22C55E',
   successStrong: '#16A34A',
@@ -157,8 +157,8 @@ export const lightColors: Palette = {
   primaryStrong: '#E2654D',
   primaryText: '#B44A35',
   primarySoft: 'rgba(241, 120, 96, 0.12)',
-  // Grafite sobre coral (5,3:1); branco dava só 2,8:1
-  onPrimary: brand.graphite,
+  // Branco sobre coral, com a sombra onCoralText para destacar
+  onPrimary: '#FFFFFF',
   info: '#2563EB',
   success: '#16A34A',
   successStrong: '#16A34A',
@@ -276,6 +276,17 @@ export const lightGlassColors: Palette = {
   tile: 'rgba(255, 255, 255, 0.6)',
 };
 
+/**
+ * Sombra leve do texto branco sobre coral (botões, tecla Enter, item
+ * escolhido). O branco sozinho tem só 2,8:1 sobre o coral; a sombra grafite
+ * dá o contorno que destaca as letras.
+ */
+export const onCoralText = {
+  textShadowColor: 'rgba(36, 40, 51, 0.45)',
+  textShadowOffset: { width: 0, height: 1 },
+  textShadowRadius: 2,
+} as const;
+
 /** Borda do vidro: contorno fino com a luz no lado de cima. Vazio fora do vidro. */
 export function glassBorder(colors: Palette) {
   if (!colors.glass) return {};
@@ -287,10 +298,11 @@ export function glassBorder(colors: Palette) {
  * baixo. O reflexo em degradê vem do CoralSheen (app). Sem `overflow: hidden`,
  * que cortaria a sombra no iOS. Vazio fora do vidro.
  */
-export function coralGlass(colors: Palette) {
+export function coralGlass(colors: Palette, { pill = true }: { pill?: boolean } = {}) {
   if (!colors.glass) return {};
   return {
-    borderRadius: radius.pill,
+    // No teclado o botão mantém o próprio raio (cantos discretos)
+    ...(pill ? { borderRadius: radius.pill } : {}),
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.35)',
     shadowColor: brand.coral,

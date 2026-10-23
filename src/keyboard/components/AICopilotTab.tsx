@@ -2,7 +2,8 @@ import React, { useCallback, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 import { AIServiceError, analyzeClipboardMessage } from '../../services/aiService';
 import type { AISuggestion, SuggestionTone } from '../../types';
-import { makeStyles, radius, spacing, touchTarget, useColors } from '../theme';
+import { coralGlass, glassBorder, makeStyles, onCoralText, radius, spacing, touchTarget, useColors } from '../theme';
+import { CoralSheen } from './Glass';
 import { Icon } from './Icon';
 
 interface Props {
@@ -48,6 +49,7 @@ export function AICopilotTab({ onInsert }: Props) {
         disabled={state.status === 'loading'}
         onPress={analyze}
         style={({ pressed }) => [styles.cta, pressed && styles.ctaPressed]}>
+        <CoralSheen radius={radius.md} />
         {state.status === 'loading' ? (
           <ActivityIndicator color={colors.onPrimary} size="small" />
         ) : (
@@ -98,11 +100,13 @@ const useStyles = makeStyles(colors => ({
     minHeight: touchTarget,
     alignItems: 'center',
     justifyContent: 'center',
+    ...coralGlass(colors, { pill: false }),
   },
   ctaPressed: {
     backgroundColor: colors.primaryStrong,
   },
   ctaText: {
+    ...onCoralText,
     color: colors.onPrimary,
     fontWeight: '600',
     fontSize: 15,
@@ -132,6 +136,7 @@ const useStyles = makeStyles(colors => ({
   },
   card: {
     backgroundColor: colors.surface,
+    ...glassBorder(colors),
     borderRadius: radius.md,
     padding: spacing.md,
     marginBottom: spacing.sm,

@@ -3,14 +3,14 @@
  * mesmo padrão do manual: cards no surface, botão principal coral, botão
  * secundário neutro, um título por tela e margens de 16 (zona neutra).
  */
-import React, { memo } from 'react';
+import React from 'react';
 import type { ReactNode } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
+import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 import type { StyleProp, ViewStyle } from 'react-native';
+import { CoralSheen } from '../../keyboard/components/Glass';
 import { Icon, IconTile } from '../../keyboard/components/Icon';
 import type { IconName } from '../../keyboard/components/Icon';
-import { coralGlass, glassBorder, makeStyles, radius, spacing, touchTarget, typography, useColors } from '../../keyboard/theme';
+import { coralGlass, glassBorder, makeStyles, onCoralText, radius, spacing, touchTarget, typography, useColors } from '../../keyboard/theme';
 import type { Palette } from '../../keyboard/theme';
 
 /** Vidro do card: raio maior, contorno com luz em cima e sombra em duas alturas (só iOS/web). */
@@ -25,36 +25,8 @@ function glassShadow(colors: Palette) {
   };
 }
 
-/**
- * Reflexo do botão coral de vidro: degradê vertical que some antes do meio
- * (sem linha dura atravessando o texto) e uma leve refração embaixo.
- * Primeiro filho do botão; só aparece na paleta de vidro.
- */
-export const CoralSheen = memo(() => {
-  const colors = useColors();
-  if (!colors.glass) return null;
-  return (
-    <View pointerEvents="none" style={sheenStyles.clip}>
-      <Svg width="100%" height="100%" preserveAspectRatio="none">
-        <Defs>
-          <LinearGradient id="keycon-coral-sheen" x1="0" y1="0" x2="0" y2="1">
-            <Stop offset="0" stopColor="#FFFFFF" stopOpacity={0.4} />
-            <Stop offset="0.42" stopColor="#FFFFFF" stopOpacity={0.08} />
-            <Stop offset="0.58" stopColor="#FFFFFF" stopOpacity={0} />
-            {/* Até 10% de grafite embaixo: o texto grafite segue acima de 4,5:1 */}
-            <Stop offset="1" stopColor="#242833" stopOpacity={0.1} />
-          </LinearGradient>
-        </Defs>
-        <Rect width="100%" height="100%" fill="url(#keycon-coral-sheen)" />
-      </Svg>
-    </View>
-  );
-});
-
-const sheenStyles = StyleSheet.create({
-  // Recorte próprio na forma da pílula: o botão fica sem overflow e mantém a sombra
-  clip: { ...StyleSheet.absoluteFillObject, borderRadius: radius.pill, overflow: 'hidden' },
-});
+/** Reflexo dos botões coral (o mesmo do teclado). */
+export { CoralSheen };
 
 /** Página rolável com a margem padrão. */
 export function Page({ children }: { children: ReactNode }) {
@@ -197,7 +169,7 @@ export function Button({ label, onPress, variant = 'primary', icon, loading, dis
       ) : (
         <>
           {icon ? <Icon name={icon} size={18} color={fg} /> : null}
-          <Text style={[styles.buttonText, { color: fg }]}>{label}</Text>
+          <Text style={[styles.buttonText, { color: fg }, variant === 'primary' && onCoralText]}>{label}</Text>
         </>
       )}
     </Pressable>
@@ -311,7 +283,7 @@ const useStyles = makeStyles(colors => ({
     // Vidro: botões em pílula
     borderRadius: colors.glass ? radius.pill : radius.md,
   },
-  // Coral sólido (nunca translúcido: o texto grafite precisa de 5,3:1)
+  // Coral sólido (nunca translúcido: o texto branco precisa do coral cheio atrás)
   buttonPrimary: {
     backgroundColor: colors.primary,
     ...coralGlass(colors),
