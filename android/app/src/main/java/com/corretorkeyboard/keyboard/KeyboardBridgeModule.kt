@@ -2,6 +2,7 @@ package com.corretorkeyboard.keyboard
 
 import android.content.Context
 import android.content.Intent
+import android.net.ConnectivityManager
 import android.provider.Settings
 import android.view.inputmethod.InputMethodManager
 import com.facebook.react.bridge.Arguments
@@ -32,6 +33,9 @@ class KeyboardBridgeModule(reactContext: ReactApplicationContext) :
 
     /** Downloads fora da main thread, um por vez. */
     private val downloads = Executors.newSingleThreadExecutor()
+
+    /** Pré-download em segundo plano, separado: nunca atrasa um envio que a pessoa pediu. */
+    private val prefetches = Executors.newSingleThreadExecutor()
 
     private inline fun withService(promise: Promise, crossinline block: (CustomKeyboardService) -> Any?) {
         UiThreadUtil.runOnUiThread {
@@ -248,6 +252,36 @@ class KeyboardBridgeModule(reactContext: ReactApplicationContext) :
     }
 
     /**
+     * Baixa antes (para o cache) as fotos, vídeos e áudios do catálogo e dos
+     * atalhos, para o envio ser instantâneo e funcionar com internet fraca.
+     * No 4G (rede medida) pula os vídeos. Resolve com quantos ficaram prontos.
+     */
+    @ReactMethod
+    fun prefetchMedia(urls: ReadableArray, promise: Promise) {
+        val list = (0 until urls.size()).mapNotNull { urls.getString(it) }.distinct().take(MAX_PREFETCH)
+        val ctx = reactApplicationContext
+        val connectivity = ctx.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
+        val metered = connectivity?.isActiveNetworkMetered ?: true
+        prefetches.execute {
+            var ready = 0
+            for (url in list) {
+                if (MediaFiles.isCached(ctx, url)) {
+                    ready++
+                    continue
+                }
+                if (metered && MediaFiles.looksLikeVideo(url)) continue
+                try {
+                    MediaFiles.download(ctx, url)
+                    ready++
+                } catch (_: Throwable) {
+                    // Link quebrado ou sem internet: tenta de novo no próximo uso
+                }
+            }
+            promise.resolve(ready)
+        }
+    }
+
+    /**
      * Baixa os arquivos e abre o compartilhamento do Android, priorizando o app
      * em foco (ex.: WhatsApp). Resolve "direct" ou "chooser".
      */
@@ -280,5 +314,10 @@ class KeyboardBridgeModule(reactContext: ReactApplicationContext) :
     // Obrigatórios para NativeEventEmitter no RN ≥ 0.65
     @ReactMethod fun addListener(eventName: String) { /* no-op */ }
     @ReactMethod fun removeListeners(count: Double) { /* no-op */ }
+
+    companion object {
+        /** Arquivos pré-baixados por vez (o cache guarda até 150 MB). */
+        private const val MAX_PREFETCH = 40
+    }
 }
 

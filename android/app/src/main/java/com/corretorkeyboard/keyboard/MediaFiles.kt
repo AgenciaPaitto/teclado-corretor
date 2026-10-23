@@ -94,10 +94,15 @@ object MediaFiles {
                 if (conn.contentLengthLong > MAX_BYTES) throw MediaException("Arquivo maior que 50 MB.")
 
                 val ext = MimeTypeMap.getSingleton().getExtensionFromMimeType(mime) ?: "bin"
-                val tmp = File(dir, "$key.tmp")
+                // Temporário exclusivo: o pré-download e um envio podem baixar o mesmo link juntos
+                val tmp = File(dir, "$key.${Thread.currentThread().id}-${System.nanoTime()}.tmp")
                 conn.inputStream.use { input -> tmp.outputStream().use { out -> copyLimited(input, out) } }
                 val target = File(dir, "$key.$ext")
-                if (!tmp.renameTo(target)) throw IOException("Não foi possível salvar o arquivo.")
+                if (!tmp.renameTo(target)) {
+                    tmp.delete()
+                    // Outro download do mesmo link terminou antes: usa o dele
+                    if (!target.exists()) throw IOException("Não foi possível salvar o arquivo.")
+                }
 
                 trimCache(dir)
                 return Downloaded(target, mime)
@@ -139,6 +144,19 @@ object MediaFiles {
             Intent.createChooser(intent, "Enviar com").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         )
         return "chooser"
+    }
+
+    /** Já está no cache (o envio vai ser instantâneo)? */
+    fun isCached(context: Context, url: String): Boolean {
+        val dir = File(context.cacheDir, DIR)
+        val key = sha1(url)
+        return dir.listFiles { f -> f.name.startsWith("$key.") && !f.name.endsWith(".tmp") }?.isNotEmpty() == true
+    }
+
+    /** O link parece de vídeo (pela extensão)? Vídeos não são pré-baixados no 4G. */
+    fun looksLikeVideo(url: String): Boolean {
+        val ext = MimeTypeMap.getFileExtensionFromUrl(url)
+        return !ext.isNullOrEmpty() && mimeFromExtension(ext)?.startsWith("video/") == true
     }
 
     // -----------------------------------------------------------------------

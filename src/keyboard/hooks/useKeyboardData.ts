@@ -3,6 +3,32 @@ import { KeyboardBridge } from '../../native/KeyboardBridge';
 import { Repo } from '../../storage/storage';
 import type { KeyboardData, ThemePreference } from '../../types';
 
+/** Pré-download no máximo a cada 2 min (abrir e fechar o teclado não refaz o trabalho). */
+const PREFETCH_EVERY_MS = 2 * 60 * 1000;
+let lastPrefetch = 0;
+
+/**
+ * Fotos, vídeos e áudios que o teclado pode enviar, na ordem em que aparecem
+ * (fotos primeiro: são as mais enviadas e as mais leves).
+ */
+function mediaUrls(data: KeyboardData): string[] {
+  const products = data.folders.flatMap(f => f.products);
+  return [
+    ...products.flatMap(p => p.photos.map(m => m.url)),
+    ...data.shortcuts.audios.map(a => a.audioUrl),
+    ...products.flatMap(p => p.videos.map(m => m.url)),
+  ].filter(url => /^https?:\/\//i.test(url));
+}
+
+/** Baixa antes, em segundo plano, para o envio pelo teclado ser instantâneo. */
+function prefetch(data: KeyboardData) {
+  const now = Date.now();
+  if (now - lastPrefetch < PREFETCH_EVERY_MS) return;
+  lastPrefetch = now;
+  const urls = mediaUrls(data);
+  if (urls.length) KeyboardBridge.prefetchMedia(urls).catch(() => {});
+}
+
 /**
  * Carrega o snapshot do MMKV (síncrono) e recarrega toda vez que o teclado
  * reaparece — o usuário pode ter editado o catálogo no app entre um uso e
@@ -14,10 +40,15 @@ export function useKeyboardData() {
   const [loggedIn, setLoggedIn] = useState(() => Repo.isLoggedIn());
 
   useEffect(() => {
+    const initial = Repo.loadAll();
+    if (Repo.isLoggedIn()) prefetch(initial);
     return KeyboardBridge.onKeyboardShow(e => {
-      setData(Repo.loadAll());
-      setLoggedIn(Repo.isLoggedIn());
+      const fresh = Repo.loadAll();
+      const logged = Repo.isLoggedIn();
+      setData(fresh);
+      setLoggedIn(logged);
       setTargetApp(e.targetPackage);
+      if (logged) prefetch(fresh);
     });
   }, []);
 

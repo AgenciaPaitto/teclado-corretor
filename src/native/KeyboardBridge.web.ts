@@ -112,6 +112,8 @@ export const KeyboardBridge = {
   getContentMimeTypes: async (): Promise<string[]> => [],
   commitImage: async (_url: string, _description: string): Promise<CommitImageResult> => 'unsupported',
   shareMedia: (_urls: string[]): Promise<'direct' | 'chooser'> => unavailable('O compartilhamento de arquivos'),
+  // Na web os arquivos não são guardados no aparelho
+  prefetchMedia: async (_urls: string[]) => 0,
   openApp: async () => {
     openAppHandler?.();
     return !!openAppHandler;

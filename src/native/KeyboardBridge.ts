@@ -27,6 +27,7 @@ interface KeyboardBridgeNative {
   getContentMimeTypes?(): Promise<string[]>;
   commitImage?(url: string, description: string): Promise<CommitImageResult>;
   shareMedia?(urls: string[]): Promise<'direct' | 'chooser'>;
+  prefetchMedia?(urls: string[]): Promise<number>;
   openApp?(): Promise<boolean>;
 }
 
@@ -96,6 +97,12 @@ export const KeyboardBridge = {
   /** Formatos de arquivo que o campo em foco aceita receber do teclado (vazio = só texto). */
   getContentMimeTypes: (): Promise<string[]> =>
     Native?.getContentMimeTypes ? Native.getContentMimeTypes() : Promise.resolve([]),
+  /**
+   * Baixa antes as mídias do catálogo e dos atalhos (Android), em segundo plano
+   * e sem atrasar envios. Resolve com quantas já estão prontas no aparelho.
+   */
+  prefetchMedia: (urls: string[]): Promise<number> =>
+    Native?.prefetchMedia ? Native.prefetchMedia(urls) : Promise.resolve(0),
   /** Baixa a foto e entrega direto na conversa (Android). */
   commitImage: (url: string, description: string): Promise<CommitImageResult> =>
     Native?.commitImage ? Native.commitImage(url, description) : Promise.resolve('unsupported'),

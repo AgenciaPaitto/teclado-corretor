@@ -80,6 +80,25 @@ Beleza e estética, Veículos ou **Outro / Geral**. Dá para trocar depois na te
 
 Peças comuns (card, linha de menu, botão, estado vazio): `src/app/components/ui.tsx`.
 
+## Fotos, vídeos e áudios (Android)
+
+| O quê | Onde |
+|---|---|
+| Galeria e câmera (fotos em JPEG até 2048 px; vídeos MP4 até 3 min) | `src/native/MediaPicker.ts` (`react-native-image-picker`) |
+| Arquivo de áudio do celular | `MediaPicker.pickAudioFile` (`react-native-document-picker`) |
+| Gravar áudio (M4A/AAC, até 5 min) | `android/.../keyboard/AudioRecorderModule.kt` + `src/native/AudioRecorder.ts` |
+| Envio para o Storage do Supabase (bucket `media`, pasta do usuário), com andamento | `src/services/mediaUpload.ts` |
+| Pré-download no teclado (fotos e áudios sempre; vídeos só no Wi-Fi) | `KeyboardBridge.prefetchMedia` → `KeyboardBridgeModule.kt` |
+
+- No app: Catálogo › item › Fotos/Vídeos (Galeria, Tirar foto/Gravar vídeo, Link) e
+  Atalhos › Áudios (Gravar agora, Arquivo do celular, Colar link). Excluir apaga o arquivo da nuvem.
+- No teclado: a foto vai direto na conversa (quando o app aceita, como o WhatsApp); vídeo e áudio
+  abrem o compartilhamento já no app da conversa. Áudio chega como arquivo de áudio (só o próprio
+  WhatsApp cria mensagem de voz).
+- Precisa do bucket `media` criado pelo `supabase/schema.sql`. Limite: 50 MB por arquivo.
+- A câmera usa o app de câmera do celular (o KEYCON não pede permissão de câmera); o microfone é
+  pedido na hora de gravar.
+
 ## CRM e Agenda (app + teclado expandido)
 
 | O quê | Onde |

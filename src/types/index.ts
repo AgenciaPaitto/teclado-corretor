@@ -10,6 +10,8 @@ export interface MediaItem {
   url: string;
   thumbnailUrl?: string;
   duration?: string;
+  /** Caminho no Storage quando o arquivo foi enviado pelo app (vazio = link externo). */
+  storagePath?: string;
 }
 
 /**
@@ -58,6 +60,8 @@ export interface AudioShortcut {
   duration: string;
   audioUrl: string;
   transcript: string;
+  /** Caminho no Storage quando o áudio foi gravado ou enviado pelo app. */
+  storagePath?: string;
 }
 
 export interface ShortcutsData {

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Alert,
   FlatList,
@@ -14,6 +14,11 @@ import { normalizeUrl } from '../../utils/formatters';
 import { coralGlass, glassBorder, makeStyles, onCoralText, radius, spacing, touchTarget, typography, useColors } from '../../keyboard/theme';
 import { Icon, IconTile } from '../../keyboard/components/Icon';
 import { CoralSheen, EmptyState } from '../components/ui';
+import { SourceButtons, UploadStatus, useUploader } from '../components/MediaUpload';
+import { canRecord, cancelRecording, RecorderError, startRecording, stopRecording } from '../../native/AudioRecorder';
+import { pickAudioFile } from '../../native/MediaPicker';
+import { deleteUploadedMedia, formatDuration } from '../../services/mediaUpload';
+import type { LocalMedia } from '../../services/mediaUpload';
 
 /** Formulários de criação/edição: id null = criando um atalho novo. */
 interface TextForm {
@@ -28,7 +33,13 @@ interface AudioForm {
   url: string;
   duration: string;
   transcript: string;
+  /** Áudio gravado ou enviado pelo app (vazio = link colado). */
+  storagePath?: string;
+  /** Mostrar o campo de link (em vez dos botões de gravar/arquivo). */
+  linkMode?: boolean;
 }
+
+const EMPTY_AUDIO_FORM: AudioForm = { id: null, title: '', url: '', duration: '', transcript: '' };
 
 function confirmDelete(title: string, onConfirm: () => void) {
   Alert.alert('Excluir atalho', `Deseja excluir "${title}"?`, [
@@ -46,6 +57,91 @@ export function ShortcutsManagerScreen() {
   const [textForm, setTextForm] = useState<TextForm | null>(null);
   const [audioForm, setAudioForm] = useState<AudioForm | null>(null);
 
+  // Gravação e envio do áudio
+  const uploader = useUploader();
+  const [recordingSince, setRecordingSince] = useState<number | null>(null);
+  const [elapsed, setElapsed] = useState(0);
+  const [recordError, setRecordError] = useState<string | null>(null);
+  /** Arquivo enviado neste formulário e ainda não salvo (apagado se cancelar). */
+  const [pendingUpload, setPendingUpload] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (recordingSince === null) return;
+    const timer = setInterval(() => setElapsed(Date.now() - recordingSince), 250);
+    return () => clearInterval(timer);
+  }, [recordingSince]);
+
+  // Saiu da tela no meio da gravação: descarta
+  useEffect(() => () => {
+    cancelRecording();
+  }, []);
+
+  const applyRecordedAudio = (local: LocalMedia) => {
+    uploader.run(
+      () => Promise.resolve(local),
+      uploaded => {
+        if (pendingUpload) deleteUploadedMedia(pendingUpload);
+        setPendingUpload(uploaded.storagePath);
+        setAudioForm(f =>
+          f && {
+            ...f,
+            url: uploaded.url,
+            storagePath: uploaded.storagePath,
+            duration: formatDuration(local.durationMs) || f.duration,
+            linkMode: false,
+          },
+        );
+      },
+    );
+  };
+
+  const handleStartRecording = async () => {
+    setRecordError(null);
+    uploader.clearError();
+    try {
+      await startRecording();
+      setElapsed(0);
+      setRecordingSince(Date.now());
+    } catch (e) {
+      setRecordError(e instanceof RecorderError ? e.message : 'Não foi possível usar o microfone.');
+    }
+  };
+
+  const handleStopRecording = async () => {
+    setRecordingSince(null);
+    try {
+      applyRecordedAudio(await stopRecording());
+    } catch (e) {
+      setRecordError(e instanceof RecorderError ? e.message : 'Não foi possível terminar a gravação.');
+    }
+  };
+
+  const handleCancelRecording = () => {
+    setRecordingSince(null);
+    cancelRecording();
+  };
+
+  const handlePickAudioFile = () => {
+    setRecordError(null);
+    uploader.run(pickAudioFile, (uploaded, local) => {
+      if (pendingUpload) deleteUploadedMedia(pendingUpload);
+      setPendingUpload(uploaded.storagePath);
+      setAudioForm(f =>
+        f && { ...f, url: uploaded.url, storagePath: uploaded.storagePath, duration: formatDuration(local.durationMs) || f.duration, linkMode: false },
+      );
+    });
+  };
+
+  /** Fecha o formulário de áudio; o que foi enviado e não salvo sai da nuvem. */
+  const closeAudioForm = () => {
+    if (recordingSince !== null) handleCancelRecording();
+    if (pendingUpload) deleteUploadedMedia(pendingUpload);
+    setPendingUpload(null);
+    setRecordError(null);
+    uploader.clearError();
+    setAudioForm(null);
+  };
+
   const refreshShortcuts = () => {
     setShortcuts(Repo.getShortcuts());
   };
@@ -53,7 +149,7 @@ export function ShortcutsManagerScreen() {
   const switchTab = (tab: 'text' | 'audio') => {
     setActiveTab(tab);
     setTextForm(null);
-    setAudioForm(null);
+    if (audioForm) closeAudioForm();
   };
 
   const handleSaveText = () => {
@@ -87,9 +183,12 @@ export function ShortcutsManagerScreen() {
     }
     const audioUrl = normalizeUrl(audioForm.url);
     if (!audioUrl) {
-      Alert.alert('Atenção', 'Cole o link do áudio. Ex: https://drive.google.com/...');
+      Alert.alert('Atenção', 'Grave o áudio, escolha um arquivo do celular ou cole o link.');
       return;
     }
+    // Trocou o áudio de um atalho que já tinha arquivo na nuvem: apaga o antigo
+    const previous = audioForm.id ? shortcuts.audios.find(a => a.id === audioForm.id) : undefined;
+    if (previous?.storagePath && previous.storagePath !== audioForm.storagePath) deleteUploadedMedia(previous.storagePath);
 
     const shortcut: AudioShortcut = {
       id: audioForm.id ?? `audio-${Date.now()}`,
@@ -97,6 +196,8 @@ export function ShortcutsManagerScreen() {
       duration: audioForm.duration.trim(),
       audioUrl,
       transcript: audioForm.transcript.trim(),
+      // Link colado à mão não tem arquivo na nuvem
+      storagePath: audioForm.storagePath && audioUrl === audioForm.url ? audioForm.storagePath : undefined,
     };
 
     if (audioForm.id) {
@@ -105,6 +206,7 @@ export function ShortcutsManagerScreen() {
       Repo.addAudioShortcut(shortcut);
     }
     refreshShortcuts();
+    setPendingUpload(null); // salvo: o arquivo agora pertence ao atalho
     setAudioForm(null);
     Alert.alert('Sucesso', audioForm.id ? 'Áudio atualizado!' : 'Atalho de áudio adicionado e sincronizado com o teclado!');
   };
@@ -120,6 +222,7 @@ export function ShortcutsManagerScreen() {
   const handleDeleteAudio = (item: AudioShortcut) => {
     confirmDelete(item.title, () => {
       Repo.deleteAudioShortcut(item.id);
+      deleteUploadedMedia(item.storagePath);
       refreshShortcuts();
       if (audioForm?.id === item.id) setAudioForm(null);
     });
@@ -147,7 +250,7 @@ export function ShortcutsManagerScreen() {
           style={styles.addBtn}
           onPress={() => {
             if (activeTab === 'text') setTextForm({ id: null, title: '', text: '' });
-            else setAudioForm({ id: null, title: '', url: '', duration: '', transcript: '' });
+            else setAudioForm(EMPTY_AUDIO_FORM);
           }}>
           <CoralSheen />
           <Icon name="adicionar" size={18} color={colors.onPrimary} />
@@ -227,17 +330,60 @@ export function ShortcutsManagerScreen() {
             onChangeText={title => setAudioForm({ ...audioForm, title })}
           />
 
-          <Text style={styles.label}>Link do Áudio</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="Cole o link direto do arquivo (.mp3, .ogg, .m4a)"
-            placeholderTextColor={colors.textMuted}
-            keyboardType="url"
-            autoCapitalize="none"
-            autoCorrect={false}
-            value={audioForm.url}
-            onChangeText={url => setAudioForm({ ...audioForm, url })}
-          />
+          <Text style={styles.label}>Áudio</Text>
+          {recordingSince !== null ? (
+            // Gravando: tempo correndo, parar ou cancelar
+            <View style={styles.recordBox}>
+              <View style={styles.recDot} />
+              <Text style={styles.recTime}>{formatDuration(elapsed) || '0:00'}</Text>
+              <Text style={styles.recLabel}>Gravando…</Text>
+              <Pressable style={styles.recCancel} onPress={handleCancelRecording}>
+                <Text style={styles.cancelBtnText}>Cancelar</Text>
+              </Pressable>
+              <Pressable style={styles.recStop} onPress={handleStopRecording}>
+                <CoralSheen />
+                <Text style={styles.saveBtnText}>Parar e usar</Text>
+              </Pressable>
+            </View>
+          ) : audioForm.url && !audioForm.linkMode ? (
+            // Já tem áudio: mostra e deixa trocar
+            <View style={styles.audioReady}>
+              <IconTile name="audio" size={36} />
+              <View style={styles.flex}>
+                <Text style={styles.itemTitle}>{audioForm.storagePath ? 'Áudio salvo na nuvem' : 'Áudio por link'}</Text>
+                <Text style={styles.urlText} numberOfLines={1}>
+                  {audioForm.duration || (audioForm.storagePath ? 'Pronto para enviar' : audioForm.url)}
+                </Text>
+              </View>
+              <Pressable hitSlop={6} onPress={() => setAudioForm({ ...audioForm, url: '', storagePath: undefined })}>
+                <Text style={styles.linkText}>Trocar</Text>
+              </Pressable>
+            </View>
+          ) : (
+            <>
+              <SourceButtons
+                disabled={!!uploader.uploading}
+                options={[
+                  ...(canRecord ? [{ key: 'audio-record', icon: 'audio' as const, label: 'Gravar agora', onPress: handleStartRecording }] : []),
+                  { key: 'audio-file', icon: 'arquivos', label: 'Arquivo do celular', onPress: handlePickAudioFile },
+                  { key: 'audio-link', icon: 'compartilhar', label: 'Colar link', onPress: () => setAudioForm({ ...audioForm, linkMode: true }) },
+                ]}
+              />
+              {audioForm.linkMode && (
+                <TextInput
+                  style={styles.input}
+                  placeholder="Cole o link direto do arquivo (.mp3, .ogg, .m4a)"
+                  placeholderTextColor={colors.textMuted}
+                  keyboardType="url"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  value={audioForm.url}
+                  onChangeText={url => setAudioForm({ ...audioForm, url, storagePath: undefined })}
+                />
+              )}
+            </>
+          )}
+          <UploadStatus uploading={uploader.uploading} error={recordError ?? uploader.error} />
 
           <Text style={styles.label}>Duração (opcional)</Text>
           <TextInput
@@ -259,10 +405,13 @@ export function ShortcutsManagerScreen() {
           />
 
           <View style={styles.formBtnsRow}>
-            <Pressable style={styles.cancelBtn} onPress={() => setAudioForm(null)}>
+            <Pressable style={styles.cancelBtn} onPress={closeAudioForm}>
               <Text style={styles.cancelBtnText}>Cancelar</Text>
             </Pressable>
-            <Pressable style={styles.saveBtn} onPress={handleSaveAudio}>
+            <Pressable
+              style={[styles.saveBtn, (!!uploader.uploading || recordingSince !== null) && styles.disabledBtn]}
+              disabled={!!uploader.uploading || recordingSince !== null}
+              onPress={handleSaveAudio}>
               <CoralSheen />
               <Text style={styles.saveBtnText}>Salvar Áudio</Text>
             </Pressable>
@@ -311,9 +460,9 @@ export function ShortcutsManagerScreen() {
               <EmptyState
                 icon="audio"
                 title="Nenhum áudio"
-                text="Cadastre o link de um áudio para enviar na conversa sem gravar de novo."
+                text="Grave ou escolha um áudio para enviar na conversa sem gravar de novo."
                 actionLabel="Adicionar áudio"
-                onAction={() => setAudioForm({ id: null, title: '', url: '', duration: '', transcript: '' })}
+                onAction={() => setAudioForm(EMPTY_AUDIO_FORM)}
               />
             )
           }
@@ -325,7 +474,9 @@ export function ShortcutsManagerScreen() {
                 {item.duration ? <Text style={styles.durationBadge}>{item.duration}</Text> : null}
               </View>
               {item.transcript ? <Text style={styles.transcriptText}>"{item.transcript}"</Text> : null}
-              <Text style={styles.urlText} numberOfLines={1}>{item.audioUrl}</Text>
+              <Text style={styles.urlText} numberOfLines={1}>
+                {item.storagePath ? 'Áudio salvo na nuvem' : item.audioUrl}
+              </Text>
               {renderItemActions(
                 () =>
                   setAudioForm({
@@ -334,6 +485,7 @@ export function ShortcutsManagerScreen() {
                     url: item.audioUrl,
                     duration: item.duration,
                     transcript: item.transcript,
+                    storagePath: item.storagePath,
                   }),
                 () => handleDeleteAudio(item),
               )}
@@ -346,6 +498,36 @@ export function ShortcutsManagerScreen() {
 }
 
 const useStyles = makeStyles(colors => ({
+  flex: { flex: 1 },
+  recordBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    padding: spacing.md,
+    borderRadius: radius.md,
+    backgroundColor: colors.dangerBg,
+  },
+  recDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: colors.danger },
+  recTime: { fontSize: 16, fontWeight: '700', color: colors.text, fontVariant: ['tabular-nums'] },
+  recLabel: { flex: 1, fontSize: 13, color: colors.textSecondary },
+  recCancel: { paddingHorizontal: spacing.md, minHeight: 40, justifyContent: 'center' },
+  recStop: {
+    paddingHorizontal: spacing.md,
+    minHeight: 40,
+    justifyContent: 'center',
+    backgroundColor: colors.primary,
+    borderRadius: radius.md,
+    ...coralGlass(colors, { pill: false }),
+  },
+  audioReady: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    padding: spacing.md,
+    borderRadius: radius.md,
+    backgroundColor: colors.surfaceAlt,
+  },
+  disabledBtn: { opacity: 0.5 },
   container: { flex: 1, backgroundColor: colors.bg },
   headerBar: {
     paddingHorizontal: spacing.lg,

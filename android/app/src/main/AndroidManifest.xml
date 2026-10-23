@@ -5,6 +5,8 @@
     <!-- Permissões de Internet -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <!-- Gravar atalhos de áudio no app (pedida só na hora de gravar) -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
 
     <application
         android:name=".MainApplication"

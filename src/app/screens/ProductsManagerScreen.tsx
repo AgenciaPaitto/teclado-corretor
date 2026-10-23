@@ -16,6 +16,10 @@ import { attributeLines, formatBRL, formatPrice, normalizeUrl, parseBRL } from '
 import { coralGlass, glassBorder, makeStyles, onCoralText, radius, spacing, touchTarget, typography, useColors } from '../../keyboard/theme';
 import { Icon, IconTile } from '../../keyboard/components/Icon';
 import { CoralSheen, EmptyState } from '../components/ui';
+import { SourceButtons, UploadStatus, useUploader } from '../components/MediaUpload';
+import { canUseCamera, captureWithCamera, pickFromGallery } from '../../native/MediaPicker';
+import { deleteUploadedMedia, formatDuration } from '../../services/mediaUpload';
+import type { LocalMedia, UploadedMedia } from '../../services/mediaUpload';
 
 /** Formulário de pasta: id null = criando uma pasta nova. */
 interface FolderForm {
@@ -151,6 +155,7 @@ export function ProductsManagerScreen() {
         : `Deseja excluir a pasta "${f.name}"?`,
       () => {
         Repo.deleteFolder(f.id);
+        f.products.forEach(p => [...p.photos, ...p.videos].forEach(m => deleteUploadedMedia(m.storagePath)));
         refreshFolders();
         openFolder(null);
       },
@@ -221,6 +226,7 @@ export function ProductsManagerScreen() {
     const folderId = selectedFolderId;
     confirmDelete(`Excluir ${item}`, `Deseja excluir "${p.title}" com suas fotos e vídeos?`, () => {
       Repo.deleteProduct(folderId, p.id);
+      [...p.photos, ...p.videos].forEach(m => deleteUploadedMedia(m.storagePath));
       refreshFolders();
       openProduct(null);
     });
@@ -252,12 +258,43 @@ export function ProductsManagerScreen() {
     setMediaForm(null);
   };
 
+  // Envio de arquivos do celular (galeria / câmera) para a nuvem
+  const uploader = useUploader();
+  const [uploadingType, setUploadingType] = useState<MediaItem['type'] | null>(null);
+
+  const addUploaded = (type: MediaItem['type'], uploaded: UploadedMedia, local: LocalMedia) => {
+    if (!selectedFolderId || !selectedProductId) return;
+    const isImage = type === 'image';
+    const current = folders.find(f => f.id === selectedFolderId)?.products.find(p => p.id === selectedProductId);
+    const count = (isImage ? current?.photos.length : current?.videos.length) ?? 0;
+    const media: MediaItem = {
+      id: `${isImage ? 'photo' : 'video'}-${Date.now()}`,
+      type,
+      title: `${isImage ? 'Foto' : 'Vídeo'} ${count + 1}`,
+      url: uploaded.url,
+      storagePath: uploaded.storagePath,
+      duration: isImage ? undefined : formatDuration(local.durationMs) || undefined,
+    };
+    Repo.addMedia(selectedFolderId, selectedProductId, media);
+    refreshFolders();
+  };
+
+  const upload = (type: MediaItem['type'], from: 'gallery' | 'camera') => {
+    setMediaForm(null);
+    setUploadingType(type);
+    uploader.run(
+      () => (from === 'gallery' ? pickFromGallery(type) : captureWithCamera(type)),
+      (uploaded, local) => addUploaded(type, uploaded, local),
+    );
+  };
+
   const handleDeleteMedia = (m: MediaItem) => {
     if (!selectedFolderId || !selectedProductId) return;
     const folderId = selectedFolderId;
     const productId = selectedProductId;
     confirmDelete(m.type === 'image' ? 'Excluir foto' : 'Excluir vídeo', `Deseja remover "${m.title}"?`, () => {
       Repo.deleteMedia(folderId, productId, m.id);
+      deleteUploadedMedia(m.storagePath);
       refreshFolders();
     });
   };
@@ -412,17 +449,27 @@ export function ProductsManagerScreen() {
     const form = mediaForm?.type === type ? mediaForm : null;
     return (
       <View style={styles.card}>
-        <View style={styles.cardHeaderRow}>
-          <Text style={styles.sectionTitle}>
-            {isImage ? 'Fotos' : 'Vídeos'} ({items.length})
-          </Text>
-          <Pressable
-            style={styles.smallAddBtn}
-            onPress={() => setMediaForm({ type, title: '', url: '', duration: '' })}>
-            <Icon name="adicionar" size={16} color={colors.text} />
-            <Text style={styles.smallAddBtnText}>Adicionar link</Text>
-          </Pressable>
-        </View>
+        <Text style={styles.sectionTitle}>
+          {isImage ? 'Fotos' : 'Vídeos'} ({items.length})
+        </Text>
+
+        {/* De onde vem: galeria, câmera do celular ou um link */}
+        <SourceButtons
+          disabled={!!uploader.uploading}
+          options={[
+            { key: `${type}-gallery`, icon: isImage ? 'foto' : 'video', label: 'Galeria', onPress: () => upload(type, 'gallery') },
+            ...(canUseCamera
+              ? [{ key: `${type}-camera`, icon: 'adicionar' as const, label: isImage ? 'Tirar foto' : 'Gravar vídeo', onPress: () => upload(type, 'camera') }]
+              : []),
+            {
+              key: `${type}-link`,
+              icon: 'compartilhar' as const,
+              label: 'Link',
+              onPress: () => setMediaForm({ type, title: '', url: '', duration: '' }),
+            },
+          ]}
+        />
+        {uploadingType === type && <UploadStatus uploading={uploader.uploading} error={uploader.error} />}
 
         {form && (
           <View style={styles.uploadBox}>
@@ -481,7 +528,9 @@ export function ProductsManagerScreen() {
                   {m.title}
                   {m.duration ? ` (${m.duration})` : ''}
                 </Text>
-                <Text style={styles.mediaUrl} numberOfLines={1}>{m.url}</Text>
+                <Text style={styles.mediaUrl} numberOfLines={1}>
+                  {m.storagePath ? 'Arquivo enviado pelo app' : m.url}
+                </Text>
               </View>
               <Pressable hitSlop={8} onPress={() => handleDeleteMedia(m)}>
                 <Text style={styles.deleteText}>Excluir</Text>
@@ -530,9 +579,9 @@ export function ProductsManagerScreen() {
         )}
 
         <Text style={styles.cloudInfo}>
-          Cole o link direto do arquivo (que abre só a foto ou o vídeo, ex.: terminado em .jpg ou .mp4). No WhatsApp
-          o teclado envia a própria foto na conversa; vídeos vão pelo compartilhamento. Links de página (YouTube,
-          pasta do Drive) são enviados como link.
+          Escolha da galeria, use a câmera ou cole um link direto do arquivo. No WhatsApp o teclado envia a foto
+          direto na conversa; vídeos abrem o WhatsApp para você confirmar a conversa. Links de página (YouTube,
+          pasta do Drive) vão como link.
         </Text>
 
         {renderMediaSection('image', product.photos)}
