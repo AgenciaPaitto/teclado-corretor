@@ -12,23 +12,37 @@ export interface MediaItem {
   duration?: string;
 }
 
+/**
+ * Característica de um produto (ex.: "Quartos: 3", "Ano: 2022"). Os campos
+ * sugeridos vêm do ramo; o rótulo fica gravado junto para a ficha continuar
+ * certa mesmo se o usuário trocar de ramo depois.
+ */
+export interface ProductAttribute {
+  key: string;
+  label: string;
+  value: string;
+}
+
+/** Qualquer produto ou serviço que o usuário vende. */
 export interface Product {
   id: string;
   title: string;
+  /** 0 = sem preço fixo ("Sob consulta"), quando o ramo permite. */
   price: number;
   shortDescription: string;
+  attributes?: ProductAttribute[];
+  /** Link da página do produto (loja, catálogo, Drive...). Vazio = sem link. */
   datasheetUrl: string;
-  bedrooms?: number;
-  areaM2?: number;
-  dealType?: 'venda' | 'locacao';
   photos: MediaItem[];
   videos: MediaItem[];
 }
 
+/** Pasta / categoria de produtos (ex.: "Linha Verão", "Acessórios"). */
 export interface ProductFolder {
   id: string;
   name: string;
-  neighborhood?: string;
+  /** Descrição curta da pasta (opcional). */
+  description?: string;
   products: Product[];
 }
 
@@ -51,11 +65,24 @@ export interface ShortcutsData {
   audios: AudioShortcut[];
 }
 
-export interface BrokerProfile {
+/** Ramo do negócio, escolhido no cadastro (ver src/segments). */
+export type SegmentId =
+  | 'general'
+  | 'real_estate'
+  | 'insurance'
+  | 'food'
+  | 'legal'
+  | 'retail'
+  | 'beauty'
+  | 'automotive';
+
+/** Perfil de quem vende (usado nas mensagens prontas e na IA). */
+export interface SellerProfile {
   name: string;
-  creci: string;
-  agency: string;
+  /** Nome do negócio / loja / empresa. */
+  business: string;
   phone: string;
+  segment: SegmentId;
 }
 
 export type SuggestionTone = 'cordial' | 'objetiva' | 'persuasiva';
@@ -64,25 +91,42 @@ export interface AISuggestion {
   id: string;
   tone: SuggestionTone;
   text: string;
-  referencedPropertyIds?: string[];
+  referencedProductIds?: string[];
 }
 
 export type ThemePreference = 'dark' | 'light' | 'system';
 
+export type AgendaKind = 'meeting' | 'task';
+
+/** Compromisso da agenda: reunião (com hora) ou tarefa. Mesmo dado no app e no teclado. */
 export interface ScheduleItem {
   id: string;
-  client: string;
-  productTitle: string;
-  datetime: string;
-  status: 'agendada' | 'confirmada' | 'concluida';
+  kind: AgendaKind;
+  title: string;
+  /** Dia no formato AAAA-MM-DD. */
+  date: string;
+  /** HH:MM; sem hora = o dia todo. */
+  time?: string;
+  /** Cliente do CRM ligado ao compromisso. */
+  clientId?: string;
+  clientName?: string;
+  notes?: string;
+  done: boolean;
 }
 
+/** Cliente no funil de vendas (CRM). */
 export interface CRMLead {
   id: string;
   clientName: string;
   phone: string;
-  stage: 'Novo Lead' | 'Em Atendimento' | 'Visita Agendada' | 'Proposta' | 'Fechamento';
-  lastContact: string;
+  /** Uma das etapas do funil do ramo (SegmentProfile.crmStages). */
+  stage: string;
+  /** Último contato (ISO). */
+  lastContactAt?: string;
+  /** Texto livre de versões antigas ("Hoje, 14:32"). */
+  lastContact?: string;
+  notes?: string;
+  createdAt?: string;
 }
 
 /** 4 botões principais do menu inferior fixo + tela de digitação */
@@ -91,7 +135,7 @@ export type MainSystemTab = 'products' | 'shortcuts' | 'copilot' | 'more' | 'key
 export type MoreSubMenu = 'agenda' | 'crm' | 'settings' | 'diagnostics' | null;
 
 export interface KeyboardData {
-  broker: BrokerProfile;
+  seller: SellerProfile;
   folders: ProductFolder[];
   shortcuts: ShortcutsData;
   agenda: ScheduleItem[];

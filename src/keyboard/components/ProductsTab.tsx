@@ -1,13 +1,16 @@
 import React, { useState } from 'react';
 import { FlatList, Pressable, ScrollView, Text, View } from 'react-native';
+import type { SegmentProfile } from '../../segments/segments';
 import type { MediaItem, Product, ProductFolder } from '../../types';
-import { formatPrice, formatProductMessage } from '../../utils/formatters';
+import { attributeLines, formatPrice, formatProductMessage } from '../../utils/formatters';
 import { makeStyles, radius, spacing, touchTarget, useColors } from '../theme';
 import { Icon } from './Icon';
 import { ItemCard } from './ItemCard';
 
 interface Props {
   folders: ProductFolder[];
+  /** Ramo do usuário: preço, características e nomes da ficha. */
+  segment: SegmentProfile;
   onInsert: (text: string) => void;
   /** Foto direto na conversa (cai no link se o app não aceitar). */
   onSendImage: (url: string, title: string) => void;
@@ -24,7 +27,7 @@ type ProductDetailView = 'details' | 'photos' | 'videos';
  * Aba de Produtos — Pastas com informações sobre cada produto (Fotos, vídeos e detalhes).
  * Mídias hospedadas em Cloud Object Storage sem ocupar armazenamento do dispositivo.
  */
-export function ProductsTab({ folders, onInsert, onSendImage, onShare }: Props) {
+export function ProductsTab({ folders, segment, onInsert, onSendImage, onShare }: Props) {
   const colors = useColors();
   const styles = useStyles();
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
@@ -42,12 +45,16 @@ export function ProductsTab({ folders, onInsert, onSendImage, onShare }: Props) 
         keyExtractor={f => f.id}
         contentContainerStyle={styles.list}
         keyboardShouldPersistTaps="always"
-        ListEmptyComponent={<Text style={styles.empty}>Nenhuma pasta cadastrada.</Text>}
+        ListEmptyComponent={
+          <Text style={styles.empty}>
+            Nada por aqui ainda. Cadastre seus {segment.terms.items} no app KEYCON para enviá-los por este teclado.
+          </Text>
+        }
         renderItem={({ item }) => (
           <ItemCard
             testID={`folder-${item.id}`}
             title={item.name}
-            subtitle={item.neighborhood || 'Região'}
+            subtitle={item.description}
             meta={`${item.products.length} itens`}
             icon="pasta"
             onPress={() => setSelectedFolderId(item.id)}
@@ -76,7 +83,7 @@ export function ProductsTab({ folders, onInsert, onSendImage, onShare }: Props) 
               testID={`product-${item.id}`}
               title={item.title}
               subtitle={item.shortDescription}
-              meta={formatPrice(item)}
+              meta={formatPrice(item, segment)}
               onPress={() => {
                 setSelectedProductId(item.id);
                 setActiveSubTab('details');
@@ -125,12 +132,17 @@ export function ProductsTab({ folders, onInsert, onSendImage, onShare }: Props) 
       <View style={styles.productBody}>
         {activeSubTab === 'details' && (
           <ScrollView contentContainerStyle={styles.detailsContainer} keyboardShouldPersistTaps="always">
-            <Text style={styles.productPrice}>{formatPrice(product)}</Text>
+            <Text style={styles.productPrice}>{formatPrice(product, segment)}</Text>
+            {attributeLines(product, segment).map(line => (
+              <Text key={line} style={styles.productAttr}>
+                {line}
+              </Text>
+            ))}
             <Text style={styles.productDesc}>{product.shortDescription}</Text>
             <Pressable
               style={styles.actionBtn}
-              onPress={() => onInsert(formatProductMessage(product, folder))}>
-              <Text style={styles.actionBtnText}>Inserir Ficha Completa</Text>
+              onPress={() => onInsert(formatProductMessage(product, folder, segment))}>
+              <Text style={styles.actionBtnText}>Inserir ficha do {segment.terms.item}</Text>
             </Pressable>
           </ScrollView>
         )}
@@ -253,6 +265,10 @@ const useStyles = makeStyles(colors => ({
   productPrice: {
     fontSize: 17,
     fontWeight: '700',
+    color: colors.text,
+  },
+  productAttr: {
+    fontSize: 13,
     color: colors.text,
   },
   productDesc: {

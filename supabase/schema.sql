@@ -2,21 +2,23 @@
 -- KEYCON — esquema do banco no Supabase
 -- -----------------------------------------------------------------------------
 -- Como usar: Supabase → SQL Editor → New query → colar este arquivo → Run.
--- Cada corretor só enxerga e altera os PRÓPRIOS dados (Row Level Security).
+-- Cada usuário só enxerga e altera os PRÓPRIOS dados (Row Level Security).
 -- Fotos e áudios ficam no Storage, no bucket "media", em pastas por usuário:
 --   media/<id do usuário>/<arquivo>
 -- =============================================================================
 
 -- -----------------------------------------------------------------------------
--- Perfil do corretor (nome, CRECI, imobiliária, telefone)
+-- Perfil de quem vende (nome, negócio, telefone, ramo)
 -- Criado automaticamente no cadastro (e-mail/senha ou Google).
+-- A coluna agency guarda o NOME DO NEGÓCIO (nome mantido da primeira versão).
+-- A coluna segment guarda o RAMO escolhido no cadastro (ids em src/segments).
 -- -----------------------------------------------------------------------------
 create table if not exists public.profiles (
   id          uuid primary key references auth.users (id) on delete cascade,
   name        text not null default '',
-  creci       text not null default '',
   agency      text not null default '',
   phone       text not null default '',
+  segment     text not null default 'general',
   updated_at  timestamptz not null default now()
 );
 
@@ -26,14 +28,14 @@ language plpgsql
 security definer set search_path = public
 as $$
 begin
-  insert into public.profiles (id, name, creci, agency, phone)
+  insert into public.profiles (id, name, agency, phone, segment)
   values (
     new.id,
-    -- Cadastro pelo app envia name/creci/agency/phone; o Google envia full_name
+    -- Cadastro pelo app envia name/agency/phone/segment; o Google envia full_name
     coalesce(new.raw_user_meta_data ->> 'name', new.raw_user_meta_data ->> 'full_name', ''),
-    coalesce(new.raw_user_meta_data ->> 'creci', ''),
     coalesce(new.raw_user_meta_data ->> 'agency', ''),
-    coalesce(new.raw_user_meta_data ->> 'phone', '')
+    coalesce(new.raw_user_meta_data ->> 'phone', ''),
+    coalesce(nullif(new.raw_user_meta_data ->> 'segment', ''), 'general')
   )
   on conflict (id) do nothing;
   return new;
@@ -46,13 +48,13 @@ create trigger on_auth_user_created
   for each row execute function public.handle_new_user();
 
 -- -----------------------------------------------------------------------------
--- Catálogo: pastas → imóveis → fotos/vídeos
+-- Catálogo: pastas → produtos → fotos/vídeos
 -- -----------------------------------------------------------------------------
 create table if not exists public.folders (
   id            uuid primary key default gen_random_uuid(),
   user_id       uuid not null default auth.uid() references auth.users (id) on delete cascade,
   name          text not null,
-  neighborhood  text,
+  description   text,
   position      integer not null default 0,
   created_at    timestamptz not null default now(),
   updated_at    timestamptz not null default now()
@@ -63,12 +65,12 @@ create table if not exists public.products (
   user_id            uuid not null default auth.uid() references auth.users (id) on delete cascade,
   folder_id          uuid not null references public.folders (id) on delete cascade,
   title              text not null,
-  price              numeric(14, 2) not null check (price > 0),
-  deal_type          text not null default 'venda' check (deal_type in ('venda', 'locacao')),
-  bedrooms           integer,
-  area_m2            integer,
+  -- 0 = "Sob consulta" (ramos com preço opcional)
+  price              numeric(14, 2) not null check (price >= 0),
   short_description  text not null default '',
   datasheet_url      text not null default '',
+  -- Características do ramo: [{"key": "bedrooms", "label": "Quartos", "value": "3"}, ...]
+  attributes         jsonb not null default '[]'::jsonb,
   position           integer not null default 0,
   created_at         timestamptz not null default now(),
   updated_at         timestamptz not null default now()
@@ -121,7 +123,7 @@ create index if not exists text_shortcuts_user_idx  on public.text_shortcuts (us
 create index if not exists audio_shortcuts_user_idx on public.audio_shortcuts (user_id);
 
 -- -----------------------------------------------------------------------------
--- Row Level Security: cada corretor só acessa as próprias linhas
+-- Row Level Security: cada usuário só acessa as próprias linhas
 -- -----------------------------------------------------------------------------
 alter table public.profiles        enable row level security;
 alter table public.folders         enable row level security;
@@ -139,8 +141,9 @@ create policy "pastas do proprio usuario" on public.folders
   for all using (user_id = auth.uid()) with check (user_id = auth.uid());
 
 drop policy if exists "imoveis do proprio usuario" on public.products;
--- Além do dono, confere que a pasta / o imóvel de destino também são do usuário
-create policy "imoveis do proprio usuario" on public.products
+drop policy if exists "produtos do proprio usuario" on public.products;
+-- Além do dono, confere que a pasta / o produto de destino também são do usuário
+create policy "produtos do proprio usuario" on public.products
   for all using (user_id = auth.uid())
   with check (
     user_id = auth.uid()
@@ -188,3 +191,26 @@ drop policy if exists "excluir arquivos da propria pasta" on storage.objects;
 create policy "excluir arquivos da propria pasta" on storage.objects
   for delete to authenticated
   using (bucket_id = 'media' and (storage.foldername(name))[1] = auth.uid()::text);
+
+-- -----------------------------------------------------------------------------
+-- Atualização de um banco criado por versões anteriores.
+-- Pode rodar várias vezes: cada passo só age se ainda for necessário.
+-- -----------------------------------------------------------------------------
+do $$
+begin
+  if exists (select 1 from information_schema.columns
+             where table_schema = 'public' and table_name = 'folders' and column_name = 'neighborhood') then
+    alter table public.folders rename column neighborhood to description;
+  end if;
+end $$;
+
+alter table public.products drop column if exists deal_type;
+alter table public.products drop column if exists bedrooms;
+alter table public.products drop column if exists area_m2;
+alter table public.profiles drop column if exists creci;
+
+-- Ramos de negócio (cadastro) e características dos produtos
+alter table public.profiles add column if not exists segment text not null default 'general';
+alter table public.products add column if not exists attributes jsonb not null default '[]'::jsonb;
+alter table public.products drop constraint if exists products_price_check;
+alter table public.products add constraint products_price_check check (price >= 0);

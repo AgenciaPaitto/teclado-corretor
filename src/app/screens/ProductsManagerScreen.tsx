@@ -8,29 +8,31 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { capitalize, getSegment } from '../../segments/segments';
+import type { SegmentField, SegmentProfile } from '../../segments/segments';
 import { Repo } from '../../storage/storage';
-import type { MediaItem, Product, ProductFolder } from '../../types';
-import { formatBRL, formatPrice, normalizeUrl, parseBRL } from '../../utils/formatters';
+import type { MediaItem, Product, ProductAttribute, ProductFolder } from '../../types';
+import { attributeLines, formatBRL, formatPrice, normalizeUrl, parseBRL } from '../../utils/formatters';
 import { makeStyles, radius, spacing, touchTarget, typography, useColors } from '../../keyboard/theme';
 import { Icon, IconTile } from '../../keyboard/components/Icon';
+import { EmptyState } from '../components/ui';
 
 /** Formulário de pasta: id null = criando uma pasta nova. */
 interface FolderForm {
   id: string | null;
   name: string;
-  neighborhood: string;
+  description: string;
 }
 
-/** Formulário de imóvel: id null = criando um imóvel novo. */
+/** Formulário de produto: id null = criando um produto novo. */
 interface ProductForm {
   id: string | null;
   title: string;
   price: string;
-  dealType: 'venda' | 'locacao';
-  bedrooms: string;
-  area: string;
   desc: string;
   datasheetUrl: string;
+  /** Campos do ramo: chave → valor digitado. */
+  attributes: Record<string, string>;
 }
 
 interface MediaForm {
@@ -44,24 +46,37 @@ const EMPTY_PRODUCT_FORM: ProductForm = {
   id: null,
   title: '',
   price: '',
-  dealType: 'venda',
-  bedrooms: '',
-  area: '',
   desc: '',
   datasheetUrl: '',
+  attributes: {},
 };
 
 function productToForm(p: Product): ProductForm {
   return {
     id: p.id,
     title: p.title,
-    price: formatBRL(p.price).replace('R$ ', ''),
-    dealType: p.dealType ?? 'venda',
-    bedrooms: p.bedrooms ? String(p.bedrooms) : '',
-    area: p.areaM2 ? String(p.areaM2) : '',
+    // Preço 0 = "Sob consulta": o campo volta vazio
+    price: p.price > 0 ? formatBRL(p.price).replace('R$ ', '') : '',
     desc: p.shortDescription,
     datasheetUrl: p.datasheetUrl,
+    attributes: Object.fromEntries((p.attributes ?? []).map(a => [a.key, a.value])),
   };
+}
+
+/**
+ * Junta os campos do ramo preenchidos no formulário com as características
+ * que o produto já tinha de outro ramo (essas ficam como estavam).
+ */
+function mergeAttributes(
+  segment: SegmentProfile,
+  values: Record<string, string>,
+  previous: ProductAttribute[] = [],
+): ProductAttribute[] {
+  const fromForm = segment.fields
+    .map(f => ({ key: f.key, label: f.label, value: (values[f.key] ?? '').trim() }))
+    .filter(a => a.value);
+  const keys = new Set(segment.fields.map(f => f.key));
+  return [...fromForm, ...previous.filter(a => !keys.has(a.key))];
 }
 
 function confirmDelete(title: string, message: string, onConfirm: () => void) {
@@ -74,6 +89,9 @@ function confirmDelete(title: string, message: string, onConfirm: () => void) {
 export function ProductsManagerScreen() {
   const colors = useColors();
   const styles = useStyles();
+  // A tela é recriada quando o ramo muda (key no App)
+  const [segment] = useState(() => getSegment(Repo.getSegment()));
+  const { item, items } = segment.terms;
   const [folders, setFolders] = useState<ProductFolder[]>(() => Repo.getFolders());
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
   const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
@@ -112,12 +130,12 @@ export function ProductsManagerScreen() {
       Alert.alert('Atenção', 'Informe o nome da pasta.');
       return;
     }
-    const neighborhood = folderForm.neighborhood.trim() || undefined;
+    const description = folderForm.description.trim() || undefined;
 
     if (folderForm.id) {
-      Repo.updateFolder(folderForm.id, { name, neighborhood });
+      Repo.updateFolder(folderForm.id, { name, description });
     } else {
-      Repo.addFolder({ id: `folder-${Date.now()}`, name, neighborhood, products: [] });
+      Repo.addFolder({ id: `folder-${Date.now()}`, name, description, products: [] });
     }
     refreshFolders();
     setFolderForm(null);
@@ -129,7 +147,7 @@ export function ProductsManagerScreen() {
     confirmDelete(
       'Excluir pasta',
       count > 0
-        ? `A pasta "${f.name}" e os ${count} imóveis dentro dela serão excluídos. Deseja continuar?`
+        ? `A pasta "${f.name}" e ${count === 1 ? `o ${item}` : `os ${count} ${items}`} dentro dela serão excluídos. Deseja continuar?`
         : `Deseja excluir a pasta "${f.name}"?`,
       () => {
         Repo.deleteFolder(f.id);
@@ -140,19 +158,26 @@ export function ProductsManagerScreen() {
   };
 
   // ---------------------------------------------------------------------
-  // Imóveis
+  // Produtos
   // ---------------------------------------------------------------------
 
   const handleSaveProduct = () => {
     if (!selectedFolderId || !productForm) return;
     if (!productForm.title.trim()) {
-      Alert.alert('Atenção', 'Informe o título do imóvel.');
+      Alert.alert('Atenção', `Informe o nome do ${item}.`);
       return;
     }
 
-    const priceNum = parseBRL(productForm.price);
+    // Em branco = "Sob consulta" (só nos ramos em que o preço é opcional)
+    const priceBlank = !productForm.price.trim();
+    const priceNum = priceBlank && segment.price.optional ? 0 : parseBRL(productForm.price);
     if (priceNum === null) {
-      Alert.alert('Atenção', 'Informe um valor válido. Ex: 850.000 ou 850.000,00');
+      Alert.alert(
+        'Atenção',
+        segment.price.optional
+          ? 'Informe um valor válido (ex: 89,90 ou 1.250,00) ou deixe em branco para "Sob consulta".'
+          : 'Informe um preço válido. Ex: 89,90 ou 1.250,00',
+      );
       return;
     }
 
@@ -160,7 +185,7 @@ export function ProductsManagerScreen() {
     if (productForm.datasheetUrl.trim()) {
       const url = normalizeUrl(productForm.datasheetUrl);
       if (!url) {
-        Alert.alert('Atenção', 'O link da ficha não parece válido. Ex: https://seusite.com.br/imovel/123');
+        Alert.alert('Atenção', 'O link não parece válido. Ex: https://seusite.com.br/pagina');
         return;
       }
       datasheetUrl = url;
@@ -171,11 +196,9 @@ export function ProductsManagerScreen() {
       id: existing?.id ?? `prod-${Date.now()}`,
       title: productForm.title.trim(),
       price: priceNum,
-      dealType: productForm.dealType,
-      bedrooms: parseInt(productForm.bedrooms, 10) || undefined,
-      areaM2: parseInt(productForm.area, 10) || undefined,
-      shortDescription: productForm.desc.trim() || 'Excelente oportunidade.',
+      shortDescription: productForm.desc.trim(),
       datasheetUrl,
+      attributes: mergeAttributes(segment, productForm.attributes, existing?.attributes),
       photos: existing?.photos ?? [],
       videos: existing?.videos ?? [],
     };
@@ -187,13 +210,16 @@ export function ProductsManagerScreen() {
     }
     refreshFolders();
     setProductForm(null);
-    Alert.alert('Sucesso', existing ? 'Imóvel atualizado!' : 'Produto adicionado e sincronizado com o teclado!');
+    Alert.alert(
+      'Sucesso',
+      existing ? `${capitalize(item)} atualizado!` : `${capitalize(item)} adicionado e sincronizado com o teclado!`,
+    );
   };
 
   const handleDeleteProduct = (p: Product) => {
     if (!selectedFolderId) return;
     const folderId = selectedFolderId;
-    confirmDelete('Excluir imóvel', `Deseja excluir "${p.title}" com suas fotos e vídeos?`, () => {
+    confirmDelete(`Excluir ${item}`, `Deseja excluir "${p.title}" com suas fotos e vídeos?`, () => {
       Repo.deleteProduct(folderId, p.id);
       refreshFolders();
       openProduct(null);
@@ -216,7 +242,7 @@ export function ProductsManagerScreen() {
     const media: MediaItem = {
       id: `${isImage ? 'photo' : 'video'}-${Date.now()}`,
       type: mediaForm.type,
-      title: mediaForm.title.trim() || (isImage ? 'Foto do imóvel' : 'Vídeo do imóvel'),
+      title: mediaForm.title.trim() || (isImage ? `Foto do ${item}` : `Vídeo do ${item}`),
       url,
       duration: isImage ? undefined : mediaForm.duration.trim() || undefined,
     };
@@ -242,22 +268,22 @@ export function ProductsManagerScreen() {
 
   const renderFolderForm = (form: FolderForm) => (
     <View style={styles.newFolderBox}>
-      <Text style={styles.sectionTitle}>{form.id ? 'Editar Pasta' : 'Criar Nova Pasta / Condomínio'}</Text>
+      <Text style={styles.sectionTitle}>{form.id ? 'Editar Pasta' : 'Criar Nova Pasta'}</Text>
       <Text style={styles.label}>Nome da Pasta</Text>
       <TextInput
         style={styles.input}
-        placeholder="Ex: Condomínio Bosque dos Ipês"
+        placeholder={segment.examples.folderName}
         placeholderTextColor={colors.textMuted}
         value={form.name}
         onChangeText={name => setFolderForm({ ...form, name })}
       />
-      <Text style={styles.label}>Bairro / Região</Text>
+      <Text style={styles.label}>Descrição (opcional)</Text>
       <TextInput
         style={styles.input}
-        placeholder="Ex: Jardim Europa"
+        placeholder={segment.examples.folderDescription}
         placeholderTextColor={colors.textMuted}
-        value={form.neighborhood}
-        onChangeText={neighborhood => setFolderForm({ ...form, neighborhood })}
+        value={form.description}
+        onChangeText={description => setFolderForm({ ...form, description })}
       />
       <View style={styles.formBtnsRow}>
         <Pressable style={styles.cancelBtn} onPress={() => setFolderForm(null)}>
@@ -278,80 +304,50 @@ export function ProductsManagerScreen() {
         style={insideScroll ? styles.card : styles.formContainer}
         {...(insideScroll ? {} : { keyboardShouldPersistTaps: 'handled' as const })}>
         <Text style={styles.sectionTitle}>
-          {form.id ? 'Editar Imóvel' : `Novo Produto em ${folderName}`}
+          {form.id ? `Editar ${item}` : `Novo ${item} em ${folderName}`}
         </Text>
-        <Text style={styles.label}>Título do Imóvel</Text>
+        <Text style={styles.label}>Nome do {item}</Text>
         <TextInput
           style={styles.input}
-          placeholder="Ex: Apartamento 3 dormitórios com varanda"
+          placeholder={segment.examples.itemTitle}
           placeholderTextColor={colors.textMuted}
           value={form.title}
           onChangeText={title => setProductForm({ ...form, title })}
         />
 
-        <Text style={styles.label}>Negócio</Text>
-        <View style={styles.segmentRow}>
-          {(
-            [
-              { key: 'venda', label: 'Venda' },
-              { key: 'locacao', label: 'Locação' },
-            ] as const
-          ).map(opt => (
-            <Pressable
-              key={opt.key}
-              style={[styles.segmentBtn, form.dealType === opt.key && styles.segmentBtnActive]}
-              onPress={() => setProductForm({ ...form, dealType: opt.key })}>
-              <Text style={[styles.segmentText, form.dealType === opt.key && styles.segmentTextActive]}>
-                {opt.label}
-              </Text>
-            </Pressable>
-          ))}
-        </View>
-
-        <Text style={styles.label}>{form.dealType === 'locacao' ? 'Aluguel mensal (R$)' : 'Valor (R$)'}</Text>
+        <Text style={styles.label}>
+          {segment.price.label} (R$){segment.price.optional ? ' — opcional' : ''}
+        </Text>
         <TextInput
           style={styles.input}
-          placeholder="Ex: 850.000,00"
+          placeholder={segment.price.placeholder}
           placeholderTextColor={colors.textMuted}
           keyboardType="decimal-pad"
           value={form.price}
           onChangeText={price => setProductForm({ ...form, price })}
         />
+        {segment.price.optional && <Text style={styles.hint}>Em branco, a ficha mostra "Sob consulta".</Text>}
 
-        <Text style={styles.label}>Dormitórios</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Ex: 3"
-          placeholderTextColor={colors.textMuted}
-          keyboardType="numeric"
-          value={form.bedrooms}
-          onChangeText={bedrooms => setProductForm({ ...form, bedrooms })}
-        />
+        {segment.fields.map(field =>
+          renderField(field, form.attributes[field.key] ?? '', value =>
+            setProductForm({ ...form, attributes: { ...form.attributes, [field.key]: value } }),
+          ),
+        )}
 
-        <Text style={styles.label}>Área Privativa (m²)</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Ex: 115"
-          placeholderTextColor={colors.textMuted}
-          keyboardType="numeric"
-          value={form.area}
-          onChangeText={area => setProductForm({ ...form, area })}
-        />
-
-        <Text style={styles.label}>Descrição Rápida</Text>
+        <Text style={styles.label}>Descrição</Text>
         <TextInput
           style={[styles.input, styles.textArea]}
-          placeholder="Resumo dos diferenciais do imóvel"
+          placeholder={segment.examples.itemDescription}
           placeholderTextColor={colors.textMuted}
           multiline
           value={form.desc}
           onChangeText={desc => setProductForm({ ...form, desc })}
         />
 
-        <Text style={styles.label}>Link da ficha completa (opcional)</Text>
+        <Text style={styles.label}>Link (opcional)</Text>
         <TextInput
           style={styles.input}
-          placeholder="Ex: https://seusite.com.br/imovel/123"
+          placeholder="Ex: https://seusite.com.br/pagina"
           placeholderTextColor={colors.textMuted}
           keyboardType="url"
           autoCapitalize="none"
@@ -359,19 +355,55 @@ export function ProductsManagerScreen() {
           value={form.datasheetUrl}
           onChangeText={datasheetUrl => setProductForm({ ...form, datasheetUrl })}
         />
-        <Text style={styles.hint}>Vai no final da mensagem "Inserir Ficha Completa" do teclado.</Text>
+        <Text style={styles.hint}>Vai no final da mensagem "Inserir ficha" do teclado.</Text>
 
         <View style={styles.formBtnsRow}>
           <Pressable style={styles.cancelBtn} onPress={() => setProductForm(null)}>
             <Text style={styles.cancelBtnText}>Cancelar</Text>
           </Pressable>
           <Pressable style={styles.saveBtn} onPress={handleSaveProduct}>
-            <Text style={styles.saveBtnText}>Salvar Imóvel</Text>
+            <Text style={styles.saveBtnText}>Salvar</Text>
           </Pressable>
         </View>
       </Container>
     );
   };
+
+  /** Campo do ramo: texto, número ou botões de opção (tocar de novo desmarca). */
+  const renderField = (field: SegmentField, value: string, onChange: (value: string) => void) => (
+    <View key={field.key} style={styles.fieldGap}>
+      <Text style={styles.label}>
+        {field.label}
+        {field.unit ? ` (${field.unit})` : ''}
+      </Text>
+      {field.kind === 'choice' ? (
+        <View style={styles.choiceRow}>
+          {(field.options ?? []).map(option => {
+            const selected = option === value;
+            return (
+              <Pressable
+                key={option}
+                accessibilityRole="radio"
+                accessibilityState={{ selected }}
+                style={[styles.choice, selected && styles.choiceSelected]}
+                onPress={() => onChange(selected ? '' : option)}>
+                <Text style={[styles.choiceText, selected && styles.choiceTextSelected]}>{option}</Text>
+              </Pressable>
+            );
+          })}
+        </View>
+      ) : (
+        <TextInput
+          style={styles.input}
+          placeholder={field.placeholder}
+          placeholderTextColor={colors.textMuted}
+          keyboardType={field.kind === 'number' ? 'numeric' : 'default'}
+          value={value}
+          onChangeText={onChange}
+        />
+      )}
+    </View>
+  );
 
   const renderMediaSection = (type: MediaItem['type'], items: MediaItem[]) => {
     const isImage = type === 'image';
@@ -395,7 +427,7 @@ export function ProductsManagerScreen() {
             <Text style={styles.label}>{isImage ? 'Título / Cômodo da Foto' : 'Título do Vídeo'}</Text>
             <TextInput
               style={styles.input}
-              placeholder={isImage ? 'Ex: Fachada, Suíte Master, Piscina' : 'Ex: Tour completo'}
+              placeholder={isImage ? 'Ex: Frente, Detalhe, Embalagem' : 'Ex: Produto em uso'}
               placeholderTextColor={colors.textMuted}
               value={form.title}
               onChangeText={title => setMediaForm({ ...form, title })}
@@ -464,19 +496,24 @@ export function ProductsManagerScreen() {
       <ScrollView style={styles.container} contentContainerStyle={styles.content}>
         <Pressable style={styles.backBtn} onPress={() => openProduct(null)}>
           <Icon name="voltar" size={18} color={colors.textMuted} />
-          <Text style={styles.backBtnText}>Voltar aos produtos de {folder.name}</Text>
+          <Text style={styles.backBtnText}>Voltar aos {items} de {folder.name}</Text>
         </Pressable>
 
         {productForm ? (
           renderProductForm(productForm, folder.name, true)
         ) : (
           <View style={styles.card}>
-            <Text style={styles.badge}>Produto / Imóvel</Text>
+            <Text style={styles.badge}>{capitalize(item)}</Text>
             <Text style={styles.title}>{product.title}</Text>
-            <Text style={styles.price}>{formatPrice(product)}</Text>
+            <Text style={styles.price}>{formatPrice(product, segment)}</Text>
+            {attributeLines(product, segment).map(line => (
+              <Text key={line} style={styles.attribute}>
+                {line}
+              </Text>
+            ))}
             <Text style={styles.desc}>{product.shortDescription}</Text>
             <Text style={styles.mediaUrl} numberOfLines={1}>
-              {product.datasheetUrl ? `Ficha: ${product.datasheetUrl}` : 'Sem link da ficha'}
+              {product.datasheetUrl ? `Link: ${product.datasheetUrl}` : 'Sem link'}
             </Text>
             <View style={styles.formBtnsRow}>
               <Pressable style={styles.cancelBtn} onPress={() => setProductForm(productToForm(product))}>
@@ -518,7 +555,7 @@ export function ProductsManagerScreen() {
               setProductForm(EMPTY_PRODUCT_FORM);
             }}>
             <Icon name="adicionar" size={18} color={colors.onPrimary} />
-            <Text style={styles.addBtnText}>Novo Imóvel</Text>
+            <Text style={styles.addBtnText}>Novo {item}</Text>
           </Pressable>
         </View>
 
@@ -527,7 +564,7 @@ export function ProductsManagerScreen() {
             hitSlop={6}
             onPress={() => {
               setProductForm(null);
-              setFolderForm({ id: folder.id, name: folder.name, neighborhood: folder.neighborhood ?? '' });
+              setFolderForm({ id: folder.id, name: folder.name, description: folder.description ?? '' });
             }}>
             <Text style={styles.linkText}>Editar pasta</Text>
           </Pressable>
@@ -543,17 +580,27 @@ export function ProductsManagerScreen() {
           data={folder.products}
           keyExtractor={item => item.id}
           contentContainerStyle={styles.list}
-          ListEmptyComponent={<Text style={styles.emptyText}>Nenhum imóvel nesta pasta ainda.</Text>}
-          renderItem={({ item }) => (
+          ListEmptyComponent={
+            productForm ? null : (
+              <EmptyState
+                icon="arquivos"
+                title={`Nenhum ${item} nesta pasta`}
+                text={`Toque em "Novo ${item}" e cadastre com preço, descrição e fotos.`}
+              />
+            )
+          }
+          renderItem={({ item: p }) => (
             <Pressable
               style={styles.itemCard}
-              onPress={() => openProduct(item.id)}>
+              onPress={() => openProduct(p.id)}>
               <IconTile name="foto" size={40} />
               <View style={styles.itemInfo}>
-                <Text style={styles.itemTitle}>{item.title}</Text>
-                <Text style={styles.itemSub}>{formatPrice(item)} • {item.shortDescription}</Text>
+                <Text style={styles.itemTitle}>{p.title}</Text>
+                <Text style={styles.itemSub} numberOfLines={2}>
+                  {formatPrice(p, segment)} • {p.shortDescription}
+                </Text>
               </View>
-              <Text style={styles.itemMeta}>{item.photos.length} fotos</Text>
+              <Text style={styles.itemMeta}>{p.photos.length} fotos</Text>
             </Pressable>
           )}
         />
@@ -566,15 +613,18 @@ export function ProductsManagerScreen() {
     <View style={styles.container}>
       <View style={styles.headerBar}>
         <View>
-          <Text style={styles.badge}>Catálogo de Produtos</Text>
-          <Text style={styles.headerTitle}>Pastas de Imóveis</Text>
+          <Text style={styles.badge}>Catálogo</Text>
+          <Text style={styles.headerTitle}>{segment.terms.catalog}</Text>
         </View>
-        <Pressable
-          style={styles.addBtn}
-          onPress={() => setFolderForm({ id: null, name: '', neighborhood: '' })}>
-          <Icon name="novaPasta" size={18} color={colors.onPrimary} />
-          <Text style={styles.addBtnText}>Nova Pasta</Text>
-        </Pressable>
+        {/* Sem pastas, o botão fica só no estado vazio (um botão por ação) */}
+        {folders.length > 0 && (
+          <Pressable
+            style={styles.addBtn}
+            onPress={() => setFolderForm({ id: null, name: '', description: '' })}>
+            <Icon name="novaPasta" size={18} color={colors.onPrimary} />
+            <Text style={styles.addBtnText}>Nova pasta</Text>
+          </Pressable>
+        )}
       </View>
 
       {folderForm && renderFolderForm(folderForm)}
@@ -583,15 +633,28 @@ export function ProductsManagerScreen() {
         data={folders}
         keyExtractor={item => item.id}
         contentContainerStyle={styles.list}
-        ListEmptyComponent={<Text style={styles.emptyText}>Nenhuma pasta criada ainda.</Text>}
-        renderItem={({ item }) => (
+        ListEmptyComponent={
+          folderForm ? null : (
+            <EmptyState
+              icon="novaPasta"
+              title="Comece pela primeira pasta"
+              text={`As pastas organizam seus ${items}. ${segment.examples.folderName}.`}
+              actionLabel="Criar pasta"
+              onAction={() => setFolderForm({ id: null, name: '', description: '' })}
+            />
+          )
+        }
+        renderItem={({ item: f }) => (
           <Pressable
             style={styles.itemCard}
-            onPress={() => openFolder(item.id)}>
+            onPress={() => openFolder(f.id)}>
             <IconTile name="pasta" size={40} />
             <View style={styles.itemInfo}>
-              <Text style={styles.itemTitle}>{item.name}</Text>
-              <Text style={styles.itemSub}>{item.neighborhood || 'Região'} • {item.products.length} imóveis</Text>
+              <Text style={styles.itemTitle}>{f.name}</Text>
+              <Text style={styles.itemSub}>
+                {f.description ? `${f.description} • ` : ''}
+                {f.products.length} {f.products.length === 1 ? item : items}
+              </Text>
             </View>
             <Icon name="avancar" size={18} color={colors.textMuted} />
           </Pressable>
@@ -657,6 +720,19 @@ const useStyles = makeStyles(colors => ({
   title: { ...typography.h2, color: colors.text },
   price: { fontSize: 17, fontWeight: '700', color: colors.successText },
   desc: { ...typography.body, color: colors.textSecondary },
+  attribute: { fontSize: 14, color: colors.text },
+  fieldGap: { gap: spacing.sm },
+  choiceRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
+  choice: {
+    minHeight: 40,
+    paddingHorizontal: spacing.md,
+    justifyContent: 'center',
+    borderRadius: radius.pill,
+    backgroundColor: colors.surfaceAlt,
+  },
+  choiceSelected: { backgroundColor: colors.primarySoft },
+  choiceText: { fontSize: 14, fontWeight: '500', color: colors.textSecondary },
+  choiceTextSelected: { color: colors.primaryText, fontWeight: '600' },
   cardHeaderRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -766,23 +842,6 @@ const useStyles = makeStyles(colors => ({
     minHeight: 80,
     textAlignVertical: 'top',
   },
-  segmentRow: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-  },
-  segmentBtn: {
-    flex: 1,
-    minHeight: touchTarget,
-    justifyContent: 'center',
-    backgroundColor: colors.surfaceAlt,
-    borderRadius: radius.md,
-    alignItems: 'center',
-  },
-  segmentBtnActive: {
-    backgroundColor: colors.primarySoft,
-  },
-  segmentText: { color: colors.textMuted, fontSize: 14, fontWeight: '600' },
-  segmentTextActive: { color: colors.primaryText },
   formBtnsRow: {
     flexDirection: 'row',
     gap: spacing.sm,

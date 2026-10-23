@@ -11,7 +11,10 @@ interface KeyboardBridgeNative {
   insertText(text: string): Promise<boolean>;
   deleteBackward(): Promise<boolean>;
   sendEnter(): Promise<boolean>;
+  getInputContext?(): Promise<InputContext>;
+  replaceTextBeforeCursor?(count: number, text: string): Promise<boolean>;
   switchKeyboard(): Promise<boolean>;
+  setExpanded?(expanded: boolean): Promise<boolean>;
   getTargetApp(): Promise<string | null>;
   isKeyboardContext(): Promise<boolean>;
   isKeyboardEnabled(): Promise<boolean>;
@@ -29,6 +32,18 @@ interface KeyboardBridgeNative {
 
 /** sent = foto entregue na conversa; unsupported = o app só aceita texto (ou outro formato). */
 export type CommitImageResult = 'sent' | 'unsupported' | 'failed';
+
+/** Texto antes do cursor e tipo do campo (códigos do EditorInfo.inputType do Android). */
+export interface InputContext {
+  before: string;
+  inputType: number;
+}
+
+/** Cursor mudou de lugar (no iOS vem sem posição). */
+export interface SelectionChangeEvent {
+  start?: number;
+  end?: number;
+}
 
 export interface KeyboardShowEvent {
   targetPackage: string | null;
@@ -54,8 +69,16 @@ export const KeyboardBridge = {
   insertText: (text: string) => (Native ? Native.insertText(text) : noop()),
   deleteBackward: () => (Native ? Native.deleteBackward() : noop()),
   sendEnter: () => (Native ? Native.sendEnter() : noop()),
+  /** Texto antes do cursor + tipo do campo (maiúscula automática e sugestões). */
+  getInputContext: (): Promise<InputContext> =>
+    Native?.getInputContext ? Native.getInputContext() : Promise.resolve({ before: '', inputType: 1 }),
+  /** Apaga `count` caracteres antes do cursor e insere `text` numa só edição. */
+  replaceTextBeforeCursor: (count: number, text: string) =>
+    Native?.replaceTextBeforeCursor ? Native.replaceTextBeforeCursor(count, text) : noop(),
   /** Volta ao teclado de digitação padrão (tecla 🌐). */
   switchKeyboard: () => (Native ? Native.switchKeyboard() : noop()),
+  /** Teclado em tela grande (CRM) ou no tamanho normal. Volta ao normal sozinho a cada campo novo. */
+  setExpanded: (expanded: boolean) => (Native?.setExpanded ? Native.setExpanded(expanded) : noop()),
   getTargetApp: () => (Native ? Native.getTargetApp() : Promise.resolve(null)),
   isKeyboardContext: () => (Native ? Native.isKeyboardContext() : Promise.resolve(false)),
   /** Verifica se o KEYCON está ativado no sistema */
@@ -82,7 +105,7 @@ export const KeyboardBridge = {
       ? Native.shareMedia(urls)
       : Promise.reject(new Error('Compartilhamento indisponível neste aparelho.')),
 
-  /** Abre o app do corretor (ex.: para fazer login). */
+  /** Abre o app KEYCON (ex.: para fazer login). */
   openApp: (): Promise<boolean> => (Native?.openApp ? Native.openApp() : noop()),
 
   onKeyboardShow(cb: (e: KeyboardShowEvent) => void) {
@@ -91,6 +114,10 @@ export const KeyboardBridge = {
   },
   onKeyboardHide(cb: () => void) {
     const sub = emitter?.addListener('onKeyboardHide', cb);
+    return () => sub?.remove();
+  },
+  onSelectionChange(cb: (e: SelectionChangeEvent) => void) {
+    const sub = emitter?.addListener('onSelectionChange', cb);
     return () => sub?.remove();
   },
 };

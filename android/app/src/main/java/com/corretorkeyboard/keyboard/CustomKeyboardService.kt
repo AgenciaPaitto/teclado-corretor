@@ -79,6 +79,12 @@ class CustomKeyboardService : InputMethodService() {
         private const val LANDSCAPE_SCREEN_FRACTION = 0.5f
         private const val MIN_LANDSCAPE_HEIGHT_DP = 180
 
+        /**
+         * Teclado expandido (CRM em tela grande): ocupa quase a tela toda e
+         * deixa só uma faixa do app em cima, para a pessoa saber onde está.
+         */
+        private const val EXPANDED_SCREEN_FRACTION = 0.88f
+
         /** Sem a tela do JS após esse tempo, o placeholder mostra o diagnóstico e os botões. */
         private const val LOAD_TIMEOUT_MS = 10_000L
         private const val TAG = "CustomKeyboardService"
@@ -111,6 +117,9 @@ class CustomKeyboardService : InputMethodService() {
     private var loadingSubtitle: TextView? = null
     private var loadingProgress: ProgressBar? = null
     private var loadingActions: LinearLayout? = null
+
+    /** Teclado expandido pelo JS (KeyboardBridge.setExpanded). Volta ao normal a cada campo novo. */
+    private var expanded = false
 
     /** O JS avisa (KeyboardBridge.notifyReady) quando a tela do teclado montou. */
     private var jsReady = false
@@ -291,6 +300,8 @@ class CustomKeyboardService : InputMethodService() {
     override fun onStartInputView(info: EditorInfo?, restarting: Boolean) {
         super.onStartInputView(info, restarting)
         targetPackage = info?.packageName
+        // Campo novo (outra conversa, outro app): o teclado abre no tamanho normal
+        if (!restarting) expanded = false
 
         // Ajusta a altura do teclado à orientação atual. A JANELA do IME fica em
         // WRAP_CONTENT: nos Android recentes ela também desenha a barra de navegação
@@ -321,6 +332,10 @@ class CustomKeyboardService : InputMethodService() {
 
     override fun onFinishInputView(finishingInput: Boolean) {
         super.onFinishInputView(finishingInput)
+        if (expanded) {
+            expanded = false
+            rootContainer?.targetHeightPx = keyboardHeightPx()
+        }
         try {
             emitToJs(EVENT_KEYBOARD_HIDE, Arguments.createMap())
         } catch (_: Throwable) {}
@@ -378,6 +393,41 @@ class CustomKeyboardService : InputMethodService() {
             Character.isHighSurrogate(before[0]) && Character.isLowSurrogate(before[1])
         ) 2 else 1
         return ic.deleteSurroundingText(count, 0)
+    }
+
+    /**
+     * Texto antes do cursor (até 200 caracteres) e o tipo do campo. O teclado
+     * usa isso para a maiúscula automática e as sugestões de palavras.
+     */
+    fun inputContext(): com.facebook.react.bridge.WritableMap {
+        val map = Arguments.createMap()
+        val ic = currentInputConnection
+        map.putString("before", ic?.getTextBeforeCursor(200, 0)?.toString() ?: "")
+        map.putInt("inputType", currentInputEditorInfo?.inputType ?: 0)
+        return map
+    }
+
+    /** Troca os `count` caracteres antes do cursor por `text` numa só edição (sugestões). */
+    fun replaceTextBeforeCursor(count: Int, text: String): Boolean {
+        val ic = currentInputConnection ?: return false
+        ic.beginBatchEdit()
+        if (count > 0) ic.deleteSurroundingText(count, 0)
+        val ok = ic.commitText(text, 1)
+        ic.endBatchEdit()
+        return ok
+    }
+
+    /** O cursor mudou (digitação, toque no texto, colar...): o JS confere o contexto. */
+    override fun onUpdateSelection(
+        oldSelStart: Int, oldSelEnd: Int,
+        newSelStart: Int, newSelEnd: Int,
+        candidatesStart: Int, candidatesEnd: Int,
+    ) {
+        super.onUpdateSelection(oldSelStart, oldSelEnd, newSelStart, newSelEnd, candidatesStart, candidatesEnd)
+        val params = Arguments.createMap()
+        params.putInt("start", newSelStart)
+        params.putInt("end", newSelEnd)
+        emitToJs("onSelectionChange", params)
     }
 
     /**
@@ -531,10 +581,24 @@ class CustomKeyboardService : InputMethodService() {
     // Helpers
     // -----------------------------------------------------------------------
 
+    /**
+     * Expande o teclado para quase a tela toda (ou volta ao normal). O app de
+     * baixo continua com o campo de texto em foco: o que o JS inserir vai
+     * direto para a conversa.
+     */
+    fun setExpanded(value: Boolean): Boolean {
+        expanded = value
+        rootContainer?.targetHeightPx = keyboardHeightPx()
+        return true
+    }
+
     /** Altura do teclado em pixels para a orientação atual da tela. */
     private fun keyboardHeightPx(): Int {
         val metrics = resources.displayMetrics
         val portraitPx = (KEYBOARD_HEIGHT_DP * metrics.density).toInt()
+        if (expanded) {
+            return (metrics.heightPixels * EXPANDED_SCREEN_FRACTION).toInt().coerceAtLeast(portraitPx)
+        }
         if (resources.configuration.orientation != Configuration.ORIENTATION_LANDSCAPE) {
             return portraitPx
         }

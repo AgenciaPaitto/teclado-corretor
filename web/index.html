@@ -105,7 +105,7 @@
         word-break: break-word;
       }
       .bubble.client { align-self: flex-start; background: var(--bubble-in); }
-      .bubble.broker { align-self: flex-end; background: var(--bubble-out); }
+      .bubble.seller { align-self: flex-end; background: var(--bubble-out); }
       .bubble .time { display: block; text-align: right; font-size: 10px; color: #8696a0; margin-top: 2px; }
       .input-bar { display: flex; gap: 6px; padding: 6px 8px; background: #1f2c34; align-items: flex-end; }
       .input-bar textarea {
@@ -119,7 +119,9 @@
         border: none; border-radius: 18px; padding: 9px 14px;
         background: #00a884; color: #fff; font-weight: 600; cursor: pointer;
       }
-      .keyboard { height: 320px; flex-shrink: 0; display: flex; flex-direction: column; }
+      .keyboard { height: 320px; flex-shrink: 0; display: flex; flex-direction: column; transition: height 0.18s ease-out; }
+      /* CRM e Agenda: teclado em tela grande (KeyboardBridge.setExpanded) */
+      .keyboard.expanded { height: calc(100% - 128px); } /* deixa à vista o topo da conversa e o campo */
 
       .note { max-width: 420px; font-size: 11.5px; line-height: 1.5; color: var(--muted); text-align: center; margin: 0; }
 

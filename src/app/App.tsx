@@ -1,9 +1,9 @@
 /**
  * App.tsx — App KEYCON (container do teclado)
  * -------------------------------------------------------------
- * Gerencia a conta do corretor, onboarding e passo a passo de
- * instalação do teclado no Android e iOS, catálogo de produtos,
- * upload e armazenamento de fotos em nuvem, e atalhos rápidos.
+ * Conta do usuário, Início (teclado, primeiros passos, tutorial),
+ * catálogo, atalhos e Conta. Cada aba abre na sua tela principal;
+ * os detalhes ficam em submenus dentro dela.
  */
 import React, { useEffect, useState } from 'react';
 import {
@@ -16,24 +16,32 @@ import {
 } from 'react-native';
 import { pullProfile, restoreSession, signOut, startAuthSync } from '../services/auth';
 import { supabase } from '../services/supabase';
+import { getSegment } from '../segments/segments';
 import { Repo } from '../storage/storage';
-import type { ThemePreference } from '../types';
+import type { SellerProfile, ThemePreference } from '../types';
 import { Icon } from '../keyboard/components/Icon';
 import type { IconName } from '../keyboard/components/Icon';
 import { KeyconLogo } from '../keyboard/components/KeyconLogo';
 import { makeStyles, radius, spacing, ThemeProvider, useColors } from '../keyboard/theme';
 import { AuthScreen } from './screens/AuthScreen';
-import { OnboardingGuideScreen } from './screens/OnboardingGuideScreen';
+import { HomeScreen } from './screens/HomeScreen';
+import type { AppTarget } from './screens/HomeScreen';
 import { ProductsManagerScreen } from './screens/ProductsManagerScreen';
 import { ProfileSettingsScreen } from './screens/ProfileSettingsScreen';
-import { ShortcutsManagerScreen } from './screens/ShortcutsManagerScreen';
+import type { AccountSection } from './screens/ProfileSettingsScreen';
+import { AgendaScreen } from './screens/AgendaScreen';
+import { ClientsScreen } from './screens/ClientsScreen';
+import { TutorialScreen } from './screens/TutorialScreen';
 
-type AppTab = 'onboarding' | 'products' | 'shortcuts' | 'profile';
+type AppTab = 'home' | 'products' | 'clients' | 'agenda' | 'profile';
 
 const NAV_ITEMS: Array<{ key: AppTab; label: string; icon: IconName }> = [
-  { key: 'onboarding', label: 'Instalação', icon: 'teclado' },
+  { key: 'home', label: 'Início', icon: 'casa' },
+  // O nome muda com o ramo ("Imóveis", "Cardápio"...)
   { key: 'products', label: 'Produtos', icon: 'arquivos' },
-  { key: 'shortcuts', label: 'Atalhos', icon: 'atalhos' },
+  // Mesmos dados do CRM e da Agenda do teclado
+  { key: 'clients', label: 'Clientes', icon: 'clientes' },
+  { key: 'agenda', label: 'Agenda', icon: 'calendario' },
   // Configurações = engrenagem (manual de marca)
   { key: 'profile', label: 'Conta', icon: 'configuracoes' },
 ];
@@ -52,15 +60,24 @@ function AppShell({ onThemeChange }: { onThemeChange: (theme: ThemePreference) =
   const styles = useStyles();
   const barStyle = colors.scheme === 'dark' ? 'light-content' : 'dark-content';
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => Repo.isLoggedIn());
-  const [currentTab, setCurrentTab] = useState<AppTab>('onboarding');
-  const [brokerName, setBrokerName] = useState(() => Repo.getBroker().name);
+  const [currentTab, setCurrentTab] = useState<AppTab>('home');
+  /** Muda a cada toque no menu: a aba volta para a tela principal dela. */
+  const [tabVisit, setTabVisit] = useState(0);
+  const [accountSection, setAccountSection] = useState<AccountSection>('root');
+  /** Ficha do cliente → "Agendar": a Agenda abre o cadastro com ele. */
+  const [scheduleClientId, setScheduleClientId] = useState<string | null>(null);
+  // Tutorial abre sozinho no primeiro acesso da conta
+  const [showTutorial, setShowTutorial] = useState(() => Repo.isLoggedIn() && !Repo.isTutorialSeen());
+  // Perfil (nome no avatar, ramo nos menus); as telas releem o ramo ao abrir
+  const [seller, setSeller] = useState<SellerProfile>(() => Repo.getSeller());
+  const segment = getSegment(seller.segment);
 
   useEffect(() => {
     const stopSync = startAuthSync();
     // Confere a sessão do Supabase (desfaz logins antigos de demonstração)
     restoreSession().then(ok => {
       setIsAuthenticated(ok);
-      if (ok) pullProfile().then(p => p && setBrokerName(p.name)).catch(() => {});
+      if (ok) pullProfile().then(p => p && setSeller(p)).catch(() => {});
     });
 
     // Renova o token só com o app em primeiro plano (recomendação do Supabase p/ RN)
@@ -82,8 +99,37 @@ function AppShell({ onThemeChange }: { onThemeChange: (theme: ThemePreference) =
         <StatusBar barStyle={barStyle} backgroundColor={colors.bg} />
         <AuthScreen
           onSuccess={() => {
-            setBrokerName(Repo.getBroker().name);
+            setSeller(Repo.getSeller());
+            setCurrentTab('home');
+            setShowTutorial(!Repo.isTutorialSeen());
             setIsAuthenticated(true);
+          }}
+        />
+      </SafeAreaView>
+    );
+  }
+
+  const openTab = (tab: AppTab, section: AccountSection = 'root') => {
+    setAccountSection(section);
+    setScheduleClientId(null);
+    setCurrentTab(tab);
+    setTabVisit(v => v + 1);
+  };
+
+  const navigateFromHome = (target: AppTarget) => {
+    if (target === 'catalog') openTab('products');
+    else openTab('profile', 'data');
+  };
+
+  if (showTutorial) {
+    return (
+      <SafeAreaView style={styles.root}>
+        <StatusBar barStyle={barStyle} backgroundColor={colors.bg} />
+        <TutorialScreen
+          segment={segment}
+          onClose={() => {
+            Repo.setTutorialSeen();
+            setShowTutorial(false);
           }}
         />
       </SafeAreaView>
@@ -100,19 +146,33 @@ function AppShell({ onThemeChange }: { onThemeChange: (theme: ThemePreference) =
         <Pressable
           style={styles.avatar}
           accessibilityLabel="Abrir conta"
-          onPress={() => setCurrentTab('profile')}>
-          <Text style={styles.avatarText}>{initials(brokerName)}</Text>
+          onPress={() => openTab('profile')}>
+          <Text style={styles.avatarText}>{initials(seller.name)}</Text>
         </Pressable>
       </View>
 
       {/* Área da Tela Ativa */}
       <View style={styles.screenBody}>
-        {currentTab === 'onboarding' && <OnboardingGuideScreen />}
-        {currentTab === 'products' && <ProductsManagerScreen />}
-        {currentTab === 'shortcuts' && <ShortcutsManagerScreen />}
+        {currentTab === 'home' && (
+          <HomeScreen key={tabVisit} onNavigate={navigateFromHome} onOpenTutorial={() => setShowTutorial(true)} />
+        )}
+        {/* key: trocar de ramo recarrega a tela com os novos campos */}
+        {currentTab === 'products' && <ProductsManagerScreen key={`${seller.segment}-${tabVisit}`} />}
+        {currentTab === 'clients' && (
+          <ClientsScreen
+            key={`${seller.segment}-${tabVisit}`}
+            onSchedule={lead => {
+              openTab('agenda');
+              setScheduleClientId(lead.id);
+            }}
+          />
+        )}
+        {currentTab === 'agenda' && <AgendaScreen key={`${tabVisit}-${scheduleClientId ?? ''}`} presetClientId={scheduleClientId} />}
         {currentTab === 'profile' && (
           <ProfileSettingsScreen
-            onProfileChange={b => setBrokerName(b.name)}
+            key={tabVisit}
+            initialSection={accountSection}
+            onProfileChange={setSeller}
             onThemeChange={onThemeChange}
             onLogout={() => {
               signOut().catch(() => {});
@@ -132,9 +192,11 @@ function AppShell({ onThemeChange }: { onThemeChange: (theme: ThemePreference) =
               accessibilityRole="tab"
               accessibilityState={{ selected: active }}
               style={styles.navBtn}
-              onPress={() => setCurrentTab(item.key)}>
+              onPress={() => openTab(item.key)}>
               <Icon name={item.icon} size={22} color={active ? colors.primary : colors.textMuted} />
-              <Text style={[styles.navLabel, active && styles.navLabelActive]}>{item.label}</Text>
+              <Text style={[styles.navLabel, active && styles.navLabelActive]}>
+                {item.key === 'products' ? segment.terms.catalog : item.label}
+              </Text>
             </Pressable>
           );
         })}
@@ -143,7 +205,7 @@ function AppShell({ onThemeChange }: { onThemeChange: (theme: ThemePreference) =
   );
 }
 
-/** Iniciais do corretor para o avatar do cabeçalho (ex.: "Ana Souza" → "AS"). */
+/** Iniciais do usuário para o avatar do cabeçalho (ex.: "Ana Souza" → "AS"). */
 function initials(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);
   if (parts.length === 0) return 'K';

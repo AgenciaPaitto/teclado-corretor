@@ -1,7 +1,9 @@
 /**
  * Formatadores de mensagens — Minimalista, sem emojis.
  */
-import type { BrokerProfile, Product, ProductFolder } from '../types';
+import { getSegment } from '../segments/segments';
+import type { SegmentProfile } from '../segments/segments';
+import type { Product, ProductAttribute, ProductFolder, SegmentId, SellerProfile } from '../types';
 
 export function formatBRL(value: number): string {
   const [int, dec] = value.toFixed(2).split('.');
@@ -28,38 +30,63 @@ export function parseBRL(input: string): number | null {
   return Number.isFinite(n) && n > 0 ? n : null;
 }
 
-export function formatPrice(p: Pick<Product, 'price' | 'dealType'>): string {
-  const base = formatBRL(p.price);
-  return p.dealType === 'locacao' ? `${base}/mês` : base;
+/**
+ * Preço como o ramo mostra: "R$ 450.000,00", "a partir de R$ 89,90/mês",
+ * "R$ 2.500,00/mês" (locação). Preço 0 = "Sob consulta".
+ */
+export function formatPrice(
+  p: Pick<Product, 'price' | 'attributes'>,
+  segment: SegmentId | SegmentProfile = 'general',
+): string {
+  if (!(p.price > 0)) return 'Sob consulta';
+  const { prefix, suffix } = (typeof segment === 'string' ? getSegment(segment) : segment).price;
+  const after = typeof suffix === 'function' ? suffix(p) : suffix ?? '';
+  return `${prefix ? `${prefix} ` : ''}${formatBRL(p.price)}${after}`;
+}
+
+/** "Área: 85 m²" (a unidade vem do campo do ramo, quando houver). */
+export function formatAttribute(a: ProductAttribute, segment: SegmentId | SegmentProfile = 'general'): string {
+  const profile = typeof segment === 'string' ? getSegment(segment) : segment;
+  const unit = profile.fields.find(f => f.key === a.key)?.unit;
+  return `${a.label}: ${a.value}${unit ? ` ${unit}` : ''}`;
+}
+
+/** Características preenchidas do produto, já formatadas. */
+export function attributeLines(p: Pick<Product, 'attributes'>, segment: SegmentId | SegmentProfile = 'general'): string[] {
+  return (p.attributes ?? []).filter(a => a.value.trim()).map(a => formatAttribute(a, segment));
 }
 
 /** Mensagem limpa formatada para envio no WhatsApp (sem emojis). */
-export function formatProductMessage(p: Product, folder?: ProductFolder): string {
-  const specs = [
-    p.bedrooms ? `${p.bedrooms} dormitórios` : null,
-    p.areaM2 ? `${p.areaM2} m²` : null,
-  ]
-    .filter(Boolean)
-    .join(' | ');
-
-  const folderLine = folder ? `${folder.name}${folder.neighborhood ? ` — ${folder.neighborhood}` : ''}` : '';
-
+export function formatProductMessage(
+  p: Product,
+  folder?: ProductFolder,
+  segment: SegmentId | SegmentProfile = 'general',
+): string {
+  const details = attributeLines(p, segment);
   return [
     `*${p.title}*`,
-    folderLine || null,
-    `*${formatPrice(p)}*`,
-    specs || null,
+    folder ? folder.name : null,
+    `*${formatPrice(p, segment)}*`,
+    ...(details.length ? ['', ...details] : []),
     '',
     p.shortDescription,
-    // Sem link da ficha cadastrado, a mensagem termina na descrição
-    ...(p.datasheetUrl ? ['', `Fotos e vídeos completos: ${p.datasheetUrl}`] : []),
+    // Sem link cadastrado, a mensagem termina na descrição
+    ...(p.datasheetUrl ? ['', `Veja mais: ${p.datasheetUrl}`] : []),
   ]
     .filter(line => line !== null)
-    .join('\n');
+    .join('\n')
+    // Descrição vazia não deixa linha em branco sobrando
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
+/** Mensagem de retorno do CRM ({{cliente}} = nome do cliente). */
+export function formatFollowUp(clientName: string, segment: SegmentId): string {
+  return getSegment(segment).followUp.replace(/\{\{cliente\}\}/g, clientName);
 }
 
 /**
- * Normaliza um link colado pelo corretor (Drive, Dropbox, site da imobiliária…).
+ * Normaliza um link colado pelo usuário (Drive, Dropbox, site da loja…).
  * Aceita com ou sem "https://". Retorna null se não parecer um link válido.
  */
 export function normalizeUrl(input: string): string | null {
@@ -69,14 +96,18 @@ export function normalizeUrl(input: string): string | null {
   return /^https?:\/\/[^/.\s]+\.\S+/i.test(withScheme) ? withScheme : null;
 }
 
-/** Substitui {{variáveis}} dos templates pelos dados do corretor. */
-export function applyTemplate(body: string, broker: BrokerProfile): string {
+/**
+ * Substitui {{variáveis}} das mensagens prontas pelos dados do perfil.
+ * {{corretor}} e {{imobiliaria}} continuam valendo para mensagens antigas.
+ */
+export function applyTemplate(body: string, seller: SellerProfile): string {
   const vars: Record<string, string> = {
-    corretor: broker.name,
-    imobiliaria: broker.agency,
-    creci: broker.creci,
-    telefone: broker.phone,
+    nome: seller.name,
+    empresa: seller.business,
+    telefone: seller.phone,
+    corretor: seller.name,
+    imobiliaria: seller.business,
+    creci: '',
   };
   return body.replace(/\{\{(\w+)\}\}/g, (_, k: string) => vars[k] ?? `{{${k}}}`);
 }
-

@@ -15,6 +15,8 @@ import { ShortcutsTab } from './components/ShortcutsTab';
 import { SystemMenuBar } from './components/SystemMenuBar';
 import { TypingKeyboard } from './components/TypingKeyboard';
 import { useKeyboardData } from './hooks/useKeyboardData';
+import { buildLexicon } from './typing/lexicon';
+import { getSegment } from '../segments/segments';
 import { makeStyles, radius, ThemeProvider } from './theme';
 
 function describeError(error: unknown): string {
@@ -84,9 +86,10 @@ interface ContentProps {
   /** Mesmo login do app (armazenamento compartilhado). */
   loggedIn: boolean;
   onThemeChange: (theme: ThemePreference) => void;
+  onDataChanged: () => void;
 }
 
-function CorretorKeyboardContent({ data, loggedIn, onThemeChange }: ContentProps) {
+function CorretorKeyboardContent({ data, loggedIn, onThemeChange, onDataChanged }: ContentProps) {
   const styles = useStyles();
   const [tab, setTab] = useState<MainSystemTab>('products');
   const [toast, setToast] = useState<string | null>(null);
@@ -94,11 +97,30 @@ function CorretorKeyboardContent({ data, loggedIn, onThemeChange }: ContentProps
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   /** Evita disparar vários downloads ao tocar repetidas vezes. */
   const sending = useRef(false);
-  /** Última aba da área do corretor — o botão ABC volta para ela. */
-  const lastCorretorTab = useRef<MainSystemTab>('products');
+  /** Última aba da área de vendas — o botão ABC volta para ela. */
+  const lastSalesTab = useRef<MainSystemTab>('products');
+  const segment = getSegment(data.seller.segment);
+  /** Muda a cada campo novo: a aba Mais volta ao menu (o teclado já voltou ao tamanho normal). */
+  const [moreVisit, setMoreVisit] = useState(0);
+
+  // CRM e Agenda: teclado em tela grande, sobre a conversa
+  const setExpanded = useCallback((expanded: boolean) => {
+    KeyboardBridge.setExpanded(expanded).catch(() => {});
+  }, []);
+
+  useEffect(
+    () =>
+      KeyboardBridge.onKeyboardShow(e => {
+        if (!e.restarting) setMoreVisit(v => v + 1);
+      }),
+    [],
+  );
 
   useEffect(() => {
     KeyboardBridge.notifyReady();
+    // Dicionário das sugestões pronto antes da 1ª tecla (leva ~0,1 s, uma vez)
+    const t = setTimeout(buildLexicon, 300);
+    return () => clearTimeout(t);
   }, []);
 
   const showToast = useCallback(
@@ -188,12 +210,12 @@ function CorretorKeyboardContent({ data, loggedIn, onThemeChange }: ContentProps
     [showToast],
   );
 
-  // ABC alterna entre a área do corretor e o teclado de letras (como no simulador).
+  // ABC alterna entre a área de vendas e o teclado de letras (como no simulador).
   // A troca para outro teclado do sistema (Gboard etc.) fica na tecla 🌐.
   const handleTabChange = useCallback((newTab: MainSystemTab) => {
     setTab(current => {
-      if (newTab === 'keyboard' && current === 'keyboard') return lastCorretorTab.current;
-      if (newTab !== 'keyboard') lastCorretorTab.current = newTab;
+      if (newTab === 'keyboard' && current === 'keyboard') return lastSalesTab.current;
+      if (newTab !== 'keyboard') lastSalesTab.current = newTab;
       return newTab;
     });
   }, []);
@@ -201,27 +223,37 @@ function CorretorKeyboardContent({ data, loggedIn, onThemeChange }: ContentProps
   return (
     <View style={styles.root} testID="corretor-keyboard">
       {/* Menu com os botões do sistema SEMPRE VISÍVEL no topo */}
-      <SystemMenuBar active={tab} onChange={handleTabChange} />
+      <SystemMenuBar active={tab} onChange={handleTabChange} catalogLabel={segment.terms.catalog} />
 
-      {/* Área de conteúdo: teclado de letras ou área do corretor */}
+      {/* Área de conteúdo: teclado de letras ou área de vendas */}
       <View style={styles.content}>
         {tab === 'keyboard' && <TypingKeyboard />}
-        {/* Sem login no app, a área do corretor fica bloqueada (o ABC continua livre) */}
+        {/* Sem login no app, a área de vendas fica bloqueada (o ABC continua livre) */}
         {tab !== 'keyboard' && !loggedIn && <LoginRequiredPanel />}
         {loggedIn && tab === 'products' && (
-          <ProductsTab folders={data.folders} onInsert={insert} onSendImage={sendImage} onShare={shareMedia} />
+          <ProductsTab
+            folders={data.folders}
+            segment={segment}
+            onInsert={insert}
+            onSendImage={sendImage}
+            onShare={shareMedia}
+          />
         )}
         {loggedIn && tab === 'shortcuts' && (
-          <ShortcutsTab shortcuts={data.shortcuts} broker={data.broker} onInsert={insert} onShare={shareMedia} />
+          <ShortcutsTab shortcuts={data.shortcuts} seller={data.seller} onInsert={insert} onShare={shareMedia} />
         )}
         {loggedIn && tab === 'copilot' && <AICopilotTab onInsert={insert} />}
         {loggedIn && tab === 'more' && (
           <MoreTab
+            key={moreVisit}
             agenda={data.agenda}
             crm={data.crm}
+            segment={segment}
             theme={data.theme}
             onThemeChange={onThemeChange}
             onInsert={insert}
+            onExpandedChange={setExpanded}
+            onDataChanged={onDataChanged}
           />
         )}
 
@@ -236,10 +268,10 @@ function CorretorKeyboardContent({ data, loggedIn, onThemeChange }: ContentProps
 }
 
 function KeyboardRoot() {
-  const { data, loggedIn, setTheme } = useKeyboardData();
+  const { data, loggedIn, setTheme, reload } = useKeyboardData();
   return (
     <ThemeProvider preference={data.theme}>
-      <CorretorKeyboardContent data={data} loggedIn={loggedIn} onThemeChange={setTheme} />
+      <CorretorKeyboardContent data={data} loggedIn={loggedIn} onThemeChange={setTheme} onDataChanged={reload} />
     </ThemeProvider>
   );
 }

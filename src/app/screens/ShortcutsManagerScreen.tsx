@@ -13,6 +13,7 @@ import type { AudioShortcut, ShortcutsData, TextShortcut } from '../../types';
 import { normalizeUrl } from '../../utils/formatters';
 import { makeStyles, radius, spacing, touchTarget, typography, useColors } from '../../keyboard/theme';
 import { Icon, IconTile } from '../../keyboard/components/Icon';
+import { EmptyState } from '../components/ui';
 
 /** Formulários de criação/edição: id null = criando um atalho novo. */
 interface TextForm {
@@ -180,7 +181,7 @@ export function ShortcutsManagerScreen() {
           <Text style={styles.label}>Título do Atalho</Text>
           <TextInput
             style={styles.input}
-            placeholder="Ex: Confirmação de Visita, Chave Pix"
+            placeholder="Ex: Formas de pagamento, Chave Pix"
             placeholderTextColor={colors.textMuted}
             value={textForm.title}
             onChangeText={title => setTextForm({ ...textForm, title })}
@@ -196,7 +197,7 @@ export function ShortcutsManagerScreen() {
             onChangeText={text => setTextForm({ ...textForm, text })}
           />
           <Text style={styles.hint}>
-            Variáveis: {'{{corretor}}'}, {'{{imobiliaria}}'}, {'{{creci}}'} e {'{{telefone}}'} são trocadas pelos dados do
+            Variáveis: {'{{nome}}'}, {'{{empresa}}'} e {'{{telefone}}'} são trocadas pelos dados do
             seu perfil.
           </Text>
 
@@ -272,7 +273,17 @@ export function ShortcutsManagerScreen() {
           data={shortcuts.texts}
           keyExtractor={item => item.id}
           contentContainerStyle={styles.list}
-          ListEmptyComponent={<Text style={styles.emptyText}>Nenhum atalho de texto ainda.</Text>}
+          ListEmptyComponent={
+            textForm ? null : (
+              <EmptyState
+                icon="respostas"
+                title="Nenhum atalho de texto"
+                text="Salve as mensagens que você manda sempre e envie pelo teclado com um toque."
+                actionLabel="Criar atalho de texto"
+                onAction={() => setTextForm({ id: null, title: '', text: '' })}
+              />
+            )
+          }
           renderItem={({ item }) => (
             <View style={styles.itemCard}>
               <View style={styles.itemHead}>
@@ -292,7 +303,17 @@ export function ShortcutsManagerScreen() {
           data={shortcuts.audios}
           keyExtractor={item => item.id}
           contentContainerStyle={styles.list}
-          ListEmptyComponent={<Text style={styles.emptyText}>Nenhum áudio cadastrado ainda.</Text>}
+          ListEmptyComponent={
+            audioForm ? null : (
+              <EmptyState
+                icon="audio"
+                title="Nenhum áudio"
+                text="Cadastre o link de um áudio para enviar na conversa sem gravar de novo."
+                actionLabel="Adicionar áudio"
+                onAction={() => setAudioForm({ id: null, title: '', url: '', duration: '', transcript: '' })}
+              />
+            )
+          }
           renderItem={({ item }) => (
             <View style={styles.itemCard}>
               <View style={styles.itemHead}>

@@ -1,22 +1,36 @@
 /**
- * Login do corretor com Supabase Auth (e-mail e senha).
+ * Login do usuário com Supabase Auth (e-mail e senha).
  *
  * O marcador de login usado pelo teclado (Repo auth token) acompanha a sessão
  * do Supabase: é gravado ao entrar / renovar o token e apagado ao sair.
  */
 import type { Session } from '@supabase/supabase-js';
+import { isSegmentId } from '../segments/segments';
 import { Repo } from '../storage/storage';
-import type { BrokerProfile } from '../types';
+import type { SellerProfile } from '../types';
 import { supabase } from './supabase';
 
 export class AuthError extends Error {}
 
-export interface SignUpInput extends BrokerProfile {
+export interface SignUpInput extends SellerProfile {
   email: string;
   password: string;
 }
 
-/** Traduz as mensagens mais comuns do Supabase para o corretor. */
+/**
+ * Colunas da tabela "profiles". A coluna agency (nome antigo, da época em que o
+ * app era só para corretores) guarda o nome do negócio; segment guarda o ramo.
+ */
+function toProfileRow(profile: SellerProfile) {
+  return { name: profile.name, agency: profile.business, phone: profile.phone, segment: profile.segment };
+}
+
+/** Banco ainda sem a coluna segment (schema.sql não foi rodado de novo). */
+function isMissingSegmentColumn(error: { message: string }): boolean {
+  return /segment/i.test(error.message);
+}
+
+/** Traduz as mensagens mais comuns do Supabase para o usuário. */
 function friendlyMessage(raw: string): string {
   const msg = raw.toLowerCase();
   if (msg.includes('invalid login credentials')) return 'E-mail ou senha incorretos.';
@@ -44,6 +58,16 @@ function applySession(session: Session | null) {
   else Repo.clearAuth();
 }
 
+/**
+ * Os dados do aparelho são de uma conta só. Entrou outra conta: começa do zero
+ * (sem herdar produtos e atalhos de quem usou o aparelho antes).
+ */
+function claimDevice(userId: string, fresh: boolean) {
+  const owner = Repo.getUserId();
+  if (fresh || (owner && owner !== userId)) Repo.clearUserData();
+  Repo.setUserId(userId);
+}
+
 /** Mantém o marcador de login (lido pelo teclado) igual à sessão do Supabase. */
 export function startAuthSync(): () => void {
   const { data } = supabase.auth.onAuthStateChange((_event, session) => applySession(session));
@@ -57,7 +81,7 @@ export function startAuthSync(): () => void {
 export async function restoreSession(): Promise<boolean> {
   const { data, error } = await supabase.auth.getSession();
   // Erro (ex.: sem internet para renovar o token): mantém o estado atual
-  // em vez de deslogar o corretor
+  // em vez de deslogar o usuário
   if (error) return Repo.isLoggedIn();
   applySession(data.session);
   return !!data.session;
@@ -66,13 +90,14 @@ export async function restoreSession(): Promise<boolean> {
 export async function signIn(email: string, password: string): Promise<void> {
   const { data, error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
   if (error) fail(error);
+  claimDevice(data.user.id, false);
   applySession(data.session);
   await pullProfile();
 }
 
 /**
  * Cria a conta. Com a confirmação de e-mail ligada no Supabase, a sessão só
- * existe depois que o corretor clica no link: nesse caso retorna 'confirm_email'.
+ * existe depois que o usuário clica no link: nesse caso retorna 'confirm_email'.
  */
 export async function signUp(input: SignUpInput): Promise<'signed_in' | 'confirm_email'> {
   const { email, password, ...profile } = input;
@@ -80,7 +105,7 @@ export async function signUp(input: SignUpInput): Promise<'signed_in' | 'confirm
     email: email.trim(),
     password,
     // O gatilho handle_new_user (schema.sql) cria a linha em "profiles" com estes dados
-    options: { data: profile },
+    options: { data: toProfileRow(profile) },
   });
   if (error) fail(error);
 
@@ -89,7 +114,10 @@ export async function signUp(input: SignUpInput): Promise<'signed_in' | 'confirm
     throw new AuthError('Este e-mail já tem cadastro. Use a opção Entrar.');
   }
 
-  Repo.setBroker(profile);
+  // Conta nova = app limpo e zerado
+  if (data.user) claimDevice(data.user.id, true);
+  else Repo.clearUserData();
+  Repo.setSeller(profile);
   if (!data.session) return 'confirm_email';
   applySession(data.session);
   return 'signed_in';
@@ -104,39 +132,41 @@ export async function signOut(): Promise<void> {
   }
 }
 
-/** Baixa o perfil do corretor (nome, CRECI...) para o app e o teclado. */
-export async function pullProfile(): Promise<BrokerProfile | null> {
+/** Baixa o perfil (nome, negócio, telefone, ramo) para o app e o teclado. */
+export async function pullProfile(): Promise<SellerProfile | null> {
   const { data: userData } = await supabase.auth.getUser();
   const userId = userData.user?.id;
   if (!userId) return null;
 
-  const { data, error } = await supabase
-    .from('profiles')
-    .select('name, creci, agency, phone')
-    .eq('id', userId)
-    .maybeSingle();
+  // '*': funciona também em bancos que ainda não têm a coluna segment
+  const { data, error } = await supabase.from('profiles').select('*').eq('id', userId).maybeSingle();
   if (error || !data) return null;
 
-  const profile: BrokerProfile = {
+  const profile: SellerProfile = {
     name: data.name,
-    creci: data.creci,
-    agency: data.agency,
+    business: data.agency,
     phone: data.phone,
+    // Sem ramo na nuvem, mantém o escolhido neste aparelho
+    segment: isSegmentId(data.segment) ? data.segment : Repo.getSegment(),
   };
-  Repo.setBroker(profile);
+  Repo.setSeller(profile);
   return profile;
 }
 
 /** Salva o perfil na nuvem (e localmente, para o teclado). */
-export async function pushProfile(profile: BrokerProfile): Promise<void> {
-  Repo.setBroker(profile);
+export async function pushProfile(profile: SellerProfile): Promise<void> {
+  Repo.setSeller(profile);
   const { data: userData } = await supabase.auth.getUser();
   const userId = userData.user?.id;
   if (!userId) throw new AuthError('Sessão expirada. Entre novamente.');
 
-  const { error } = await supabase
-    .from('profiles')
-    .upsert({ id: userId, ...profile, updated_at: new Date().toISOString() });
+  const row = { id: userId, ...toProfileRow(profile), updated_at: new Date().toISOString() };
+  let { error } = await supabase.from('profiles').upsert(row);
+  if (error && isMissingSegmentColumn(error)) {
+    // O ramo fica só no aparelho até o banco ganhar a coluna (supabase/schema.sql)
+    const { segment: _segment, ...withoutSegment } = row;
+    ({ error } = await supabase.from('profiles').upsert(withoutSegment));
+  }
   if (error) fail(error);
 }
 

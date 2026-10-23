@@ -11,6 +11,8 @@ import {
 } from 'react-native';
 import Svg, { Defs, RadialGradient, Rect, Stop } from 'react-native-svg';
 import { AuthError, signIn, signUp } from '../../services/auth';
+import type { SegmentId } from '../../types';
+import { SegmentPicker } from '../components/SegmentPicker';
 import { KeyconLogo } from '../../keyboard/components/KeyconLogo';
 import { brand, makeStyles, radius, spacing, touchTarget, typography, useColors } from '../../keyboard/theme';
 
@@ -26,9 +28,9 @@ export function AuthScreen({ onSuccess }: Props) {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [creci, setCreci] = useState('');
-  const [agency, setAgency] = useState('');
+  const [business, setBusiness] = useState('');
   const [phone, setPhone] = useState('');
+  const [segment, setSegment] = useState<SegmentId | null>(null);
 
   const handleSubmit = async () => {
     if (!email.trim() || !password) {
@@ -36,8 +38,13 @@ export function AuthScreen({ onSuccess }: Props) {
       return;
     }
 
-    if (isRegister && (!name.trim() || !creci.trim())) {
-      Alert.alert('Atenção', 'Preencha seu nome e número de CRECI.');
+    if (isRegister && !name.trim()) {
+      Alert.alert('Atenção', 'Preencha seu nome.');
+      return;
+    }
+
+    if (isRegister && !segment) {
+      Alert.alert('Atenção', 'Escolha o ramo do seu negócio. Se não encontrar o seu, escolha "Outro / Geral".');
       return;
     }
 
@@ -58,9 +65,9 @@ export function AuthScreen({ onSuccess }: Props) {
         email,
         password,
         name: name.trim(),
-        agency: agency.trim() || 'Imobiliária Parceira',
-        creci: creci.trim(),
+        business: business.trim(),
         phone: phone.trim(),
+        segment: segment ?? 'general',
       });
       if (result === 'signed_in') {
         onSuccess();
@@ -103,7 +110,7 @@ export function AuthScreen({ onSuccess }: Props) {
             {isRegister ? 'Crie sua conta' : 'Entre na sua conta'}
           </Text>
           <Text style={styles.subtitle}>
-            Seus dados, imóveis e atalhos ficam sincronizados com o teclado.
+            Seus produtos, fotos e atalhos ficam sincronizados com o teclado.
           </Text>
         </View>
 
@@ -141,7 +148,7 @@ export function AuthScreen({ onSuccess }: Props) {
           <Text style={styles.label}>E-mail</Text>
           <TextInput
             style={styles.input}
-            placeholder="seu.email@imobiliaria.com.br"
+            placeholder="seu@email.com.br"
             placeholderTextColor={colors.textMuted}
             keyboardType="email-address"
             autoCapitalize="none"
@@ -161,22 +168,13 @@ export function AuthScreen({ onSuccess }: Props) {
 
           {isRegister && (
             <>
-              <Text style={styles.label}>Número do CRECI (com UF)</Text>
+              <Text style={styles.label}>Nome do negócio (opcional)</Text>
               <TextInput
                 style={styles.input}
-                placeholder="Ex: 123456-F/SP"
+                placeholder="Ex: Bella Store"
                 placeholderTextColor={colors.textMuted}
-                value={creci}
-                onChangeText={setCreci}
-              />
-
-              <Text style={styles.label}>Nome da Imobiliária / Agência</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="Ex: Prime Imóveis"
-                placeholderTextColor={colors.textMuted}
-                value={agency}
-                onChangeText={setAgency}
+                value={business}
+                onChangeText={setBusiness}
               />
 
               <Text style={styles.label}>Telefone com WhatsApp</Text>
@@ -188,6 +186,13 @@ export function AuthScreen({ onSuccess }: Props) {
                 value={phone}
                 onChangeText={setPhone}
               />
+
+              <Text style={styles.label}>Qual é o seu ramo?</Text>
+              <Text style={styles.hint}>
+                O app se adapta ao seu negócio: nomes, campos dos produtos, funil de clientes e a IA.
+                Dá para trocar depois na tela Conta.
+              </Text>
+              <SegmentPicker value={segment} onChange={setSegment} />
             </>
           )}
 
@@ -269,6 +274,12 @@ const useStyles = makeStyles(colors => ({
     ...typography.label,
     color: colors.textSecondary,
     marginTop: spacing.xs,
+  },
+  hint: {
+    fontSize: 12,
+    lineHeight: 17,
+    color: colors.textMuted,
+    marginBottom: spacing.xs,
   },
   input: {
     backgroundColor: colors.surfaceAlt,

@@ -5,7 +5,7 @@ import type { KeyboardData, ThemePreference } from '../../types';
 
 /**
  * Carrega o snapshot do MMKV (síncrono) e recarrega toda vez que o teclado
- * reaparece — o corretor pode ter editado o catálogo no app entre um uso e
+ * reaparece — o usuário pode ter editado o catálogo no app entre um uso e
  * outro, e o componente RN do IME permanece montado em memória.
  */
 export function useKeyboardData() {
@@ -27,5 +27,8 @@ export function useKeyboardData() {
     setData(d => ({ ...d, theme }));
   }, []);
 
-  return { data, targetApp, loggedIn, setTheme };
+  /** Relê tudo (depois de o próprio teclado gravar um cliente ou compromisso). */
+  const reload = useCallback(() => setData(Repo.loadAll()), []);
+
+  return { data, targetApp, loggedIn, setTheme, reload };
 }

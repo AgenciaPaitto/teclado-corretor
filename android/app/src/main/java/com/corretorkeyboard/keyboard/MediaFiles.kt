@@ -34,7 +34,7 @@ object MediaFiles {
 
     data class Downloaded(val file: File, val mimeType: String)
 
-    /** Erro com mensagem pronta para mostrar ao corretor. */
+    /** Erro com mensagem pronta para mostrar ao usuário. */
     class MediaException(message: String) : IOException(message)
 
     private fun authority(context: Context) = "${context.packageName}.keyboardfiles"

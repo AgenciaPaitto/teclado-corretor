@@ -1,9 +1,9 @@
 /**
- * aiService.ts — AI Copilot do teclado
+ * aiService.ts — IA do teclado
  * ---------------------------------------------------------------------------
  * Fluxo:
  *   1. Lê a mensagem do cliente da Área de Transferência (Clipboard).
- *   2. Seleciona os imóveis MAIS RELEVANTES do banco local (MMKV) para não
+ *   2. Seleciona os produtos MAIS RELEVANTES do banco local (MMKV) para não
  *      estourar tokens nem vazar o catálogo inteiro a cada chamada.
  *   3. Envia payload JSON ao backend próprio (Node.js), que chama o LLM.
  *   4. Valida a resposta e devolve 2–3 sugestões tipadas.
@@ -13,19 +13,21 @@
  * e o backend detém a OPENAI_API_KEY. Ver backend/server.ts.
  */
 import Clipboard from '@react-native-clipboard/clipboard';
-import type { AISuggestion, BrokerProfile, ProductFolder, SuggestionTone } from '../types';
+import type { AISuggestion, ProductFolder, SegmentId, SellerProfile, SuggestionTone } from '../types';
+import { getSegment } from '../segments/segments';
 import { Repo } from '../storage/storage';
-import { formatPrice } from '../utils/formatters';
+import { attributeLines, formatPrice } from '../utils/formatters';
 
 // ---------------------------------------------------------------------------
 // Configuração
 // ---------------------------------------------------------------------------
 
 export const AI_CONFIG = {
-  baseUrl: 'https://api.primeimoveis.com.br',
+  /** Endereço do backend de IA (backend/server.ts) — troque ao publicar. */
+  baseUrl: 'https://seu-servidor.com.br',
   endpoint: '/v1/copilot/suggestions',
   timeoutMs: 15_000,
-  maxContextProperties: 8,
+  maxContextProducts: 8,
   maxMessageChars: 2_000,
   /**
    * true → responde localmente sem rede (demonstração).
@@ -38,19 +40,24 @@ export const AI_CONFIG = {
 // Contratos da API (request/response)
 // ---------------------------------------------------------------------------
 
-export interface PropertyContext {
+export interface ProductContext {
   id: string;
-  condominium: string;
+  /** Nome da pasta / categoria do produto. */
+  folder: string;
   title: string;
   price: string;
   description: string;
+  /** Características do ramo, já formatadas ("Quartos: 3", "Área: 85 m²"). */
+  details: string[];
   url: string;
 }
 
 export interface CopilotRequest {
   clientMessage: string;
-  broker: Pick<BrokerProfile, 'name' | 'agency'>;
-  properties: PropertyContext[];
+  seller: Pick<SellerProfile, 'name' | 'business'>;
+  /** Ramo do negócio: o backend escolhe a orientação da IA por ele. */
+  segment: SegmentId;
+  products: ProductContext[];
   locale: 'pt-BR';
   maxSuggestions: number;
 }
@@ -59,7 +66,7 @@ export interface CopilotResponse {
   suggestions: Array<{
     tone: SuggestionTone;
     text: string;
-    referencedPropertyIds?: string[];
+    referencedProductIds?: string[];
   }>;
 }
 
@@ -114,25 +121,30 @@ const normalize = (s: string) =>
 const STOPWORDS = new Set(['de', 'da', 'do', 'e', 'o', 'a', 'um', 'uma', 'com', 'para', 'que', 'tem', 'no', 'na']);
 
 /** Pontua produtos por sobreposição de termos com a mensagem do cliente. */
-export function selectRelevantProperties(
+export function selectRelevantProducts(
   message: string,
   folders: ProductFolder[],
-  max = AI_CONFIG.maxContextProperties,
-): PropertyContext[] {
+  segment: SegmentId = 'general',
+  max = AI_CONFIG.maxContextProducts,
+): ProductContext[] {
   const terms = normalize(message)
     .split(/[^a-z0-9]+/)
     .filter(t => t.length > 2 && !STOPWORDS.has(t));
 
   const scored = folders.flatMap(f =>
     f.products.map(p => {
-      const haystack = normalize(`${f.name} ${f.neighborhood ?? ''} ${p.title} ${p.shortDescription} ${p.dealType ?? ''}`);
+      const details = attributeLines(p, segment);
+      const haystack = normalize(
+        `${f.name} ${f.description ?? ''} ${p.title} ${p.shortDescription} ${details.join(' ')}`,
+      );
       const score = terms.reduce((acc, t) => acc + (haystack.includes(t) ? 1 : 0), 0);
-      const ctx: PropertyContext = {
+      const ctx: ProductContext = {
         id: p.id,
-        condominium: f.name,
+        folder: f.name,
         title: p.title,
-        price: formatPrice(p),
+        price: formatPrice(p, segment),
         description: p.shortDescription,
+        details,
         url: p.datasheetUrl,
       };
       return { ctx, score };
@@ -160,7 +172,7 @@ async function postJSON<TReq, TRes>(path: string, body: TReq, token?: string): P
       headers: {
         'Content-Type': 'application/json',
         Accept: 'application/json',
-        'X-Client': 'sales-copilot/1.0',
+        'X-Client': 'keycon/1.0',
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
       body: JSON.stringify(body),
@@ -202,7 +214,7 @@ function parseResponse(json: unknown): AISuggestion[] {
       id: `sug-${Date.now()}-${i}`,
       tone: TONES.includes(s.tone) ? s.tone : TONES[i % TONES.length],
       text: s.text.trim(),
-      referencedPropertyIds: Array.isArray(s.referencedPropertyIds) ? s.referencedPropertyIds : [],
+      referencedProductIds: Array.isArray(s.referencedProductIds) ? s.referencedProductIds : [],
     }));
 
   if (valid.length === 0) {
@@ -216,23 +228,24 @@ function parseResponse(json: unknown): AISuggestion[] {
 // ---------------------------------------------------------------------------
 
 function mockSuggestions(req: CopilotRequest): CopilotResponse {
-  const p = req.properties[0];
+  const p = req.products[0];
+  const { item } = getSegment(req.segment).terms;
   return {
     suggestions: [
       {
         tone: 'cordial',
-        text: `Olá, tudo bem? Sou ${req.broker.name}, da ${req.broker.agency}. Posso te enviar algumas opções alinhadas ao que você procura?`,
+        text: `Olá, tudo bem? Sou ${req.seller.name}, da ${req.seller.business}. Posso te enviar algumas opções alinhadas ao que você procura?`,
       },
       {
         tone: 'objetiva',
         text: p
-          ? `Tenho o "${p.title}" no ${p.condominium} por ${p.price}. Ficha completa: ${p.url}`
-          : 'Pode me dizer a região, número de quartos e faixa de valor?',
-        referencedPropertyIds: p ? [p.id] : [],
+          ? `Tenho o "${p.title}" por ${p.price}.${p.url ? ` Veja mais: ${p.url}` : ''}`
+          : 'Pode me dizer o que você procura e a faixa de valor?',
+        referencedProductIds: p ? [p.id] : [],
       },
       {
         tone: 'persuasiva',
-        text: 'Esse perfil de imóvel está com alta procura nesta semana. Quer agendar uma visita amanhã às 10h ou 15h?',
+        text: `Esse ${item} está com bastante procura nesta semana. Quer que eu já veja a melhor condição para você?`,
       },
     ],
   };
@@ -248,12 +261,13 @@ function mockSuggestions(req: CopilotRequest): CopilotResponse {
  */
 export async function analyzeClipboardMessage(): Promise<AnalysisResult> {
   const clientMessage = await readClipboardMessage();
-  const broker = Repo.getBroker();
+  const seller = Repo.getSeller();
 
   const payload: CopilotRequest = {
     clientMessage,
-    broker: { name: broker.name, agency: broker.agency },
-    properties: selectRelevantProperties(clientMessage, Repo.getFolders()),
+    seller: { name: seller.name, business: seller.business },
+    segment: seller.segment,
+    products: selectRelevantProducts(clientMessage, Repo.getFolders(), seller.segment),
     locale: 'pt-BR',
     maxSuggestions: 3,
   };

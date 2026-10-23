@@ -6,7 +6,7 @@ import type { IconName } from './Icon';
 import { Icon } from './Icon';
 
 const BUTTONS: Array<{ key: MainSystemTab; label: string; icon: IconName }> = [
-  // Alterna entre a área do corretor e o teclado de letras próprio
+  // Alterna entre a área de vendas e o teclado de letras próprio
   { key: 'keyboard', label: 'ABC', icon: 'teclado' },
   { key: 'products', label: 'Produtos', icon: 'arquivos' },
   { key: 'shortcuts', label: 'Atalhos', icon: 'atalhos' },
@@ -17,31 +17,37 @@ const BUTTONS: Array<{ key: MainSystemTab; label: string; icon: IconName }> = [
 interface Props {
   active: MainSystemTab;
   onChange: (tab: MainSystemTab) => void;
+  /** Nome do catálogo no ramo do usuário ("Imóveis", "Cardápio"...). */
+  catalogLabel?: string;
 }
 
 /**
  * Menu com os botões do sistema mantido SEMPRE VISÍVEL no topo do teclado.
  * Botões: ABC (teclado de letras), Produtos, Atalhos, IA, Mais — cada um com
- * o ícone e a cor funcional do manual; o item ativo ganha o fundo coral suave.
+ * ícone e texto em cinza (como o menu do app); o item ativo fica coral, com fundo coral suave.
  */
-export const SystemMenuBar = memo(({ active, onChange }: Props) => {
+export const SystemMenuBar = memo(({ active, onChange, catalogLabel }: Props) => {
   const colors = useColors();
   const styles = useStyles();
   return (
     <View style={styles.bar} testID="system-menu-bar">
       {BUTTONS.map(btn => {
         const selected = btn.key === active;
+        const label = btn.key === 'products' && catalogLabel ? catalogLabel : btn.label;
         return (
           <Pressable
             key={btn.key}
             testID={`system-btn-${btn.key}`}
             accessibilityRole="tab"
-            accessibilityLabel={btn.label}
+            accessibilityLabel={label}
             accessibilityState={{ selected }}
             onPress={() => onChange(btn.key)}
             style={({ pressed }) => [styles.tab, selected && styles.tabActive, pressed && styles.pressed]}>
-            <Icon name={btn.icon} size={20} color={btn.key === 'keyboard' ? colors.iconNeutral : undefined} />
-            <Text style={[styles.label, selected && styles.labelActive]}>{btn.label}</Text>
+            {/* Igual ao menu do app: cinza; o item ativo fica coral */}
+            <Icon name={btn.icon} size={20} color={selected ? colors.primary : colors.textMuted} />
+            <Text style={[styles.label, selected && styles.labelActive]} numberOfLines={1}>
+              {label}
+            </Text>
           </Pressable>
         );
       })}
@@ -80,7 +86,7 @@ const useStyles = makeStyles(colors => ({
     fontWeight: '500',
   },
   labelActive: {
-    color: colors.text,
+    color: colors.primaryText,
     fontWeight: '600',
   },
 }));

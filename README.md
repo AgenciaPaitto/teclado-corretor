@@ -1,9 +1,9 @@
-# KEYCON — Teclado com CRM para corretores (React Native + TypeScript)
+# KEYCON — Teclado de vendas com CRM (React Native + TypeScript)
 
 > Seu negócio na ponta dos dedos.
 
-Teclado de sistema (IME Android / Keyboard Extension iOS) para corretores de imóveis,
-utilizável dentro do WhatsApp ou de qualquer app. O app principal só faz login e configuração.
+Teclado de sistema (IME Android / Keyboard Extension iOS) para quem vende qualquer produto ou
+serviço: cadastre seus produtos com fotos e envie tudo pelo teclado, dentro do WhatsApp ou de qualquer app. O app principal só faz login e configuração.
 
 ## Arquitetura
 
@@ -14,7 +14,7 @@ utilizável dentro do WhatsApp ou de qualquer app. O app principal só faz login
 ┌──────────── Processo do nosso app ──────────┼──────────────┐
 │ CustomKeyboardService (InputMethodService)  ┘              │
 │   └─ ReactRootView ("CorretorKeyboard")                    │
-│        ├─ Toolbar: 📂 Imóveis | ⚡ Respostas | 🔗 Atalhos | 🤖 │
+│        ├─ Toolbar: ABC | Produtos | Atalhos | IA | Mais     │
 │        ├─ KeyboardBridge.insertText() ──► commitText()     │
 │        ├─ MMKV (catálogo offline, leitura síncrona)        │
 │        └─ aiService → Clipboard → POST backend → LLM       │
@@ -50,6 +50,70 @@ utilizável dentro do WhatsApp ou de qualquer app. O app principal só faz login
 | Ícone do iPhone (App Store, 1024 × 1024 sem transparência) | `ios/AppIcon/AppIcon-1024.png` → arraste para o AppIcon no Xcode |
 
 Coral só em ações, marca e estados ativos; grafite como cor estrutural.
+
+## Ramos de negócio
+
+No cadastro o usuário escolhe o ramo: Imobiliária, Seguros, Restaurante, Advocacia, Loja e varejo,
+Beleza e estética, Veículos ou **Outro / Geral**. Dá para trocar depois na tela Conta.
+
+| O que o ramo muda | Onde |
+|---|---|
+| Nome do catálogo (Imóveis, Planos, Cardápio...), campos extras dos produtos, preço (opcional, "a partir de", "/mês"), etapas do CRM, mensagem de retorno, orientação da IA | `src/segments/segments.ts` |
+
+- Conta nova começa zerada (sem produtos, atalhos ou clientes de exemplo). Os exemplos gravados
+  por versões antigas são removidos uma vez ao abrir (`purgeLegacyDemoData` em `storage.ts`).
+- Trocar de ramo nunca apaga o que foi cadastrado.
+- Fora dos ramos de propósito: registro profissional e dicionário do teclado (o corretor é um só,
+  completo, para o dia a dia).
+- Supabase: rode de novo o `supabase/schema.sql` (cria `profiles.segment` e `products.attributes`).
+  Até lá, o ramo fica salvo só no aparelho.
+- Novo ramo: id em `SegmentId` (`src/types`) e um perfil em `segments.ts`.
+
+## Telas do app
+
+| Aba | O que tem | Onde |
+|---|---|---|
+| Início | Card do teclado, Primeiros passos (marcados sozinhos), atalhos para as áreas; submenus de instalação, teste e passos | `src/app/screens/HomeScreen.tsx`, `KeyboardSetupScreen.tsx`, `src/app/onboarding/steps.ts` |
+| Tutorial | 7 telas, abre no primeiro acesso da conta e pelo Início | `src/app/screens/TutorialScreen.tsx` |
+| Catálogo / Atalhos | Cadastro de pastas, itens e atalhos (com estado vazio que guia) | `ProductsManagerScreen.tsx`, `ShortcutsManagerScreen.tsx` |
+| Conta | Seus dados, Ramo, Aparência, Status, Sobre e licenças | `ProfileSettingsScreen.tsx` |
+
+Peças comuns (card, linha de menu, botão, estado vazio): `src/app/components/ui.tsx`.
+
+## CRM e Agenda (app + teclado expandido)
+
+| O quê | Onde |
+|---|---|
+| Clientes no funil (etapas do ramo), ficha, cadastro | app: `src/app/screens/ClientsScreen.tsx` · teclado: `src/keyboard/components/KeyboardCRM.tsx` |
+| Calendário, reuniões e tarefas | app: `src/app/screens/AgendaScreen.tsx` · teclado: `src/keyboard/components/KeyboardAgenda.tsx` |
+| Regras comuns (datas, funil, mensagens) | `src/agenda/agenda.ts`, `src/crm/crm.ts`, `MonthCalendar.tsx` |
+| Teclado em tela grande | `KeyboardBridge.setExpanded` → Android `CustomKeyboardService.setExpanded` (88% da tela), iOS `KeyboardViewController.setExpanded` (80%) |
+| Formulário dentro do teclado | `KeyboardForm.tsx`: o teclado de letras escreve nos campos (`TextSink`), sem `TextInput` |
+
+- Ao abrir CRM ou Agenda (Mais), o teclado cresce sobre a conversa; ao enviar uma mensagem
+  (retorno, confirmação de reunião) ou voltar, ele volta ao tamanho normal. Um campo novo
+  (outra conversa) também volta ao normal.
+- App e teclado gravam no mesmo armazenamento do aparelho (MMKV; no iPhone, App Group):
+  o que é marcado no teclado aparece no app e vice-versa. Entre aparelhos diferentes ainda não
+  há sincronização (falta enviar CRM e agenda para o Supabase).
+
+## Teclado de letras
+
+| Recurso | Onde |
+|---|---|
+| Toques com vários dedos (digitação rápida sem perder teclas) | `src/keyboard/components/TypingKeyboard.tsx` |
+| "Tecla invisível": a área de cada letra se ajusta à palavra | `src/keyboard/typing/keyResolver.ts` |
+| Sugestões, correção, acentos e abreviações (vc → você) | `src/keyboard/typing/lexicon.ts` |
+| Texto antes do cursor (maiúscula automática, palavra atual) | `src/keyboard/typing/typingContext.ts` |
+
+Maiúscula automática no começo da mensagem e depois de `. ! ?`; volta às letras depois de um
+símbolo ou do espaço; dois espaços viram `. `; ao escolher uma sugestão, a pontuação seguinte
+"puxa" o espaço (`palavra .` → `palavra. `). E-mail, link e senha não recebem maiúscula nem sugestões.
+
+**Dicionário:** `src/keyboard/typing/wordsPt.ts` — 40 mil palavras do pt-BR filtradas de
+[FrequencyWords](https://github.com/hermitdave/FrequencyWords) (Hermit Dave, legendas do OpenSubtitles),
+licença [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/). O crédito precisa aparecer
+também na tela "Sobre"/licenças do app publicado.
 
 ## Passo a passo
 

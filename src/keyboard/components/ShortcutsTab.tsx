@@ -1,13 +1,13 @@
 import React, { useState } from 'react';
 import { FlatList, Pressable, Text, View } from 'react-native';
-import type { AudioShortcut, BrokerProfile, ShortcutsData, TextShortcut } from '../../types';
+import type { AudioShortcut, SellerProfile, ShortcutsData, TextShortcut } from '../../types';
 import { applyTemplate } from '../../utils/formatters';
 import { makeStyles, radius, spacing } from '../theme';
 import { ItemCard } from './ItemCard';
 
 interface Props {
   shortcuts: ShortcutsData;
-  broker: BrokerProfile;
+  seller: SellerProfile;
   onInsert: (text: string) => void;
   /** Compartilhamento do Android; fallbackText é inserido se falhar. */
   onShare: (urls: string[], fallbackText: string) => void;
@@ -20,7 +20,7 @@ type ShortcutFilter = 'text' | 'audio';
 /**
  * Atalhos — Mensagens criadas pelo próprio usuário para envio rápido (Texto e Áudio).
  */
-export function ShortcutsTab({ shortcuts, broker, onInsert, onShare }: Props) {
+export function ShortcutsTab({ shortcuts, seller, onInsert, onShare }: Props) {
   const styles = useStyles();
   const [filter, setFilter] = useState<ShortcutFilter>('text');
 
@@ -49,13 +49,14 @@ export function ShortcutsTab({ shortcuts, broker, onInsert, onShare }: Props) {
           keyExtractor={item => item.id}
           contentContainerStyle={styles.list}
           keyboardShouldPersistTaps="always"
+          ListEmptyComponent={<Text style={styles.empty}>Crie atalhos de texto no app KEYCON (aba Atalhos).</Text>}
           renderItem={({ item }: { item: TextShortcut }) => (
             <ItemCard
               testID={`shortcut-text-${item.id}`}
               title={item.title}
-              subtitle={applyTemplate(item.text, broker)}
+              subtitle={applyTemplate(item.text, seller)}
               icon="respostas"
-              onPress={() => onInsert(applyTemplate(item.text, broker))}
+              onPress={() => onInsert(applyTemplate(item.text, seller))}
             />
           )}
         />
@@ -65,6 +66,7 @@ export function ShortcutsTab({ shortcuts, broker, onInsert, onShare }: Props) {
           keyExtractor={item => item.id}
           contentContainerStyle={styles.list}
           keyboardShouldPersistTaps="always"
+          ListEmptyComponent={<Text style={styles.empty}>Cadastre áudios no app KEYCON (aba Atalhos).</Text>}
           ListHeaderComponent={
             shortcuts.audios.length > 0 ? (
               <Text style={styles.hint}>Toque: enviar o áudio • Segure: enviar o link</Text>
@@ -118,4 +120,5 @@ const useStyles = makeStyles(colors => ({
   },
   list: { padding: spacing.sm },
   hint: { color: colors.textMuted, fontSize: 12, marginBottom: 6, textAlign: 'center' },
+  empty: { color: colors.textMuted, fontSize: 13, textAlign: 'center', marginTop: spacing.xl, paddingHorizontal: spacing.lg },
 }));

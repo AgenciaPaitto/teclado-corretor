@@ -1,6 +1,6 @@
 /**
  * No react-native-web, Alert.alert não faz nada. O app usa Alert para avisos
- * ("Informe o nome da pasta") e confirmações ("Excluir imóvel?"), então na web
+ * ("Informe o nome da pasta") e confirmações ("Excluir produto?"), então na web
  * eles viram as caixas nativas do navegador (alert / confirm).
  */
 import { Alert } from 'react-native';

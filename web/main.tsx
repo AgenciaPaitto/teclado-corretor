@@ -19,7 +19,7 @@ type Screen = 'app' | 'chat';
 
 interface Message {
   id: number;
-  from: 'client' | 'broker';
+  from: 'client' | 'seller';
   text: string;
   time: string;
 }
@@ -27,15 +27,12 @@ interface Message {
 const now = () => new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 
 function Chat({ visible }: { visible: boolean }) {
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: 1,
-      from: 'client',
-      text: 'Olá! Vi o anúncio da imobiliária e tenho interesse. Você teria fotos e opções de 3 suítes para venda?',
-      time: '14:32',
-    },
-  ]);
+  // Conversa de teste vazia: nada de exemplo pronto
+  const [messages, setMessages] = useState<Message[]>([]);
   const [draft, setDraft] = useState('');
+  /** CRM e Agenda: teclado em tela grande (como no celular). */
+  const [expanded, setExpanded] = useState(false);
+  useEffect(() => WebKeyboardHost.onExpandedChange(setExpanded), []);
   const draftRef = useRef('');
   const caret = useRef(0);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -56,8 +53,10 @@ function Chat({ visible }: { visible: boolean }) {
   const send = useCallback(() => {
     const text = draftRef.current.trim();
     if (!text) return;
-    setMessages(m => [...m, { id: Date.now(), from: 'broker', text, time: now() }]);
+    setMessages(m => [...m, { id: Date.now(), from: 'seller', text, time: now() }]);
     update('', 0);
+    // Campo vazio de novo: o teclado volta a começar com maiúscula
+    WebKeyboardHost.selectionChanged();
   }, [update]);
 
   useEffect(() => {
@@ -88,6 +87,9 @@ function Chat({ visible }: { visible: boolean }) {
         enter() {
           this.insert('\n');
         },
+        textBeforeCursor() {
+          return draftRef.current.slice(0, Math.min(caret.current, draftRef.current.length));
+        },
       }),
     [update],
   );
@@ -95,10 +97,10 @@ function Chat({ visible }: { visible: boolean }) {
   return (
     <div className="chat" style={{ display: visible ? 'flex' : 'none' }}>
       <div className="chat-header">
-        <div className="avatar">CO</div>
+        <div className="avatar">T</div>
         <div>
-          <div className="contact">Carlos Oliveira</div>
-          <div className="status">online</div>
+          <div className="contact">Conversa de teste</div>
+          <div className="status">toque no campo para abrir o teclado</div>
         </div>
       </div>
 
@@ -117,9 +119,13 @@ function Chat({ visible }: { visible: boolean }) {
           rows={1}
           placeholder="Mensagem"
           value={draft}
-          onChange={e => update(e.target.value, e.target.selectionStart)}
+          onChange={e => {
+            update(e.target.value, e.target.selectionStart);
+            WebKeyboardHost.selectionChanged();
+          }}
           onSelect={e => {
             caret.current = e.currentTarget.selectionStart;
+            WebKeyboardHost.selectionChanged();
           }}
         />
         <button type="button" onClick={send}>
@@ -127,7 +133,7 @@ function Chat({ visible }: { visible: boolean }) {
         </button>
       </div>
 
-      <div className="keyboard">
+      <div className={expanded ? 'keyboard expanded' : 'keyboard'}>
         <View style={{ flex: 1 }}>
           <CorretorKeyboard />
         </View>

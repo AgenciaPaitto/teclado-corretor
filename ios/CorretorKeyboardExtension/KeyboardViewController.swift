@@ -20,7 +20,16 @@ final class KeyboardViewController: UIInputViewController {
 
     private var bridge: RCTBridge?
     private var heightConstraint: NSLayoutConstraint?
-    private let keyboardHeight: CGFloat = 320
+    private let normalHeight: CGFloat = 320
+    /// Teclado expandido (CRM em tela grande), pedido pelo JS via KeyboardBridge.setExpanded.
+    private var expanded = false
+    /// Fração da tela no modo expandido: deixa uma faixa do app visível em cima.
+    private let expandedScreenFraction: CGFloat = 0.8
+
+    private var keyboardHeight: CGFloat {
+        guard expanded else { return normalHeight }
+        return max(normalHeight, UIScreen.main.bounds.height * expandedScreenFraction)
+    }
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -77,6 +86,8 @@ final class KeyboardViewController: UIInputViewController {
 
     override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
+        // Ao reabrir, o teclado volta no tamanho normal
+        if expanded { setExpanded(false) }
         KeyboardBridge.emit("onKeyboardHide", body: [:])
     }
 
@@ -87,6 +98,47 @@ final class KeyboardViewController: UIInputViewController {
     func deleteBackward() { textDocumentProxy.deleteBackward() }
     func sendEnter() { textDocumentProxy.insertText("\n") }
     func switchKeyboard() { advanceToNextInputMode() }
+
+    /// Expande o teclado para quase a tela toda (ou volta ao normal).
+    func setExpanded(_ value: Bool) {
+        expanded = value
+        heightConstraint?.constant = keyboardHeight
+        view.setNeedsLayout()
+        view.layoutIfNeeded()
+    }
+
+    /// Texto antes do cursor + tipo do campo (mesmos códigos do Android: email,
+    /// link e senha não recebem maiúscula automática nem sugestões).
+    func inputContext() -> [String: Any] {
+        let proxy = textDocumentProxy
+        var inputType = 1 // texto
+        switch proxy.keyboardType {
+        case .emailAddress?: inputType = 0x21
+        case .URL?, .webSearch?: inputType = 0x11
+        case .numberPad?, .decimalPad?, .phonePad?, .numbersAndPunctuation?: inputType = 2
+        default: break
+        }
+        if proxy.isSecureTextEntry == true { inputType = 0x81 }
+        let before = proxy.documentContextBeforeInput ?? ""
+        return ["before": String(before.suffix(200)), "inputType": inputType]
+    }
+
+    /// Troca os `count` caracteres antes do cursor por `text` (sugestões).
+    func replaceTextBeforeCursor(_ count: Int, _ text: String) {
+        for _ in 0..<max(0, count) { textDocumentProxy.deleteBackward() }
+        textDocumentProxy.insertText(text)
+    }
+
+    // O app mudou o texto ou o cursor: o JS confere o contexto da digitação
+    override func textDidChange(_ textInput: UITextInput?) {
+        super.textDidChange(textInput)
+        KeyboardBridge.emit("onSelectionChange", body: [:])
+    }
+
+    override func selectionDidChange(_ textInput: UITextInput?) {
+        super.selectionDidChange(textInput)
+        KeyboardBridge.emit("onSelectionChange", body: [:])
+    }
 }
 
 // MARK: - RCTBridgeDelegate

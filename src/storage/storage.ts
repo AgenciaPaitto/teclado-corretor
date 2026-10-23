@@ -1,34 +1,60 @@
 /**
  * Persistência local (offline-first) com MMKV.
+ *
+ * Conta nova começa zerada: nenhum produto, atalho, agenda ou cliente de
+ * exemplo. Os exemplos gravados por versões antigas são removidos uma vez
+ * (ver purgeLegacyDemoData no fim do arquivo).
  */
 import { MMKV } from 'react-native-mmkv';
+import { isSegmentId } from '../segments/segments';
 import type {
   AudioShortcut,
-  BrokerProfile,
   CRMLead,
   KeyboardData,
   MediaItem,
   Product,
   ProductFolder,
   ScheduleItem,
+  SegmentId,
+  SellerProfile,
   ShortcutsData,
   TextShortcut,
   ThemePreference,
 } from '../types';
 
-import { SEED_DATA } from './seed';
-
 export const storage = new MMKV({ id: 'corretor-keyboard' });
 
+// As chaves não mudam: os dados já salvos no aparelho continuam valendo
 const KEYS = {
-  broker: 'broker.profile',
+  seller: 'broker.profile',
   folders: 'products.folders',
   shortcuts: 'user.shortcuts',
   agenda: 'user.agenda',
   crm: 'user.crm',
   theme: 'user.theme',
   authToken: 'auth.token',
+  /** Conta dona dos dados deste aparelho (outra conta entrando = começa do zero). */
+  userId: 'auth.userId',
+  tutorialSeen: 'app.tutorialSeen',
+  /** Passos do "Primeiros passos" que o app não consegue detectar sozinho. */
+  stepsDone: 'app.stepsDone',
+  legacyDemoPurged: 'app.legacyDemoPurged',
 } as const;
+
+/** Dados do usuário (apagados ao criar conta ou ao trocar de conta). */
+const USER_DATA_KEYS = [
+  KEYS.seller,
+  KEYS.folders,
+  KEYS.shortcuts,
+  KEYS.agenda,
+  KEYS.crm,
+  KEYS.tutorialSeen,
+  KEYS.stepsDone,
+];
+
+const DEFAULT_THEME: ThemePreference = 'dark';
+const EMPTY_SELLER: SellerProfile = { name: '', business: '', phone: '', segment: 'general' };
+const EMPTY_SHORTCUTS: ShortcutsData = { texts: [], audios: [] };
 
 function getJSON<T>(key: string, fallback: T): T {
   const raw = storage.getString(key);
@@ -44,23 +70,49 @@ function setJSON<T>(key: string, value: T): void {
   storage.set(key, JSON.stringify(value));
 }
 
-export const Repo = {
-  getBroker: (): BrokerProfile => getJSON(KEYS.broker, SEED_DATA.broker),
-  setBroker: (b: BrokerProfile) => setJSON(KEYS.broker, b),
+/** Perfil salvo por versões antigas: agency → business; sem ramo = geral. */
+type StoredSeller = Partial<SellerProfile> & { agency?: string };
 
-  getFolders: (): ProductFolder[] => getJSON(KEYS.folders, SEED_DATA.folders),
+/** Pasta salva pela versão antiga: neighborhood → description. */
+type StoredFolder = ProductFolder & { neighborhood?: string };
+
+function readSeller(): SellerProfile {
+  const s = getJSON<StoredSeller>(KEYS.seller, EMPTY_SELLER);
+  return {
+    name: s.name ?? '',
+    business: s.business ?? s.agency ?? '',
+    phone: s.phone ?? '',
+    segment: isSegmentId(s.segment) ? s.segment : 'general',
+  };
+}
+
+export const Repo = {
+  getSeller: readSeller,
+  setSeller: (s: SellerProfile) => setJSON(KEYS.seller, s),
+
+  getSegment: (): SegmentId => readSeller().segment,
+
+  getFolders: (): ProductFolder[] =>
+    getJSON<StoredFolder[]>(KEYS.folders, []).map(({ neighborhood, ...f }) => ({
+      ...f,
+      description: f.description ?? neighborhood,
+    })),
   setFolders: (f: ProductFolder[]) => setJSON(KEYS.folders, f),
 
-  getShortcuts: (): ShortcutsData => getJSON(KEYS.shortcuts, SEED_DATA.shortcuts),
+  getShortcuts: (): ShortcutsData => getJSON(KEYS.shortcuts, EMPTY_SHORTCUTS),
   setShortcuts: (s: ShortcutsData) => setJSON(KEYS.shortcuts, s),
 
-  getAgenda: (): ScheduleItem[] => getJSON(KEYS.agenda, SEED_DATA.agenda),
+  /** Compromissos válidos, em ordem de dia e hora (sem hora = antes, o dia todo). */
+  getAgenda: (): ScheduleItem[] =>
+    getJSON<ScheduleItem[]>(KEYS.agenda, [])
+      .filter(a => a && typeof a.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(a.date))
+      .sort((a, b) => `${a.date} ${a.time ?? ''}`.localeCompare(`${b.date} ${b.time ?? ''}`)),
   setAgenda: (a: ScheduleItem[]) => setJSON(KEYS.agenda, a),
 
-  getCRM: (): CRMLead[] => getJSON(KEYS.crm, SEED_DATA.crm),
+  getCRM: (): CRMLead[] => getJSON(KEYS.crm, []),
   setCRM: (c: CRMLead[]) => setJSON(KEYS.crm, c),
 
-  getTheme: (): ThemePreference => (storage.getString(KEYS.theme) as ThemePreference) || SEED_DATA.theme,
+  getTheme: (): ThemePreference => (storage.getString(KEYS.theme) as ThemePreference) || DEFAULT_THEME,
   setTheme: (t: ThemePreference) => storage.set(KEYS.theme, t),
 
   getAuthToken: (): string | undefined => storage.getString(KEYS.authToken),
@@ -69,17 +121,60 @@ export const Repo = {
   setAuthToken: (t: string) => storage.set(KEYS.authToken, t),
   clearAuth: () => storage.delete(KEYS.authToken),
 
+  getUserId: (): string | undefined => storage.getString(KEYS.userId),
+  setUserId: (id: string) => storage.set(KEYS.userId, id),
+
+  /** Apaga perfil, catálogo, atalhos, agenda, CRM e o progresso do tutorial. */
+  clearUserData(): void {
+    for (const key of USER_DATA_KEYS) storage.delete(key);
+  },
+
+  isTutorialSeen: (): boolean => storage.getBoolean(KEYS.tutorialSeen) === true,
+  setTutorialSeen: () => storage.set(KEYS.tutorialSeen, true),
+
+  getStepsDone: (): string[] => getJSON<string[]>(KEYS.stepsDone, []),
+  markStepDone(step: string): void {
+    const done = this.getStepsDone();
+    if (!done.includes(step)) setJSON(KEYS.stepsDone, [...done, step]);
+  },
+
+  // ── CRM e agenda: o app e o teclado gravam no mesmo lugar ────────────
+
+  /** Cria ou atualiza o cliente (pelo id). */
+  saveLead(lead: CRMLead): void {
+    const list = this.getCRM();
+    const exists = list.some(l => l.id === lead.id);
+    this.setCRM(exists ? list.map(l => (l.id === lead.id ? lead : l)) : [lead, ...list]);
+  },
+
+  /** Exclui o cliente e solta os compromissos ligados a ele (eles continuam na agenda). */
+  deleteLead(id: string): void {
+    this.setCRM(this.getCRM().filter(l => l.id !== id));
+    this.setAgenda(this.getAgenda().map(a => (a.clientId === id ? { ...a, clientId: undefined } : a)));
+  },
+
+  /** Cria ou atualiza o compromisso (pelo id). */
+  saveAgendaItem(item: ScheduleItem): void {
+    const list = this.getAgenda();
+    const exists = list.some(a => a.id === item.id);
+    this.setAgenda(exists ? list.map(a => (a.id === item.id ? item : a)) : [...list, item]);
+  },
+
+  deleteAgendaItem(id: string): void {
+    this.setAgenda(this.getAgenda().filter(a => a.id !== id));
+  },
+
   addFolder(folder: ProductFolder): void {
     const folders = this.getFolders();
     this.setFolders([...folders, folder]);
   },
 
-  /** Atualiza nome e bairro da pasta (os imóveis dentro dela são mantidos). */
-  updateFolder(folderId: string, changes: Pick<ProductFolder, 'name' | 'neighborhood'>): void {
+  /** Atualiza nome e descrição da pasta (os produtos dentro dela são mantidos). */
+  updateFolder(folderId: string, changes: Pick<ProductFolder, 'name' | 'description'>): void {
     this.setFolders(this.getFolders().map(f => (f.id === folderId ? { ...f, ...changes } : f)));
   },
 
-  /** Exclui a pasta e todos os imóveis dela. */
+  /** Exclui a pasta e todos os produtos dela. */
   deleteFolder(folderId: string): void {
     this.setFolders(this.getFolders().filter(f => f.id !== folderId));
   },
@@ -94,7 +189,7 @@ export const Repo = {
     this.setFolders(folders);
   },
 
-  /** Aplica uma alteração em um imóvel específico de uma pasta. */
+  /** Aplica uma alteração em um produto específico de uma pasta. */
   mapProduct(folderId: string, productId: string, fn: (p: Product) => Product): void {
     const folders = this.getFolders().map(f => {
       if (f.id !== folderId) return f;
@@ -114,7 +209,7 @@ export const Repo = {
     this.setFolders(folders);
   },
 
-  /** Adiciona um link de foto ou vídeo ao imóvel (conforme media.type). */
+  /** Adiciona um link de foto ou vídeo ao produto (conforme media.type). */
   addMedia(folderId: string, productId: string, media: MediaItem): void {
     this.mapProduct(folderId, productId, p =>
       media.type === 'image'
@@ -173,18 +268,9 @@ export const Repo = {
     this.setShortcuts({ ...sc, audios: sc.audios.filter(a => a.id !== id) });
   },
 
-  /** Restaura o catálogo de demonstração. O perfil do corretor (vindo da conta) é mantido. */
-  resetToDefaults(): void {
-    this.setFolders(SEED_DATA.folders);
-    this.setShortcuts(SEED_DATA.shortcuts);
-    this.setAgenda(SEED_DATA.agenda);
-    this.setCRM(SEED_DATA.crm);
-    this.setTheme(SEED_DATA.theme);
-  },
-
   loadAll(): KeyboardData {
     return {
-      broker: this.getBroker(),
+      seller: this.getSeller(),
       folders: this.getFolders(),
       shortcuts: this.getShortcuts(),
       agenda: this.getAgenda(),
@@ -194,3 +280,48 @@ export const Repo = {
   },
 };
 
+/**
+ * Remove, uma única vez, os exemplos que versões anteriores gravavam no
+ * aparelho. Itens criados pelo usuário têm ids com data e hora
+ * ("folder-1730000000000"), então não são confundidos com estes. Uma pasta de
+ * exemplo em que o usuário cadastrou algo continua, só sem os itens de exemplo.
+ */
+const LEGACY_DEMO_IDS = {
+  folders: ['villa-bella', 'residencial-central', 'colecao-verao', 'acessorios'],
+  products: ['vb-01', 'vb-02', 'rc-01', 'cv-01', 'cv-02', 'ac-01'],
+  texts: ['t1', 't2', 't3', 't4'],
+  audios: ['a1', 'a2'],
+  agenda: ['ag-1', 'ag-2'],
+  crm: ['crm-1', 'crm-2'],
+};
+
+function purgeLegacyDemoData(): void {
+  if (storage.getBoolean(KEYS.legacyDemoPurged)) return;
+  const drop = <T extends { id: string }>(list: T[], ids: string[]) => list.filter(x => !ids.includes(x.id));
+
+  if (storage.contains(KEYS.folders)) {
+    const folders = Repo.getFolders()
+      .map(f => ({ ...f, products: drop(f.products, LEGACY_DEMO_IDS.products) }))
+      .filter(f => !(LEGACY_DEMO_IDS.folders.includes(f.id) && f.products.length === 0));
+    Repo.setFolders(folders);
+  }
+  if (storage.contains(KEYS.shortcuts)) {
+    const sc = Repo.getShortcuts();
+    Repo.setShortcuts({ texts: drop(sc.texts, LEGACY_DEMO_IDS.texts), audios: drop(sc.audios, LEGACY_DEMO_IDS.audios) });
+  }
+  if (storage.contains(KEYS.agenda)) Repo.setAgenda(drop(Repo.getAgenda(), LEGACY_DEMO_IDS.agenda));
+  if (storage.contains(KEYS.crm)) Repo.setCRM(drop(Repo.getCRM(), LEGACY_DEMO_IDS.crm));
+
+  // Perfil de demonstração ("Ana Souza / Bella Store") gravado antes do login
+  const seller = readSeller();
+  if (seller.name === 'Ana Souza' && ['Bella Store', 'Prime Imóveis'].includes(seller.business)) {
+    storage.delete(KEYS.seller);
+  }
+  storage.set(KEYS.legacyDemoPurged, true);
+}
+
+try {
+  purgeLegacyDemoData();
+} catch {
+  // Limpeza é só conveniência: nunca impede o app ou o teclado de abrir
+}

@@ -1,0 +1,209 @@
+import React, { useCallback, useEffect, useState } from 'react';
+import { AppState, Linking, Platform, Pressable, Text, TextInput, View } from 'react-native';
+import { KeyboardBridge } from '../../native/KeyboardBridge';
+import { Repo } from '../../storage/storage';
+import { makeStyles, radius, spacing, typography, useColors } from '../../keyboard/theme';
+import { Button, Card, CardText, CardTitle, Page, StatusChip, SubHeader } from '../components/ui';
+import { MANUAL_STEPS } from '../onboarding/steps';
+
+export interface KeyboardStatus {
+  /** null = o sistema não informa (iPhone e web). */
+  enabled: boolean | null;
+  selected: boolean | null;
+}
+
+/** Situação do teclado no Android, relida sempre que o app volta à tela. */
+export function useKeyboardStatus(): KeyboardStatus {
+  const [status, setStatus] = useState<KeyboardStatus>({ enabled: null, selected: null });
+
+  const check = useCallback(async () => {
+    if (Platform.OS !== 'android') return;
+    try {
+      const [enabled, selected] = await Promise.all([
+        KeyboardBridge.isKeyboardEnabled(),
+        KeyboardBridge.isKeyboardSelected(),
+      ]);
+      setStatus({ enabled, selected });
+    } catch {
+      // Sem resposta do sistema: mantém o que sabia
+    }
+  }, []);
+
+  useEffect(() => {
+    check();
+    const sub = AppState.addEventListener('change', s => s === 'active' && check());
+    return () => sub.remove();
+  }, [check]);
+
+  return status;
+}
+
+function openKeyboardSettings() {
+  if (Platform.OS === 'android') {
+    KeyboardBridge.openKeyboardSettings().catch(() => {
+      Linking.sendIntent('android.settings.INPUT_METHOD_SETTINGS').catch(() => Linking.openSettings());
+    });
+  } else {
+    Linking.openSettings();
+  }
+}
+
+interface StepProps {
+  n: number;
+  title: string;
+  text: string;
+  done?: boolean;
+  children?: React.ReactNode;
+}
+
+function Step({ n, title, text, done, children }: StepProps) {
+  const colors = useColors();
+  const styles = useStyles();
+  return (
+    <View style={styles.step}>
+      <View style={[styles.stepNum, done && styles.stepNumDone]}>
+        <Text style={[styles.stepNumText, done && { color: colors.successText }]}>{done ? '✓' : n}</Text>
+      </View>
+      <View style={styles.stepBody}>
+        <Text style={styles.stepTitle}>{title}</Text>
+        <Text style={styles.stepText}>{text}</Text>
+        {children}
+      </View>
+    </View>
+  );
+}
+
+/** Submenu do Início: ativar o teclado no Android ou no iPhone. */
+export function KeyboardSetupScreen({ onBack }: { onBack: () => void }) {
+  const styles = useStyles();
+  const { enabled, selected } = useKeyboardStatus();
+  const [platform, setPlatform] = useState<'android' | 'ios'>(Platform.OS === 'ios' ? 'ios' : 'android');
+  const [confirmed, setConfirmed] = useState(() => Repo.getStepsDone().includes(MANUAL_STEPS.keyboard));
+
+  const ready = selected === true || (enabled === null && confirmed);
+  const confirm = () => {
+    Repo.markStepDone(MANUAL_STEPS.keyboard);
+    setConfirmed(true);
+  };
+
+  return (
+    <Page>
+      <SubHeader title="Ativar o teclado" onBack={onBack} />
+
+      <Card>
+        <StatusChip
+          done={ready}
+          label={ready ? 'Teclado ativo' : enabled ? 'Falta selecionar o KEYCON' : 'Teclado não ativado'}
+        />
+        <CardText>Dois passos rápidos para usar o KEYCON no WhatsApp e em qualquer app.</CardText>
+      </Card>
+
+      <View style={styles.segmented}>
+        {(['android', 'ios'] as const).map(p => (
+          <Pressable
+            key={p}
+            accessibilityRole="tab"
+            accessibilityState={{ selected: platform === p }}
+            style={[styles.segment, platform === p && styles.segmentActive]}
+            onPress={() => setPlatform(p)}>
+            <Text style={[styles.segmentText, platform === p && styles.segmentTextActive]}>
+              {p === 'android' ? 'Android' : 'iPhone'}
+            </Text>
+          </Pressable>
+        ))}
+      </View>
+
+      {platform === 'android' ? (
+        <Card>
+          <Step n={1} title="Habilitar" text="Ligue a chave do KEYCON na lista de teclados." done={enabled === true}>
+            <Button label="Abrir configurações" variant={enabled ? 'secondary' : 'primary'} onPress={openKeyboardSettings} />
+          </Step>
+          <Step n={2} title="Selecionar" text="Escolha o KEYCON como teclado atual." done={selected === true}>
+            <Button
+              label="Escolher teclado"
+              variant={enabled && !selected ? 'primary' : 'secondary'}
+              onPress={() => KeyboardBridge.openInputMethodPicker()}
+            />
+          </Step>
+          <Step n={3} title="No dia a dia" text="Troque de teclado pelo ícone de teclado na barra do Android." />
+        </Card>
+      ) : (
+        <Card>
+          <Step n={1} title="Adicionar" text="Ajustes › Geral › Teclado › Teclados › Adicionar Novo Teclado › KEYCON." />
+          <Step n={2} title="Acesso Total" text="Toque em KEYCON e ative Permitir Acesso Total (fotos e IA precisam)." />
+          <Step n={3} title="No dia a dia" text="Toque e segure o globo 🌐 no teclado e escolha o KEYCON." />
+          <Button label="Abrir Ajustes" onPress={openKeyboardSettings} />
+        </Card>
+      )}
+
+      {/* Sem como checar no iPhone/web: o usuário confirma */}
+      {enabled === null && !confirmed && <Button label="Já ativei o teclado" variant="secondary" icon="check" onPress={confirm} />}
+    </Page>
+  );
+}
+
+/** Submenu do Início: campo para testar o teclado. */
+export function KeyboardTestScreen({ onBack }: { onBack: () => void }) {
+  const colors = useColors();
+  const styles = useStyles();
+  const [text, setText] = useState('');
+  return (
+    <Page>
+      <SubHeader title="Testar o teclado" onBack={onBack} />
+      <Card>
+        <CardTitle>Digite aqui</CardTitle>
+        <CardText>Escolha o KEYCON no teclado e repare nas sugestões acima das teclas.</CardText>
+        <TextInput
+          testID="keyboard-test-input"
+          style={styles.testInput}
+          placeholder="Toque para abrir o teclado"
+          placeholderTextColor={colors.textMuted}
+          value={text}
+          onChangeText={t => {
+            setText(t);
+            if (t.trim().length >= 3) Repo.markStepDone(MANUAL_STEPS.test);
+          }}
+          multiline
+        />
+        {text ? <Button label="Limpar" variant="secondary" onPress={() => setText('')} /> : null}
+      </Card>
+    </Page>
+  );
+}
+
+const useStyles = makeStyles(colors => ({
+  segmented: {
+    flexDirection: 'row',
+    gap: spacing.xs,
+    padding: spacing.xs,
+    backgroundColor: colors.surface,
+    borderRadius: radius.md,
+  },
+  segment: { flex: 1, minHeight: 40, alignItems: 'center', justifyContent: 'center', borderRadius: radius.sm },
+  segmentActive: { backgroundColor: colors.primarySoft },
+  segmentText: { fontSize: 14, fontWeight: '500', color: colors.textMuted },
+  segmentTextActive: { color: colors.primaryText, fontWeight: '600' },
+  step: { flexDirection: 'row', gap: spacing.md },
+  stepNum: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: colors.primarySoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  stepNumDone: { backgroundColor: colors.successBg },
+  stepNumText: { fontSize: 13, fontWeight: '700', color: colors.primaryText },
+  stepBody: { flex: 1, gap: spacing.sm },
+  stepTitle: { fontSize: 15, fontWeight: '600', color: colors.text },
+  stepText: { fontSize: 14, lineHeight: 20, color: colors.textMuted, marginTop: -4 },
+  testInput: {
+    backgroundColor: colors.surfaceAlt,
+    color: colors.text,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    minHeight: 96,
+    textAlignVertical: 'top',
+    ...typography.body,
+  },
+}));

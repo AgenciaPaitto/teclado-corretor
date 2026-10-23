@@ -18,7 +18,7 @@ final class KeyboardBridge: RCTEventEmitter {
     }
 
     override static func requiresMainQueueSetup() -> Bool { true }
-    override func supportedEvents() -> [String]! { ["onKeyboardShow", "onKeyboardHide"] }
+    override func supportedEvents() -> [String]! { ["onKeyboardShow", "onKeyboardHide", "onSelectionChange"] }
     override func startObserving() { hasListeners = true }
     override func stopObserving() { hasListeners = false }
 
@@ -53,6 +53,24 @@ final class KeyboardBridge: RCTEventEmitter {
     @objc func sendEnter(_ resolve: @escaping RCTPromiseResolveBlock,
                          rejecter reject: @escaping RCTPromiseRejectBlock) {
         onMain(resolve, reject) { $0.sendEnter(); return true }
+    }
+
+    @objc func getInputContext(_ resolve: @escaping RCTPromiseResolveBlock,
+                               rejecter reject: @escaping RCTPromiseRejectBlock) {
+        onMain(resolve, reject) { $0.inputContext() }
+    }
+
+    @objc func replaceTextBeforeCursor(_ count: NSNumber,
+                                       text: String,
+                                       resolver resolve: @escaping RCTPromiseResolveBlock,
+                                       rejecter reject: @escaping RCTPromiseRejectBlock) {
+        onMain(resolve, reject) { $0.replaceTextBeforeCursor(count.intValue, text); return true }
+    }
+
+    @objc func setExpanded(_ expanded: Bool,
+                           resolver resolve: @escaping RCTPromiseResolveBlock,
+                           rejecter reject: @escaping RCTPromiseRejectBlock) {
+        onMain(resolve, reject) { $0.setExpanded(expanded); return true }
     }
 
     @objc func switchKeyboard(_ resolve: @escaping RCTPromiseResolveBlock,

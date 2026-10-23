@@ -1,5 +1,5 @@
 /**
- * backend/server.ts — Rota de exemplo (Node.js + Express) para o AI Copilot.
+ * backend/server.ts — Rota de exemplo (Node.js + Express) para a IA do KEYCON.
  *
  *   npm i express
  *   OPENAI_API_KEY=sk-... JWT_SECRET=... npx tsx backend/server.ts
@@ -8,6 +8,8 @@
  * da OpenAI e força uma saída JSON estruturada (json_schema).
  */
 import express, { type Request, type Response, type NextFunction } from 'express';
+// Mesmo cadastro de ramos do app (orientação da IA por ramo)
+import { getSegment } from '../src/segments/segments';
 
 const app = express();
 app.use(express.json({ limit: '64kb' }));
@@ -19,11 +21,11 @@ function auth(req: Request, res: Response, next: NextFunction) {
   next();
 }
 
-const SYSTEM_PROMPT = `Você é um assistente de um corretor de imóveis brasileiro.
-Gere respostas CURTAS (máx. 3 frases) para WhatsApp, em português do Brasil,
-com no máximo 1 emoji. Use SOMENTE os imóveis fornecidos no contexto; nunca
-invente preços ou endereços. Gere exatamente 3 sugestões com tons:
-"cordial", "objetiva" e "persuasiva". Se citar um imóvel, inclua o link da ficha.`;
+const SYSTEM_PROMPT = `Você é um assistente de vendas de um vendedor brasileiro, que pode vender
+qualquer produto ou serviço. Gere respostas CURTAS (máx. 3 frases) para WhatsApp, em
+português do Brasil, com no máximo 1 emoji. Use SOMENTE os produtos fornecidos no
+contexto; nunca invente preços, prazos ou características. Gere exatamente 3 sugestões
+com tons: "cordial", "objetiva" e "persuasiva". Se citar um produto com link, inclua o link.`;
 
 const RESPONSE_SCHEMA = {
   name: 'copilot_suggestions',
@@ -38,11 +40,11 @@ const RESPONSE_SCHEMA = {
         items: {
           type: 'object',
           additionalProperties: false,
-          required: ['tone', 'text', 'referencedPropertyIds'],
+          required: ['tone', 'text', 'referencedProductIds'],
           properties: {
             tone: { type: 'string', enum: ['cordial', 'objetiva', 'persuasiva'] },
             text: { type: 'string' },
-            referencedPropertyIds: { type: 'array', items: { type: 'string' } },
+            referencedProductIds: { type: 'array', items: { type: 'string' } },
           },
         },
       },
@@ -51,7 +53,9 @@ const RESPONSE_SCHEMA = {
 };
 
 app.post('/v1/copilot/suggestions', auth, async (req, res) => {
-  const { clientMessage, broker, properties } = req.body ?? {};
+  const { clientMessage, seller, products, segment } = req.body ?? {};
+  // Ramo desconhecido ou ausente (versão antiga do app) = geral
+  const profile = getSegment(segment);
   if (typeof clientMessage !== 'string' || !clientMessage.trim()) {
     return res.status(400).json({ error: 'clientMessage obrigatório' });
   }
@@ -68,12 +72,15 @@ app.post('/v1/copilot/suggestions', auth, async (req, res) => {
         temperature: 0.6,
         response_format: { type: 'json_schema', json_schema: RESPONSE_SCHEMA },
         messages: [
-          { role: 'system', content: SYSTEM_PROMPT },
+          {
+            role: 'system',
+            content: `${SYSTEM_PROMPT}\n\nRamo do negócio: ${profile.label}. ${profile.aiGuidelines}`,
+          },
           {
             role: 'user',
             content: JSON.stringify({
-              corretor: broker,
-              imoveisDisponiveis: properties,
+              vendedor: seller,
+              produtosDisponiveis: products,
               mensagemDoCliente: clientMessage,
             }),
           },

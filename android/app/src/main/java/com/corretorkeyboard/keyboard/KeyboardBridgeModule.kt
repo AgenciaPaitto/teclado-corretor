@@ -61,7 +61,22 @@ class KeyboardBridgeModule(reactContext: ReactApplicationContext) :
     fun sendEnter(promise: Promise) =
         withService(promise) { it.sendEnter() }
 
+    /** { before: texto antes do cursor, inputType: tipo do campo (EditorInfo) } */
+    @ReactMethod
+    fun getInputContext(promise: Promise) =
+        withService(promise) { it.inputContext() }
+
+    /** Troca a palavra atual pela sugestão escolhida (apaga `count` e insere `text`). */
+    @ReactMethod
+    fun replaceTextBeforeCursor(count: Double, text: String, promise: Promise) =
+        withService(promise) { it.replaceTextBeforeCursor(count.toInt(), text) }
+
     /** Alterna para o próximo teclado ou exibe o seletor de métodos de entrada */
+    /** Teclado em tela grande (CRM) ou de volta ao tamanho normal. */
+    @ReactMethod
+    fun setExpanded(expanded: Boolean, promise: Promise) =
+        withService(promise) { it.setExpanded(expanded) }
+
     @ReactMethod
     fun switchKeyboard(promise: Promise) {
         UiThreadUtil.runOnUiThread {
@@ -97,7 +112,7 @@ class KeyboardBridgeModule(reactContext: ReactApplicationContext) :
         }
     }
 
-    /** Abre o app do corretor (usado pelo teclado quando não há login). */
+    /** Abre o app KEYCON (usado pelo teclado quando não há login). */
     @ReactMethod
     fun openApp(promise: Promise) {
         UiThreadUtil.runOnUiThread {

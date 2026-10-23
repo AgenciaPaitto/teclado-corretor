@@ -10,8 +10,9 @@ import sloganDarkPng from '../../assets/brand/keycon-logo-slogan-dark.png';
 
 /**
  * Marca oficial do KEYCON (artes em assets/, versões otimizadas em
- * src/assets/brand). "light"/"dark" é a cor do TEXTO: texto claro para fundos
- * escuros e texto grafite para fundos claros.
+ * src/assets/brand). "light"/"dark" é a cor do TEXTO: texto claro
+ * (logo-transp-*) para fundos escuros e texto escuro (logo-transp-*-dark)
+ * para fundos claros.
  */
 
 /** No Metro o import de PNG vira um id; no Vite (web) vira uma URL. */

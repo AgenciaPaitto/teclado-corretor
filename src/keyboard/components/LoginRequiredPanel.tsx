@@ -5,7 +5,7 @@ import { makeStyles, radius, spacing, touchTarget } from '../theme';
 import { KeyconMark } from './KeyconLogo';
 
 /**
- * Mostrado nas áreas do corretor (Produtos, Atalhos, IA, Mais) quando o
+ * Mostrado nas áreas de vendas (Produtos, Atalhos, IA, Mais) quando o
  * app não está logado. O teclado de letras (ABC) continua funcionando.
  */
 export function LoginRequiredPanel() {

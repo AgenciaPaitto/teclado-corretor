@@ -1,10 +1,13 @@
-import React, { useState } from 'react';
-import { FlatList, Pressable, ScrollView, Text, View } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { Pressable, ScrollView, Text, View } from 'react-native';
+import { upcoming } from '../../agenda/agenda';
+import type { SegmentProfile } from '../../segments/segments';
 import type { CRMLead, MoreSubMenu, ScheduleItem, ThemePreference } from '../../types';
 import { makeStyles, radius, spacing, touchTarget, useColors } from '../theme';
 import { DiagnosticsPanel } from './DiagnosticsPanel';
 import { Icon, IconTile } from './Icon';
-import { ItemCard } from './ItemCard';
+import { KeyboardAgenda } from './KeyboardAgenda';
+import { KeyboardCRM } from './KeyboardCRM';
 
 const THEME_LABEL: Record<ThemePreference, string> = {
   light: 'CLARO',
@@ -15,15 +18,21 @@ const THEME_LABEL: Record<ThemePreference, string> = {
 interface Props {
   agenda: ScheduleItem[];
   crm: CRMLead[];
+  /** Ramo do usuário: etapas do funil e mensagem de retorno do CRM. */
+  segment: SegmentProfile;
   theme: ThemePreference;
   onThemeChange: (theme: ThemePreference) => void;
   onInsert: (text: string) => void;
+  /** CRM e Agenda abrem com o teclado em tela grande. */
+  onExpandedChange: (expanded: boolean) => void;
+  /** Releitura dos dados depois de gravar um cliente ou compromisso. */
+  onDataChanged: () => void;
 }
 
 /**
- * Aba "Mais" — Submenu com Agenda, CRM e Configurações (Aparência do Teclado).
+ * Aba "Mais" — Agenda e CRM (em tela grande), Configurações e Diagnóstico.
  */
-export function MoreTab({ agenda, crm, theme, onThemeChange, onInsert }: Props) {
+export function MoreTab({ agenda, crm, segment, theme, onThemeChange, onInsert, onExpandedChange, onDataChanged }: Props) {
   const colors = useColors();
   const styles = useStyles();
 
@@ -35,6 +44,21 @@ export function MoreTab({ agenda, crm, theme, onThemeChange, onInsert }: Props) 
     </Pressable>
   );
   const [selectedSubMenu, setSelectedSubMenu] = useState<MoreSubMenu>(null);
+  /** CRM → "Agendar": a agenda abre já com o cliente. */
+  const [scheduleFor, setScheduleFor] = useState<CRMLead | null>(null);
+
+  const big = selectedSubMenu === 'crm' || selectedSubMenu === 'agenda';
+  /** Enviou para a conversa: fecha a tela grande e mostra a conversa de novo. */
+  const sendAndClose = (text: string) => {
+    onInsert(text);
+    setScheduleFor(null);
+    setSelectedSubMenu(null);
+  };
+  useEffect(() => {
+    onExpandedChange(big);
+  }, [big, onExpandedChange]);
+  // Sair da aba Mais com o CRM aberto: o teclado volta ao normal
+  useEffect(() => () => onExpandedChange(false), [onExpandedChange]);
 
   // Se nenhum submenu estiver aberto, exibe as opções do segundo menu
   if (!selectedSubMenu) {
@@ -47,9 +71,9 @@ export function MoreTab({ agenda, crm, theme, onThemeChange, onInsert }: Props) 
           <IconTile name="calendario" size={36} />
           <View style={styles.menuInfo}>
             <Text style={styles.menuTitle}>Agenda</Text>
-            <Text style={styles.menuSubtitle}>Próximas visitas agendadas e compromissos</Text>
+            <Text style={styles.menuSubtitle}>Calendário de reuniões e tarefas</Text>
           </View>
-          <Text style={styles.menuMeta}>{agenda.length} itens</Text>
+          <Text style={styles.menuMeta}>{upcoming(agenda, Infinity).length} próximos</Text>
         </Pressable>
 
         <Pressable
@@ -59,9 +83,9 @@ export function MoreTab({ agenda, crm, theme, onThemeChange, onInsert }: Props) 
           <IconTile name="clientes" size={36} />
           <View style={styles.menuInfo}>
             <Text style={styles.menuTitle}>CRM</Text>
-            <Text style={styles.menuSubtitle}>Funil de atendimento e acompanhamento de leads</Text>
+            <Text style={styles.menuSubtitle}>Clientes e funil de vendas</Text>
           </View>
-          <Text style={styles.menuMeta}>{crm.length} leads</Text>
+          <Text style={styles.menuMeta}>{crm.length} clientes</Text>
         </Pressable>
 
         <Pressable
@@ -90,58 +114,38 @@ export function MoreTab({ agenda, crm, theme, onThemeChange, onInsert }: Props) 
     );
   }
 
-  // 1. SUBMENU: AGENDA
+  // 1. AGENDA (tela grande)
   if (selectedSubMenu === 'agenda') {
     return (
-      <View style={styles.flex}>
-        {backBar('Agenda de Visitas')}
-        <FlatList
-          data={agenda}
-          keyExtractor={item => item.id}
-          contentContainerStyle={styles.list}
-          renderItem={({ item }) => (
-            <ItemCard
-              testID={`agenda-${item.id}`}
-              title={`${item.client} — ${item.productTitle}`}
-              subtitle={`${item.datetime} • Status: ${item.status}`}
-              icon="calendario"
-              onPress={() =>
-                onInsert(
-                  `Olá, ${item.client}! Confirmando nossa visita ao ${item.productTitle} agendada para ${item.datetime}.`,
-                )
-              }
-            />
-          )}
-        />
-      </View>
+      <KeyboardAgenda
+        agenda={agenda}
+        leads={crm}
+        presetClient={scheduleFor}
+        onInsert={sendAndClose}
+        onChanged={onDataChanged}
+        onClose={() => {
+          setScheduleFor(null);
+          setSelectedSubMenu(null);
+        }}
+      />
     );
   }
 
-  // 2. SUBMENU: CRM
+  // 2. CRM (tela grande)
   if (selectedSubMenu === 'crm') {
     return (
-      <View style={styles.flex}>
-        {backBar('CRM de Leads')}
-        <FlatList
-          data={crm}
-          keyExtractor={item => item.id}
-          contentContainerStyle={styles.list}
-          renderItem={({ item }) => (
-            <ItemCard
-              testID={`crm-${item.id}`}
-              title={item.clientName}
-              subtitle={`Etapa: ${item.stage} • Contato: ${item.lastContact}`}
-              meta={item.phone}
-              icon="clientes"
-              onPress={() =>
-                onInsert(
-                  `Olá, ${item.clientName}! Como estão seus planos para o imóvel? Estou à disposição para tirar qualquer dúvida!`,
-                )
-              }
-            />
-          )}
-        />
-      </View>
+      <KeyboardCRM
+        segment={segment}
+        leads={crm}
+        agenda={agenda}
+        onInsert={sendAndClose}
+        onChanged={onDataChanged}
+        onClose={() => setSelectedSubMenu(null)}
+        onSchedule={lead => {
+          setScheduleFor(lead);
+          setSelectedSubMenu('agenda');
+        }}
+      />
     );
   }
 
@@ -191,6 +195,7 @@ export function MoreTab({ agenda, crm, theme, onThemeChange, onInsert }: Props) 
 const useStyles = makeStyles(colors => ({
   flex: { flex: 1 },
   list: { padding: spacing.sm },
+  empty: { color: colors.textMuted, fontSize: 13, textAlign: 'center', marginTop: spacing.xl },
   menuContainer: {
     padding: spacing.sm,
     gap: spacing.sm,

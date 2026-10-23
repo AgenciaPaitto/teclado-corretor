@@ -2,7 +2,7 @@
  * Projeto Supabase do KEYCON.
  *
  * A chave "anon" é pública por definição: ela vai dentro do app e só permite o
- * que as regras de segurança (RLS) do banco liberam — cada corretor acessa
+ * que as regras de segurança (RLS) do banco liberam — cada usuário acessa
  * apenas os próprios dados (ver supabase/schema.sql).
  * NUNCA coloque aqui a chave "service_role".
  */
