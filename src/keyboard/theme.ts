@@ -282,6 +282,25 @@ export function glassBorder(colors: Palette) {
   return { borderWidth: 1, borderColor: colors.glassStroke, borderTopColor: colors.glassEdge };
 }
 
+/**
+ * Botão coral de vidro (CTA): pílula, aro claro uniforme e brilho coral por
+ * baixo. O reflexo em degradê vem do CoralSheen (app). Sem `overflow: hidden`,
+ * que cortaria a sombra no iOS. Vazio fora do vidro.
+ */
+export function coralGlass(colors: Palette) {
+  if (!colors.glass) return {};
+  return {
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.35)',
+    shadowColor: brand.coral,
+    shadowOpacity: colors.scheme === 'dark' ? 0.45 : 0.35,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 3,
+  };
+}
+
 const ThemeContext = createContext<Palette>(darkColors);
 
 /** Resolve a preferência salva ('system' segue o modo claro/escuro do aparelho). */

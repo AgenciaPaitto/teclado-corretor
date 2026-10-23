@@ -13,9 +13,9 @@ import type { SegmentField, SegmentProfile } from '../../segments/segments';
 import { Repo } from '../../storage/storage';
 import type { MediaItem, Product, ProductAttribute, ProductFolder } from '../../types';
 import { attributeLines, formatBRL, formatPrice, normalizeUrl, parseBRL } from '../../utils/formatters';
-import { glassBorder, makeStyles, radius, spacing, touchTarget, typography, useColors } from '../../keyboard/theme';
+import { coralGlass, glassBorder, makeStyles, radius, spacing, touchTarget, typography, useColors } from '../../keyboard/theme';
 import { Icon, IconTile } from '../../keyboard/components/Icon';
-import { EmptyState } from '../components/ui';
+import { CoralSheen, EmptyState } from '../components/ui';
 
 /** Formulário de pasta: id null = criando uma pasta nova. */
 interface FolderForm {
@@ -290,6 +290,7 @@ export function ProductsManagerScreen() {
           <Text style={styles.cancelBtnText}>Cancelar</Text>
         </Pressable>
         <Pressable style={styles.saveBtn} onPress={handleSaveFolder}>
+          <CoralSheen />
           <Text style={styles.saveBtnText}>{form.id ? 'Salvar Pasta' : 'Criar Pasta'}</Text>
         </Pressable>
       </View>
@@ -362,6 +363,7 @@ export function ProductsManagerScreen() {
             <Text style={styles.cancelBtnText}>Cancelar</Text>
           </Pressable>
           <Pressable style={styles.saveBtn} onPress={handleSaveProduct}>
+            <CoralSheen />
             <Text style={styles.saveBtnText}>Salvar</Text>
           </Pressable>
         </View>
@@ -460,6 +462,7 @@ export function ProductsManagerScreen() {
                 <Text style={styles.cancelBtnText}>Cancelar</Text>
               </Pressable>
               <Pressable style={styles.saveBtn} onPress={handleSaveMedia}>
+                <CoralSheen />
                 <Text style={styles.saveBtnText}>Salvar Link</Text>
               </Pressable>
             </View>
@@ -554,6 +557,7 @@ export function ProductsManagerScreen() {
               setFolderForm(null);
               setProductForm(EMPTY_PRODUCT_FORM);
             }}>
+            <CoralSheen />
             <Icon name="adicionar" size={18} color={colors.onPrimary} />
             <Text style={styles.addBtnText}>Novo {item}</Text>
           </Pressable>
@@ -621,6 +625,7 @@ export function ProductsManagerScreen() {
           <Pressable
             style={styles.addBtn}
             onPress={() => setFolderForm({ id: null, name: '', description: '' })}>
+            <CoralSheen />
             <Icon name="novaPasta" size={18} color={colors.onPrimary} />
             <Text style={styles.addBtnText}>Nova pasta</Text>
           </Pressable>
@@ -694,6 +699,7 @@ const useStyles = makeStyles(colors => ({
     paddingHorizontal: spacing.md,
     minHeight: touchTarget,
     borderRadius: radius.md,
+    ...coralGlass(colors),
   },
   addBtnText: {
     color: colors.onPrimary,
@@ -867,6 +873,7 @@ const useStyles = makeStyles(colors => ({
     justifyContent: 'center',
     borderRadius: radius.md,
     alignItems: 'center',
+    ...coralGlass(colors),
   },
   saveBtnText: { color: colors.onPrimary, ...typography.button },
   dangerBtn: {

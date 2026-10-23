@@ -11,9 +11,9 @@ import {
 import { Repo } from '../../storage/storage';
 import type { AudioShortcut, ShortcutsData, TextShortcut } from '../../types';
 import { normalizeUrl } from '../../utils/formatters';
-import { glassBorder, makeStyles, radius, spacing, touchTarget, typography, useColors } from '../../keyboard/theme';
+import { coralGlass, glassBorder, makeStyles, radius, spacing, touchTarget, typography, useColors } from '../../keyboard/theme';
 import { Icon, IconTile } from '../../keyboard/components/Icon';
-import { EmptyState } from '../components/ui';
+import { CoralSheen, EmptyState } from '../components/ui';
 
 /** Formulários de criação/edição: id null = criando um atalho novo. */
 interface TextForm {
@@ -149,6 +149,7 @@ export function ShortcutsManagerScreen() {
             if (activeTab === 'text') setTextForm({ id: null, title: '', text: '' });
             else setAudioForm({ id: null, title: '', url: '', duration: '', transcript: '' });
           }}>
+          <CoralSheen />
           <Icon name="adicionar" size={18} color={colors.onPrimary} />
           <Text style={styles.addBtnText}>
             {activeTab === 'text' ? 'Novo texto' : 'Novo áudio'}
@@ -206,6 +207,7 @@ export function ShortcutsManagerScreen() {
               <Text style={styles.cancelBtnText}>Cancelar</Text>
             </Pressable>
             <Pressable style={styles.saveBtn} onPress={handleSaveText}>
+              <CoralSheen />
               <Text style={styles.saveBtnText}>Salvar Atalho</Text>
             </Pressable>
           </View>
@@ -261,6 +263,7 @@ export function ShortcutsManagerScreen() {
               <Text style={styles.cancelBtnText}>Cancelar</Text>
             </Pressable>
             <Pressable style={styles.saveBtn} onPress={handleSaveAudio}>
+              <CoralSheen />
               <Text style={styles.saveBtnText}>Salvar Áudio</Text>
             </Pressable>
           </View>
@@ -369,6 +372,7 @@ const useStyles = makeStyles(colors => ({
     paddingHorizontal: spacing.md,
     minHeight: touchTarget,
     borderRadius: radius.md,
+    ...coralGlass(colors),
   },
   addBtnText: {
     color: colors.onPrimary,
@@ -503,6 +507,7 @@ const useStyles = makeStyles(colors => ({
     justifyContent: 'center',
     borderRadius: radius.md,
     alignItems: 'center',
+    ...coralGlass(colors),
   },
   saveBtnText: { color: colors.onPrimary, ...typography.button },
 }));

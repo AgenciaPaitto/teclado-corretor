@@ -11,8 +11,8 @@ import { Repo } from '../../storage/storage';
 import type { CRMLead } from '../../types';
 import { Icon } from '../../keyboard/components/Icon';
 import { ChoiceRow } from '../../keyboard/components/KeyboardForm';
-import { glassBorder, makeStyles, radius, spacing, touchTarget, typography, useColors } from '../../keyboard/theme';
-import { Button, Card, CardText, CardTitle, EmptyState, Page, ScreenTitle, SubHeader } from '../components/ui';
+import { coralGlass, glassBorder, makeStyles, radius, spacing, touchTarget, typography, useColors } from '../../keyboard/theme';
+import { CoralSheen, Button, Card, CardText, CardTitle, EmptyState, Page, ScreenTitle, SubHeader } from '../components/ui';
 import { useStoredList } from '../hooks/useStoredList';
 
 interface Props {
@@ -121,6 +121,7 @@ function LeadList({ leads, stages, onOpen, onNew }: { leads: CRMLead[]; stages: 
       <View style={styles.titleRow}>
         <ScreenTitle title="Clientes" subtitle={`${leads.length} no funil`} />
         <Pressable accessibilityRole="button" style={styles.addBtn} onPress={onNew}>
+          <CoralSheen />
           <Icon name="adicionar" size={18} color={colors.onPrimary} />
           <Text style={styles.addBtnText}>Novo</Text>
         </Pressable>
@@ -305,6 +306,7 @@ const useStyles = makeStyles(colors => ({
     paddingHorizontal: spacing.md,
     minHeight: touchTarget,
     borderRadius: radius.md,
+    ...coralGlass(colors),
   },
   addBtnText: { color: colors.onPrimary, ...typography.button },
   search: {

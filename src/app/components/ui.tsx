@@ -3,13 +3,14 @@
  * mesmo padrão do manual: cards no surface, botão principal coral, botão
  * secundário neutro, um título por tela e margens de 16 (zona neutra).
  */
-import React from 'react';
+import React, { memo } from 'react';
 import type { ReactNode } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 import type { StyleProp, ViewStyle } from 'react-native';
 import { Icon, IconTile } from '../../keyboard/components/Icon';
 import type { IconName } from '../../keyboard/components/Icon';
-import { glassBorder, makeStyles, radius, spacing, touchTarget, typography, useColors } from '../../keyboard/theme';
+import { coralGlass, glassBorder, makeStyles, radius, spacing, touchTarget, typography, useColors } from '../../keyboard/theme';
 import type { Palette } from '../../keyboard/theme';
 
 /** Vidro do card: raio maior, contorno com luz em cima e sombra em duas alturas (só iOS/web). */
@@ -23,6 +24,37 @@ function glassShadow(colors: Palette) {
     shadowOffset: { width: 0, height: 8 },
   };
 }
+
+/**
+ * Reflexo do botão coral de vidro: degradê vertical que some antes do meio
+ * (sem linha dura atravessando o texto) e uma leve refração embaixo.
+ * Primeiro filho do botão; só aparece na paleta de vidro.
+ */
+export const CoralSheen = memo(() => {
+  const colors = useColors();
+  if (!colors.glass) return null;
+  return (
+    <View pointerEvents="none" style={sheenStyles.clip}>
+      <Svg width="100%" height="100%" preserveAspectRatio="none">
+        <Defs>
+          <LinearGradient id="keycon-coral-sheen" x1="0" y1="0" x2="0" y2="1">
+            <Stop offset="0" stopColor="#FFFFFF" stopOpacity={0.4} />
+            <Stop offset="0.42" stopColor="#FFFFFF" stopOpacity={0.08} />
+            <Stop offset="0.58" stopColor="#FFFFFF" stopOpacity={0} />
+            {/* Até 10% de grafite embaixo: o texto grafite segue acima de 4,5:1 */}
+            <Stop offset="1" stopColor="#242833" stopOpacity={0.1} />
+          </LinearGradient>
+        </Defs>
+        <Rect width="100%" height="100%" fill="url(#keycon-coral-sheen)" />
+      </Svg>
+    </View>
+  );
+});
+
+const sheenStyles = StyleSheet.create({
+  // Recorte próprio na forma da pílula: o botão fica sem overflow e mantém a sombra
+  clip: { ...StyleSheet.absoluteFillObject, borderRadius: radius.pill, overflow: 'hidden' },
+});
 
 /** Página rolável com a margem padrão. */
 export function Page({ children }: { children: ReactNode }) {
@@ -159,7 +191,7 @@ export function Button({ label, onPress, variant = 'primary', icon, loading, dis
         pressed && variant !== 'primary' && styles.pressed,
         (disabled || loading) && styles.disabled,
       ]}>
-      {variant === 'primary' && colors.glass ? <View pointerEvents="none" style={styles.buttonSheen} /> : null}
+      {variant === 'primary' ? <CoralSheen /> : null}
       {loading ? (
         <ActivityIndicator color={fg} />
       ) : (
@@ -278,24 +310,14 @@ const useStyles = makeStyles(colors => ({
     paddingHorizontal: spacing.xl,
     // Vidro: botões em pílula
     borderRadius: colors.glass ? radius.pill : radius.md,
-    overflow: 'hidden',
   },
   // Coral sólido (nunca translúcido: o texto grafite precisa de 5,3:1)
   buttonPrimary: {
     backgroundColor: colors.primary,
-    ...(colors.glass ? { borderWidth: 1, borderColor: 'rgba(36, 40, 51, 0.12)', borderTopColor: 'rgba(255, 255, 255, 0.55)' } : {}),
+    ...coralGlass(colors),
   },
   buttonPrimaryPressed: { backgroundColor: colors.primaryStrong },
   buttonSecondary: { backgroundColor: colors.surfaceAlt, ...glassBorder(colors) },
-  /** Brilho de vidro na metade de cima do botão principal. */
-  buttonSheen: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: '50%',
-    backgroundColor: 'rgba(255, 255, 255, 0.18)',
-  },
   buttonDanger: { backgroundColor: colors.dangerBg },
   buttonText: { ...typography.button },
   disabled: { opacity: 0.5 },

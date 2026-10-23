@@ -14,7 +14,8 @@ import { AuthError, signIn, signUp } from '../../services/auth';
 import type { SegmentId } from '../../types';
 import { SegmentPicker } from '../components/SegmentPicker';
 import { KeyconLogo } from '../../keyboard/components/KeyconLogo';
-import { glassBorder, brand, makeStyles, radius, spacing, touchTarget, typography, useColors } from '../../keyboard/theme';
+import { coralGlass, glassBorder, brand, makeStyles, radius, spacing, touchTarget, typography, useColors } from '../../keyboard/theme';
+import { CoralSheen } from '../components/ui';
 
 interface Props {
   onSuccess: () => void;
@@ -200,6 +201,7 @@ export function AuthScreen({ onSuccess }: Props) {
             style={({ pressed }) => [styles.submitBtn, pressed && styles.submitBtnPressed, loading && styles.submitBtnDisabled]}
             disabled={loading}
             onPress={handleSubmit}>
+            <CoralSheen />
             {loading ? (
               <ActivityIndicator color={colors.onPrimary} />
             ) : (
@@ -300,6 +302,7 @@ const useStyles = makeStyles(colors => ({
     borderRadius: colors.glass ? radius.pill : radius.md,
     alignItems: 'center',
     marginTop: spacing.md,
+    ...coralGlass(colors),
   },
   submitBtnPressed: {
     backgroundColor: colors.primaryStrong,
