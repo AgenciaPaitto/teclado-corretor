@@ -1,6 +1,7 @@
 import React, { memo } from 'react';
 import { Pressable, Text, View } from 'react-native';
-import { MONTHS, WEEKDAYS_SHORT, monthGrid, todayISO } from '../../agenda/agenda';
+import { monthGrid, monthName, todayISO, weekdayInitials } from '../../agenda/agenda';
+import { t } from '../../i18n';
 import { makeStyles, onCoralText, radius, spacing, useColors } from '../theme';
 import { Icon } from './Icon';
 
@@ -42,19 +43,19 @@ export const MonthCalendar = memo(({ view, onViewChange, selected, onSelect, bus
   return (
     <View style={styles.root} testID="month-calendar">
       <View style={styles.header}>
-        <Pressable accessibilityLabel="Mês anterior" hitSlop={10} style={styles.nav} onPress={() => onViewChange(shiftMonth(view, -1))}>
+        <Pressable accessibilityLabel={t('Mês anterior')} hitSlop={10} style={styles.nav} onPress={() => onViewChange(shiftMonth(view, -1))}>
           <Icon name="voltar" size={20} color={colors.text} />
         </Pressable>
         <Text style={styles.title}>
-          {MONTHS[view.month]} {view.year}
+          {monthName(view.month)} {view.year}
         </Text>
-        <Pressable accessibilityLabel="Próximo mês" hitSlop={10} style={styles.nav} onPress={() => onViewChange(shiftMonth(view, 1))}>
+        <Pressable accessibilityLabel={t('Próximo mês')} hitSlop={10} style={styles.nav} onPress={() => onViewChange(shiftMonth(view, 1))}>
           <Icon name="avancar" size={20} color={colors.text} />
         </Pressable>
       </View>
 
       <View style={styles.row}>
-        {WEEKDAYS_SHORT.map((d, i) => (
+        {weekdayInitials().map((d, i) => (
           <Text key={i} style={styles.weekday}>
             {d}
           </Text>

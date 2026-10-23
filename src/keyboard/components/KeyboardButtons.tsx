@@ -1,0 +1,122 @@
+/**
+ * Botões das telas de gestão do teclado (Produtos e Arquivos): ícone na barra
+ * de cima, ações (Editar, Mover, Excluir) e a confirmação de excluir, que
+ * aparece na própria tela (o teclado não pode abrir janelas de aviso).
+ */
+import React from 'react';
+import { Pressable, Text, View } from 'react-native';
+import { t } from '../../i18n';
+import { coralGlass, glassBorder, makeStyles, radius, spacing, useColors } from '../theme';
+import { CoralSheen } from './Glass';
+import { Icon } from './Icon';
+import type { IconName } from './Icon';
+
+export function BarButton({
+  icon,
+  label,
+  onPress,
+  primary,
+  disabled,
+  testID,
+}: {
+  icon: IconName;
+  label: string;
+  onPress: () => void;
+  primary?: boolean;
+  disabled?: boolean;
+  testID?: string;
+}) {
+  const colors = useColors();
+  const styles = useStyles();
+  return (
+    <Pressable
+      testID={testID}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      disabled={disabled}
+      hitSlop={4}
+      onPress={onPress}
+      style={({ pressed }) => [styles.barBtn, primary && styles.barBtnPrimary, pressed && styles.pressed, disabled && styles.disabled]}>
+      {primary && <CoralSheen radius={radius.sm} />}
+      <Icon name={icon} size={20} color={primary ? colors.onPrimary : colors.text} />
+    </Pressable>
+  );
+}
+
+export function ActionButton({
+  icon,
+  label,
+  onPress,
+  danger,
+  disabled,
+  testID,
+}: {
+  icon: IconName;
+  label: string;
+  onPress: () => void;
+  danger?: boolean;
+  disabled?: boolean;
+  testID?: string;
+}) {
+  const colors = useColors();
+  const styles = useStyles();
+  return (
+    <Pressable
+      testID={testID}
+      accessibilityRole="button"
+      disabled={disabled}
+      style={({ pressed }) => [styles.action, danger && styles.actionDanger, pressed && styles.pressed, disabled && styles.disabled]}
+      onPress={onPress}>
+      <Icon name={icon} size={18} color={danger ? colors.danger : colors.text} />
+      <Text style={[styles.actionText, danger && styles.actionTextDanger]} numberOfLines={1}>
+        {label}
+      </Text>
+    </Pressable>
+  );
+}
+
+/** "Excluir …?" com Cancelar / Excluir, no lugar dos botões. */
+export function ConfirmDelete({ message, onCancel, onConfirm, testID }: { message: string; onCancel: () => void; onConfirm: () => void; testID?: string }) {
+  const styles = useStyles();
+  return (
+    <View style={styles.confirm}>
+      <Text style={styles.confirmText}>{message}</Text>
+      <View style={styles.row}>
+        <ActionButton icon="fechar" label={t('Cancelar')} onPress={onCancel} />
+        <ActionButton testID={testID} icon="lixeira" label={t('Excluir')} danger onPress={onConfirm} />
+      </View>
+    </View>
+  );
+}
+
+const useStyles = makeStyles(colors => ({
+  pressed: { opacity: 0.7 },
+  disabled: { opacity: 0.45 },
+  row: { flexDirection: 'row', gap: spacing.sm },
+  barBtn: {
+    width: 40,
+    height: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: radius.sm,
+    backgroundColor: colors.surface,
+    ...glassBorder(colors),
+  },
+  barBtnPrimary: { backgroundColor: colors.primary, ...coralGlass(colors, { pill: false }) },
+  action: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    minHeight: 40,
+    borderRadius: radius.sm,
+    backgroundColor: colors.surface,
+    ...glassBorder(colors),
+  },
+  actionDanger: { backgroundColor: colors.dangerBg },
+  actionText: { fontSize: 13, fontWeight: '600', color: colors.text },
+  actionTextDanger: { color: colors.danger },
+  confirm: { gap: spacing.sm, padding: spacing.sm, borderRadius: radius.md, backgroundColor: colors.surface, ...glassBorder(colors) },
+  confirmText: { fontSize: 13, lineHeight: 18, color: colors.text },
+}));

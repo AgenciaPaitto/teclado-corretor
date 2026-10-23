@@ -1,3 +1,4 @@
+import { t, tSell } from '../../i18n';
 import React, { useState } from 'react';
 import { FlatList, Pressable, Text, View } from 'react-native';
 import type { AudioShortcut, SellerProfile, ShortcutsData, TextShortcut } from '../../types';
@@ -13,7 +14,7 @@ interface Props {
   onShare: (urls: string[], fallbackText: string) => void;
 }
 
-const audioLink = (a: AudioShortcut) => `[Áudio${a.duration ? ` ${a.duration}` : ''}] ${a.title}: ${a.audioUrl}`;
+const audioLink = (a: AudioShortcut) => `[${tSell('Áudio')}${a.duration ? ` ${a.duration}` : ''}] ${a.title}: ${a.audioUrl}`;
 
 type ShortcutFilter = 'text' | 'audio';
 
@@ -31,15 +32,13 @@ export function ShortcutsTab({ shortcuts, seller, onInsert, onShare }: Props) {
           style={[styles.filterBtn, filter === 'text' && styles.filterBtnActive]}
           onPress={() => setFilter('text')}>
           <Text style={[styles.filterLabel, filter === 'text' && styles.filterLabelActive]}>
-            Textos ({shortcuts.texts.length})
-          </Text>
+            {t('Textos ({length})', { length: shortcuts.texts.length })}</Text>
         </Pressable>
         <Pressable
           style={[styles.filterBtn, filter === 'audio' && styles.filterBtnActive]}
           onPress={() => setFilter('audio')}>
           <Text style={[styles.filterLabel, filter === 'audio' && styles.filterLabelActive]}>
-            Áudios Rápidos ({shortcuts.audios.length})
-          </Text>
+            {t('Áudios Rápidos ({length})', { length: shortcuts.audios.length })}</Text>
         </Pressable>
       </View>
 
@@ -49,7 +48,7 @@ export function ShortcutsTab({ shortcuts, seller, onInsert, onShare }: Props) {
           keyExtractor={item => item.id}
           contentContainerStyle={styles.list}
           keyboardShouldPersistTaps="always"
-          ListEmptyComponent={<Text style={styles.empty}>Crie atalhos de texto no app KEYCON (aba Atalhos).</Text>}
+          ListEmptyComponent={<Text style={styles.empty}>{t('Crie atalhos de texto no app KEYCON (aba Atalhos).')}</Text>}
           renderItem={({ item }: { item: TextShortcut }) => (
             <ItemCard
               testID={`shortcut-text-${item.id}`}
@@ -66,10 +65,10 @@ export function ShortcutsTab({ shortcuts, seller, onInsert, onShare }: Props) {
           keyExtractor={item => item.id}
           contentContainerStyle={styles.list}
           keyboardShouldPersistTaps="always"
-          ListEmptyComponent={<Text style={styles.empty}>Cadastre áudios no app KEYCON (aba Atalhos).</Text>}
+          ListEmptyComponent={<Text style={styles.empty}>{t('Cadastre áudios no app KEYCON (aba Atalhos).')}</Text>}
           ListHeaderComponent={
             shortcuts.audios.length > 0 ? (
-              <Text style={styles.hint}>Toque: enviar o áudio • Segure: enviar o link</Text>
+              <Text style={styles.hint}>{t('Toque: enviar o áudio • Segure: enviar o link')}</Text>
             ) : null
           }
           renderItem={({ item }: { item: AudioShortcut }) => (

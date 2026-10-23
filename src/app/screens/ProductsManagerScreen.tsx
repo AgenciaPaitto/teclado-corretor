@@ -1,7 +1,9 @@
+import { t } from '../../i18n';
 import React, { useState } from 'react';
 import {
   Alert,
   FlatList,
+  Image,
   Pressable,
   ScrollView,
   Text,
@@ -9,92 +11,70 @@ import {
   View,
 } from 'react-native';
 import { capitalize, getSegment } from '../../segments/segments';
-import type { SegmentField, SegmentProfile } from '../../segments/segments';
 import { Repo } from '../../storage/storage';
-import type { MediaItem, Product, ProductAttribute, ProductFolder } from '../../types';
-import { attributeLines, formatBRL, formatPrice, normalizeUrl, parseBRL } from '../../utils/formatters';
+import type { Product, ProductFolder } from '../../types';
+import { formatPrice, normalizeUrl } from '../../utils/formatters';
+import { currentMarketInfo, formatMoney, moneyFromDigits } from '../../i18n/markets';
+import { deleteFolder, deleteProduct, draftFromProduct, emptyDraft, saveFolder, saveProductDraft } from '../../catalog/catalog';
+import type { ProductDraft } from '../../catalog/catalog';
 import { coralGlass, glassBorder, makeStyles, onCoralText, radius, spacing, touchTarget, typography, useColors } from '../../keyboard/theme';
 import { Icon, IconTile } from '../../keyboard/components/Icon';
 import { CoralSheen, EmptyState } from '../components/ui';
 import { SourceButtons, UploadStatus, useUploader } from '../components/MediaUpload';
 import { canUseCamera, captureWithCamera, pickFromGallery } from '../../native/MediaPicker';
-import { deleteUploadedMedia, formatDuration } from '../../services/mediaUpload';
-import type { LocalMedia, UploadedMedia } from '../../services/mediaUpload';
+import { deleteUploadedMedia } from '../../services/mediaUpload';
 
-/** Formulário de pasta: id null = criando uma pasta nova. */
+/** Formulário de pasta (categoria): id null = criando uma pasta nova. */
 interface FolderForm {
   id: string | null;
   name: string;
   description: string;
 }
 
-/** Formulário de produto: id null = criando um produto novo. */
-interface ProductForm {
-  id: string | null;
-  title: string;
-  price: string;
-  desc: string;
-  datasheetUrl: string;
-  /** Campos do ramo: chave → valor digitado. */
-  attributes: Record<string, string>;
-}
+/** Formulário de produto (mesmo do teclado, ver src/catalog). */
+type ProductForm = ProductDraft;
 
-interface MediaForm {
-  type: MediaItem['type'];
-  title: string;
-  url: string;
-  duration: string;
-}
-
-const EMPTY_PRODUCT_FORM: ProductForm = {
-  id: null,
-  title: '',
-  price: '',
-  desc: '',
-  datasheetUrl: '',
-  attributes: {},
-};
-
-function productToForm(p: Product): ProductForm {
-  return {
-    id: p.id,
-    title: p.title,
-    // Preço 0 = "Sob consulta": o campo volta vazio
-    price: p.price > 0 ? formatBRL(p.price).replace('R$ ', '') : '',
-    desc: p.shortDescription,
-    datasheetUrl: p.datasheetUrl,
-    attributes: Object.fromEntries((p.attributes ?? []).map(a => [a.key, a.value])),
-  };
-}
+const productToForm = draftFromProduct;
 
 /**
- * Junta os campos do ramo preenchidos no formulário com as características
- * que o produto já tinha de outro ramo (essas ficam como estavam).
+ * Preço em formato de valor na moeda de quem vende: a pessoa digita só os
+ * números e o valor se monta como em maquininha (18990 → R$ 189,90).
  */
-function mergeAttributes(
-  segment: SegmentProfile,
-  values: Record<string, string>,
-  previous: ProductAttribute[] = [],
-): ProductAttribute[] {
-  const fromForm = segment.fields
-    .map(f => ({ key: f.key, label: f.label, value: (values[f.key] ?? '').trim() }))
-    .filter(a => a.value);
-  const keys = new Set(segment.fields.map(f => f.key));
-  return [...fromForm, ...previous.filter(a => !keys.has(a.key))];
+function MoneyInput({ digits, onChange }: { digits: string; onChange: (digits: string) => void }) {
+  const colors = useColors();
+  const styles = useStyles();
+  const market = currentMarketInfo();
+  const shown = digits ? formatMoney(moneyFromDigits(digits, market), market) : '';
+  return (
+    <TextInput
+      testID="price-input"
+      style={styles.input}
+      placeholder={formatMoney(0, market)}
+      placeholderTextColor={colors.textMuted}
+      keyboardType="number-pad"
+      value={shown}
+      onChangeText={text => {
+        let next = text.replace(/\D/g, '').replace(/^0+/, '');
+        // Apagou o símbolo ou um separador (ex.: "€" no fim): apaga o último dígito
+        if (text.length < shown.length && next === digits) next = digits.slice(0, -1);
+        onChange(next.slice(0, 13));
+      }}
+    />
+  );
 }
 
 function confirmDelete(title: string, message: string, onConfirm: () => void) {
   Alert.alert(title, message, [
-    { text: 'Cancelar', style: 'cancel' },
-    { text: 'Excluir', style: 'destructive', onPress: onConfirm },
+    { text: t('Cancelar'), style: 'cancel' },
+    { text: t('Excluir'), style: 'destructive', onPress: onConfirm },
   ]);
 }
 
 export function ProductsManagerScreen() {
   const colors = useColors();
   const styles = useStyles();
-  // A tela é recriada quando o ramo muda (key no App)
   const [segment] = useState(() => getSegment(Repo.getSegment()));
+  const market = currentMarketInfo();
   const { item, items } = segment.terms;
   const [folders, setFolders] = useState<ProductFolder[]>(() => Repo.getFolders());
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
@@ -102,7 +82,13 @@ export function ProductsManagerScreen() {
 
   const [folderForm, setFolderForm] = useState<FolderForm | null>(null);
   const [productForm, setProductForm] = useState<ProductForm | null>(null);
-  const [mediaForm, setMediaForm] = useState<MediaForm | null>(null);
+
+  // Controle de imagem e categoria no formulário de produto
+  const [isCreatingNewCategory, setIsCreatingNewCategory] = useState(false);
+  const [showLinkInput, setShowLinkInput] = useState(false);
+  const [linkInputUrl, setLinkInputUrl] = useState('');
+
+  const uploader = useUploader();
 
   const refreshFolders = () => {
     setFolders(Repo.getFolders());
@@ -120,30 +106,39 @@ export function ProductsManagerScreen() {
   const openProduct = (id: string | null) => {
     setSelectedProductId(id);
     setProductForm(null);
-    setMediaForm(null);
+  };
+
+  const makeEmptyProductForm = (defaultFolderId?: string): ProductForm => emptyDraft(defaultFolderId ?? (folders[0]?.id || ''));
+
+  const startCreateProduct = (defaultFolderId?: string) => {
+    setFolderForm(null);
+    setIsCreatingNewCategory(folders.length === 0);
+    setShowLinkInput(false);
+    setLinkInputUrl('');
+    setProductForm(makeEmptyProductForm(defaultFolderId));
+  };
+
+  const startEditProduct = (p: Product, folderId: string) => {
+    setIsCreatingNewCategory(false);
+    setShowLinkInput(false);
+    setLinkInputUrl('');
+    setProductForm(productToForm(p, folderId));
   };
 
   // ---------------------------------------------------------------------
-  // Pastas
+  // Pastas (Categorias)
   // ---------------------------------------------------------------------
 
   const handleSaveFolder = () => {
     if (!folderForm) return;
-    const name = folderForm.name.trim();
-    if (!name) {
-      Alert.alert('Atenção', 'Informe o nome da pasta.');
+    const result = saveFolder(folderForm.id, folderForm.name, folderForm.description);
+    if (!result.ok) {
+      Alert.alert(t('Atenção'), result.error);
       return;
-    }
-    const description = folderForm.description.trim() || undefined;
-
-    if (folderForm.id) {
-      Repo.updateFolder(folderForm.id, { name, description });
-    } else {
-      Repo.addFolder({ id: `folder-${Date.now()}`, name, description, products: [] });
     }
     refreshFolders();
     setFolderForm(null);
-    Alert.alert('Sucesso', folderForm.id ? 'Pasta atualizada!' : 'Pasta criada e sincronizada com o teclado!');
+    Alert.alert(t('Sucesso'), folderForm.id ? t('Pasta atualizada!') : t('Pasta criada e sincronizada com o teclado!'));
   };
 
   const handleDeleteFolder = (f: ProductFolder) => {
@@ -154,8 +149,7 @@ export function ProductsManagerScreen() {
         ? `A pasta "${f.name}" e ${count === 1 ? `o ${item}` : `os ${count} ${items}`} dentro dela serão excluídos. Deseja continuar?`
         : `Deseja excluir a pasta "${f.name}"?`,
       () => {
-        Repo.deleteFolder(f.id);
-        f.products.forEach(p => [...p.photos, ...p.videos].forEach(m => deleteUploadedMedia(m.storagePath)));
+        deleteFolder(f);
         refreshFolders();
         openFolder(null);
       },
@@ -163,150 +157,79 @@ export function ProductsManagerScreen() {
   };
 
   // ---------------------------------------------------------------------
-  // Produtos
+  // Imagem do Produto antes de salvar
+  // ---------------------------------------------------------------------
+
+  const pickProductImage = (from: 'gallery' | 'camera') => {
+    setShowLinkInput(false);
+    uploader.run(
+      () => (from === 'gallery' ? pickFromGallery('image') : captureWithCamera('image')),
+      (uploaded, local) => {
+        // Fallback local.uri para testes locais caso o Supabase não esteja conectado
+        const finalUrl = uploaded.url || local.uri;
+        setProductForm(f => (f ? { ...f, imageUrl: finalUrl, imageStoragePath: uploaded.storagePath } : null));
+      },
+    );
+  };
+
+  const applyLinkImage = () => {
+    const url = normalizeUrl(linkInputUrl);
+    if (!url) {
+      Alert.alert(t('Atenção'), t('Cole um link válido de imagem.'));
+      return;
+    }
+    setProductForm(f => (f ? { ...f, imageUrl: url, imageStoragePath: undefined } : null));
+    setShowLinkInput(false);
+    setLinkInputUrl('');
+  };
+
+  const removeProductImage = () => {
+    if (!productForm) return;
+    if (productForm.imageStoragePath) {
+      deleteUploadedMedia(productForm.imageStoragePath);
+    }
+    setProductForm({ ...productForm, imageUrl: '', imageStoragePath: undefined });
+  };
+
+  // ---------------------------------------------------------------------
+  // Salvar Produto (Novo ou Edição)
   // ---------------------------------------------------------------------
 
   const handleSaveProduct = () => {
-    if (!selectedFolderId || !productForm) return;
-    if (!productForm.title.trim()) {
-      Alert.alert('Atenção', `Informe o nome do ${item}.`);
+    if (!productForm) return;
+    // Mesma regra do teclado (src/catalog): mantém fotos extras, vídeos e link de antes
+    const result = saveProductDraft(productForm, segment, isCreatingNewCategory);
+    if (!result.ok) {
+      Alert.alert(t('Atenção'), result.error);
       return;
-    }
-
-    // Em branco = "Sob consulta" (só nos ramos em que o preço é opcional)
-    const priceBlank = !productForm.price.trim();
-    const priceNum = priceBlank && segment.price.optional ? 0 : parseBRL(productForm.price);
-    if (priceNum === null) {
-      Alert.alert(
-        'Atenção',
-        segment.price.optional
-          ? 'Informe um valor válido (ex: 89,90 ou 1.250,00) ou deixe em branco para "Sob consulta".'
-          : 'Informe um preço válido. Ex: 89,90 ou 1.250,00',
-      );
-      return;
-    }
-
-    let datasheetUrl = '';
-    if (productForm.datasheetUrl.trim()) {
-      const url = normalizeUrl(productForm.datasheetUrl);
-      if (!url) {
-        Alert.alert('Atenção', 'O link não parece válido. Ex: https://seusite.com.br/pagina');
-        return;
-      }
-      datasheetUrl = url;
-    }
-
-    const existing = productForm.id ? folder?.products.find(p => p.id === productForm.id) : undefined;
-    const saved: Product = {
-      id: existing?.id ?? `prod-${Date.now()}`,
-      title: productForm.title.trim(),
-      price: priceNum,
-      shortDescription: productForm.desc.trim(),
-      datasheetUrl,
-      attributes: mergeAttributes(segment, productForm.attributes, existing?.attributes),
-      photos: existing?.photos ?? [],
-      videos: existing?.videos ?? [],
-    };
-
-    if (existing) {
-      Repo.updateProduct(selectedFolderId, saved);
-    } else {
-      Repo.addProduct(selectedFolderId, saved);
     }
     refreshFolders();
+    setSelectedFolderId(result.folderId);
     setProductForm(null);
     Alert.alert(
-      'Sucesso',
-      existing ? `${capitalize(item)} atualizado!` : `${capitalize(item)} adicionado e sincronizado com o teclado!`,
+      t('Sucesso'),
+      result.created ? t('Produto criado e sincronizado com o teclado!') : t('Produto atualizado com sucesso!'),
     );
   };
 
   const handleDeleteProduct = (p: Product) => {
     if (!selectedFolderId) return;
     const folderId = selectedFolderId;
-    confirmDelete(`Excluir ${item}`, `Deseja excluir "${p.title}" com suas fotos e vídeos?`, () => {
-      Repo.deleteProduct(folderId, p.id);
-      [...p.photos, ...p.videos].forEach(m => deleteUploadedMedia(m.storagePath));
+    confirmDelete(`Excluir ${item}`, `Deseja excluir "${p.title}"?`, () => {
+      deleteProduct(folderId, p);
       refreshFolders();
       openProduct(null);
     });
   };
 
   // ---------------------------------------------------------------------
-  // Fotos e vídeos (links)
-  // ---------------------------------------------------------------------
-
-  const handleSaveMedia = () => {
-    if (!selectedFolderId || !selectedProductId || !mediaForm) return;
-    const url = normalizeUrl(mediaForm.url);
-    if (!url) {
-      Alert.alert('Atenção', 'Cole um link válido. Ex: https://drive.google.com/...');
-      return;
-    }
-
-    const isImage = mediaForm.type === 'image';
-    const media: MediaItem = {
-      id: `${isImage ? 'photo' : 'video'}-${Date.now()}`,
-      type: mediaForm.type,
-      title: mediaForm.title.trim() || (isImage ? `Foto do ${item}` : `Vídeo do ${item}`),
-      url,
-      duration: isImage ? undefined : mediaForm.duration.trim() || undefined,
-    };
-
-    Repo.addMedia(selectedFolderId, selectedProductId, media);
-    refreshFolders();
-    setMediaForm(null);
-  };
-
-  // Envio de arquivos do celular (galeria / câmera) para a nuvem
-  const uploader = useUploader();
-  const [uploadingType, setUploadingType] = useState<MediaItem['type'] | null>(null);
-
-  const addUploaded = (type: MediaItem['type'], uploaded: UploadedMedia, local: LocalMedia) => {
-    if (!selectedFolderId || !selectedProductId) return;
-    const isImage = type === 'image';
-    const current = folders.find(f => f.id === selectedFolderId)?.products.find(p => p.id === selectedProductId);
-    const count = (isImage ? current?.photos.length : current?.videos.length) ?? 0;
-    const media: MediaItem = {
-      id: `${isImage ? 'photo' : 'video'}-${Date.now()}`,
-      type,
-      title: `${isImage ? 'Foto' : 'Vídeo'} ${count + 1}`,
-      url: uploaded.url,
-      storagePath: uploaded.storagePath,
-      duration: isImage ? undefined : formatDuration(local.durationMs) || undefined,
-    };
-    Repo.addMedia(selectedFolderId, selectedProductId, media);
-    refreshFolders();
-  };
-
-  const upload = (type: MediaItem['type'], from: 'gallery' | 'camera') => {
-    setMediaForm(null);
-    setUploadingType(type);
-    uploader.run(
-      () => (from === 'gallery' ? pickFromGallery(type) : captureWithCamera(type)),
-      (uploaded, local) => addUploaded(type, uploaded, local),
-    );
-  };
-
-  const handleDeleteMedia = (m: MediaItem) => {
-    if (!selectedFolderId || !selectedProductId) return;
-    const folderId = selectedFolderId;
-    const productId = selectedProductId;
-    confirmDelete(m.type === 'image' ? 'Excluir foto' : 'Excluir vídeo', `Deseja remover "${m.title}"?`, () => {
-      Repo.deleteMedia(folderId, productId, m.id);
-      deleteUploadedMedia(m.storagePath);
-      refreshFolders();
-    });
-  };
-
-  // ---------------------------------------------------------------------
-  // Formulários reaproveitados (criar e editar)
+  // Formulário de Pasta (Categoria)
   // ---------------------------------------------------------------------
 
   const renderFolderForm = (form: FolderForm) => (
     <View style={styles.newFolderBox}>
-      <Text style={styles.sectionTitle}>{form.id ? 'Editar Pasta' : 'Criar Nova Pasta'}</Text>
-      <Text style={styles.label}>Nome da Pasta</Text>
+      <Text style={styles.sectionTitle}>{form.id ? t('Editar Pasta') : t('Criar Nova Pasta')}</Text>
+      <Text style={styles.label}>{t('Nome da Pasta')}</Text>
       <TextInput
         style={styles.input}
         placeholder={segment.examples.folderName}
@@ -314,7 +237,7 @@ export function ProductsManagerScreen() {
         value={form.name}
         onChangeText={name => setFolderForm({ ...form, name })}
       />
-      <Text style={styles.label}>Descrição (opcional)</Text>
+      <Text style={styles.label}>{t('Descrição (opcional)')}</Text>
       <TextInput
         style={styles.input}
         placeholder={segment.examples.folderDescription}
@@ -324,291 +247,260 @@ export function ProductsManagerScreen() {
       />
       <View style={styles.formBtnsRow}>
         <Pressable style={styles.cancelBtn} onPress={() => setFolderForm(null)}>
-          <Text style={styles.cancelBtnText}>Cancelar</Text>
+          <Text style={styles.cancelBtnText}>{t('Cancelar')}</Text>
         </Pressable>
         <Pressable style={styles.saveBtn} onPress={handleSaveFolder}>
           <CoralSheen />
-          <Text style={styles.saveBtnText}>{form.id ? 'Salvar Pasta' : 'Criar Pasta'}</Text>
+          <Text style={styles.saveBtnText}>{form.id ? t('Salvar Pasta') : t('Criar Pasta')}</Text>
         </Pressable>
       </View>
     </View>
   );
 
-  // Na tela de detalhes o formulário já está dentro de um ScrollView
-  const renderProductForm = (form: ProductForm, folderName: string, insideScroll = false) => {
-    const Container = insideScroll ? View : ScrollView;
+  // ---------------------------------------------------------------------
+  // Tela de Criação / Edição do Produto
+  // (Tela dedicada com ScrollView completo, botões nunca cortados)
+  // ---------------------------------------------------------------------
+
+  if (productForm) {
     return (
-      <Container
-        style={insideScroll ? styles.card : styles.formContainer}
-        {...(insideScroll ? {} : { keyboardShouldPersistTaps: 'handled' as const })}>
-        <Text style={styles.sectionTitle}>
-          {form.id ? `Editar ${item}` : `Novo ${item} em ${folderName}`}
-        </Text>
-        <Text style={styles.label}>Nome do {item}</Text>
-        <TextInput
-          style={styles.input}
-          placeholder={segment.examples.itemTitle}
-          placeholderTextColor={colors.textMuted}
-          value={form.title}
-          onChangeText={title => setProductForm({ ...form, title })}
-        />
-
-        <Text style={styles.label}>
-          {segment.price.label} (R$){segment.price.optional ? ' — opcional' : ''}
-        </Text>
-        <TextInput
-          style={styles.input}
-          placeholder={segment.price.placeholder}
-          placeholderTextColor={colors.textMuted}
-          keyboardType="decimal-pad"
-          value={form.price}
-          onChangeText={price => setProductForm({ ...form, price })}
-        />
-        {segment.price.optional && <Text style={styles.hint}>Em branco, a ficha mostra "Sob consulta".</Text>}
-
-        {segment.fields.map(field =>
-          renderField(field, form.attributes[field.key] ?? '', value =>
-            setProductForm({ ...form, attributes: { ...form.attributes, [field.key]: value } }),
-          ),
-        )}
-
-        <Text style={styles.label}>Descrição</Text>
-        <TextInput
-          style={[styles.input, styles.textArea]}
-          placeholder={segment.examples.itemDescription}
-          placeholderTextColor={colors.textMuted}
-          multiline
-          value={form.desc}
-          onChangeText={desc => setProductForm({ ...form, desc })}
-        />
-
-        <Text style={styles.label}>Link (opcional)</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Ex: https://seusite.com.br/pagina"
-          placeholderTextColor={colors.textMuted}
-          keyboardType="url"
-          autoCapitalize="none"
-          autoCorrect={false}
-          value={form.datasheetUrl}
-          onChangeText={datasheetUrl => setProductForm({ ...form, datasheetUrl })}
-        />
-        <Text style={styles.hint}>Vai no final da mensagem "Inserir ficha" do teclado.</Text>
-
-        <View style={styles.formBtnsRow}>
-          <Pressable style={styles.cancelBtn} onPress={() => setProductForm(null)}>
-            <Text style={styles.cancelBtnText}>Cancelar</Text>
+      <View style={styles.container}>
+        <View style={styles.headerBar}>
+          <Pressable
+            style={styles.headerBack}
+            hitSlop={8}
+            onPress={() => {
+              if (productForm.imageStoragePath && !productForm.id) {
+                deleteUploadedMedia(productForm.imageStoragePath);
+              }
+              setProductForm(null);
+            }}>
+            <Icon name="voltar" size={18} color={colors.textMuted} />
+            <Text style={styles.backBtnText}>{t('Cancelar')}</Text>
           </Pressable>
-          <Pressable style={styles.saveBtn} onPress={handleSaveProduct}>
-            <CoralSheen />
-            <Text style={styles.saveBtnText}>Salvar</Text>
-          </Pressable>
-        </View>
-      </Container>
-    );
-  };
-
-  /** Campo do ramo: texto, número ou botões de opção (tocar de novo desmarca). */
-  const renderField = (field: SegmentField, value: string, onChange: (value: string) => void) => (
-    <View key={field.key} style={styles.fieldGap}>
-      <Text style={styles.label}>
-        {field.label}
-        {field.unit ? ` (${field.unit})` : ''}
-      </Text>
-      {field.kind === 'choice' ? (
-        <View style={styles.choiceRow}>
-          {(field.options ?? []).map(option => {
-            const selected = option === value;
-            return (
-              <Pressable
-                key={option}
-                accessibilityRole="radio"
-                accessibilityState={{ selected }}
-                style={[styles.choice, selected && styles.choiceSelected]}
-                onPress={() => onChange(selected ? '' : option)}>
-                <Text style={[styles.choiceText, selected && styles.choiceTextSelected]}>{option}</Text>
-              </Pressable>
-            );
-          })}
-        </View>
-      ) : (
-        <TextInput
-          style={styles.input}
-          placeholder={field.placeholder}
-          placeholderTextColor={colors.textMuted}
-          keyboardType={field.kind === 'number' ? 'numeric' : 'default'}
-          value={value}
-          onChangeText={onChange}
-        />
-      )}
-    </View>
-  );
-
-  const renderMediaSection = (type: MediaItem['type'], items: MediaItem[]) => {
-    const isImage = type === 'image';
-    const form = mediaForm?.type === type ? mediaForm : null;
-    return (
-      <View style={styles.card}>
-        <Text style={styles.sectionTitle}>
-          {isImage ? 'Fotos' : 'Vídeos'} ({items.length})
-        </Text>
-
-        {/* De onde vem: galeria, câmera do celular ou um link */}
-        <SourceButtons
-          disabled={!!uploader.uploading}
-          options={[
-            { key: `${type}-gallery`, icon: isImage ? 'foto' : 'video', label: 'Galeria', onPress: () => upload(type, 'gallery') },
-            ...(canUseCamera
-              ? [{ key: `${type}-camera`, icon: 'adicionar' as const, label: isImage ? 'Tirar foto' : 'Gravar vídeo', onPress: () => upload(type, 'camera') }]
-              : []),
-            {
-              key: `${type}-link`,
-              icon: 'compartilhar' as const,
-              label: 'Link',
-              onPress: () => setMediaForm({ type, title: '', url: '', duration: '' }),
-            },
-          ]}
-        />
-        {uploadingType === type && <UploadStatus uploading={uploader.uploading} error={uploader.error} />}
-
-        {form && (
-          <View style={styles.uploadBox}>
-            <Text style={styles.label}>{isImage ? 'Título / Cômodo da Foto' : 'Título do Vídeo'}</Text>
-            <TextInput
-              style={styles.input}
-              placeholder={isImage ? 'Ex: Frente, Detalhe, Embalagem' : 'Ex: Produto em uso'}
-              placeholderTextColor={colors.textMuted}
-              value={form.title}
-              onChangeText={title => setMediaForm({ ...form, title })}
-            />
-            <Text style={styles.label}>Link</Text>
-            <TextInput
-              style={styles.input}
-              placeholder={isImage ? 'Cole o link direto da foto (.jpg, .png)' : 'Cole o link do vídeo (.mp4) ou do YouTube'}
-              placeholderTextColor={colors.textMuted}
-              keyboardType="url"
-              autoCapitalize="none"
-              autoCorrect={false}
-              value={form.url}
-              onChangeText={url => setMediaForm({ ...form, url })}
-            />
-            {!isImage && (
-              <>
-                <Text style={styles.label}>Duração (opcional)</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="Ex: 1:45"
-                  placeholderTextColor={colors.textMuted}
-                  value={form.duration}
-                  onChangeText={duration => setMediaForm({ ...form, duration })}
-                />
-              </>
-            )}
-            <View style={styles.formBtnsRow}>
-              <Pressable style={styles.cancelBtn} onPress={() => setMediaForm(null)}>
-                <Text style={styles.cancelBtnText}>Cancelar</Text>
-              </Pressable>
-              <Pressable style={styles.saveBtn} onPress={handleSaveMedia}>
-                <CoralSheen />
-                <Text style={styles.saveBtnText}>Salvar Link</Text>
-              </Pressable>
-            </View>
-          </View>
-        )}
-
-        {items.length === 0 ? (
-          <Text style={styles.emptyText}>
-            {isImage ? 'Nenhuma foto cadastrada ainda.' : 'Nenhum vídeo cadastrado ainda.'}
+          <Text style={styles.headerTitle} numberOfLines={1}>
+            {productForm.id ? t('Editar {item}', { item }) : t('Novo {item}', { item })}
           </Text>
-        ) : (
-          items.map(m => (
-            <View key={m.id} style={styles.mediaItemRow}>
-              <View style={styles.mediaInfo}>
-                <Text style={styles.mediaTitle}>
-                  {m.title}
-                  {m.duration ? ` (${m.duration})` : ''}
-                </Text>
-                <Text style={styles.mediaUrl} numberOfLines={1}>
-                  {m.storagePath ? 'Arquivo enviado pelo app' : m.url}
-                </Text>
+          <Pressable style={styles.saveHeaderBtn} onPress={handleSaveProduct}>
+            <CoralSheen />
+            <Text style={styles.saveHeaderBtnText}>{t('Salvar')}</Text>
+          </Pressable>
+        </View>
+
+        <ScrollView
+          style={styles.formScroll}
+          contentContainerStyle={styles.formScrollContent}
+          keyboardShouldPersistTaps="handled">
+
+          {/* 1. Categoria */}
+          <View style={styles.fieldBlock}>
+            <Text style={styles.label}>{t('Categoria')}</Text>
+            {folders.length > 0 ? (
+              <View style={styles.categoryChipsRow}>
+                {folders.map(f => {
+                  const isSelected = productForm.folderId === f.id && !isCreatingNewCategory;
+                  return (
+                    <Pressable
+                      key={f.id}
+                      onPress={() => {
+                        setIsCreatingNewCategory(false);
+                        setProductForm({ ...productForm, folderId: f.id });
+                      }}
+                      style={[styles.categoryChip, isSelected && styles.categoryChipSelected]}>
+                      <Text style={[styles.categoryChipText, isSelected && styles.categoryChipTextSelected]}>
+                        {f.name}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+                <Pressable
+                  onPress={() => setIsCreatingNewCategory(true)}
+                  style={[styles.categoryChip, isCreatingNewCategory && styles.categoryChipSelected]}>
+                  <Icon name="adicionar" size={14} color={isCreatingNewCategory ? colors.primaryText : colors.textMuted} />
+                  <Text style={[styles.categoryChipText, isCreatingNewCategory && styles.categoryChipTextSelected]}>
+                    {t('Nova categoria')}
+                  </Text>
+                </Pressable>
               </View>
-              <Pressable hitSlop={8} onPress={() => handleDeleteMedia(m)}>
-                <Text style={styles.deleteText}>Excluir</Text>
-              </Pressable>
-            </View>
-          ))
-        )}
+            ) : null}
+
+            {(isCreatingNewCategory || folders.length === 0) && (
+              <TextInput
+                style={[styles.input, folders.length > 0 && { marginTop: spacing.sm }]}
+                placeholder={t('Nome da nova categoria (ex: Roupas, Imóveis...)')}
+                placeholderTextColor={colors.textMuted}
+                value={productForm.newCategoryName}
+                onChangeText={newCategoryName => setProductForm({ ...productForm, newCategoryName })}
+              />
+            )}
+          </View>
+
+          {/* 2. Nome */}
+          <View style={styles.fieldBlock}>
+            <Text style={styles.label}>{t('Nome do {item}', { item })}</Text>
+            <TextInput
+              style={styles.input}
+              placeholder={segment.examples.itemTitle || t('Nome do produto')}
+              placeholderTextColor={colors.textMuted}
+              value={productForm.title}
+              onChangeText={title => setProductForm({ ...productForm, title })}
+            />
+          </View>
+
+          {/* 3. Preço */}
+          <View style={styles.fieldBlock}>
+            <Text style={styles.label}>
+              {segment.price.label} ({market.symbol}){segment.price.optional ? t(' — opcional') : ''}
+            </Text>
+            <MoneyInput digits={productForm.price} onChange={price => setProductForm({ ...productForm, price })} />
+            {segment.price.optional && <Text style={styles.hint}>{t('Em branco, a ficha mostra "Sob consulta".')}</Text>}
+          </View>
+
+          {/* 4. Descrição */}
+          <View style={styles.fieldBlock}>
+            <Text style={styles.label}>{t('Descrição')}</Text>
+            <TextInput
+              style={[styles.input, styles.textArea]}
+              placeholder={segment.examples.itemDescription || t('Descreva os detalhes do produto...')}
+              placeholderTextColor={colors.textMuted}
+              multiline
+              value={productForm.desc}
+              onChangeText={desc => setProductForm({ ...productForm, desc })}
+            />
+          </View>
+
+          {/* 5. Imagem do produto */}
+          <View style={styles.fieldBlock}>
+            <Text style={styles.label}>{t('Imagem do produto')}</Text>
+
+            {productForm.imageUrl ? (
+              <View style={styles.imagePreviewBox}>
+                <Image source={{ uri: productForm.imageUrl }} style={styles.imagePreview} resizeMode="cover" />
+                <View style={styles.imageActionsRow}>
+                  <Pressable style={styles.imageActionBtn} onPress={() => pickProductImage('gallery')}>
+                    <Icon name="foto" size={16} color={colors.text} />
+                    <Text style={styles.imageActionBtnText}>{t('Alterar foto')}</Text>
+                  </Pressable>
+                  <Pressable style={[styles.imageActionBtn, styles.imageDeleteBtn]} onPress={removeProductImage}>
+                    <Icon name="fechar" size={16} color={colors.danger} />
+                    <Text style={styles.imageDeleteBtnText}>{t('Remover')}</Text>
+                  </Pressable>
+                </View>
+              </View>
+            ) : (
+              <View style={styles.uploadArea}>
+                <SourceButtons
+                  disabled={!!uploader.uploading}
+                  options={[
+                    { key: 'gallery', icon: 'foto', label: t('Galeria'), onPress: () => pickProductImage('gallery') },
+                    ...(canUseCamera
+                      ? [{ key: 'camera', icon: 'adicionar' as const, label: t('Tirar foto'), onPress: () => pickProductImage('camera') }]
+                      : []),
+                    { key: 'link', icon: 'compartilhar' as const, label: t('Colar link'), onPress: () => setShowLinkInput(v => !v) },
+                  ]}
+                />
+                <UploadStatus uploading={uploader.uploading} error={uploader.error} />
+
+                {showLinkInput && (
+                  <View style={styles.linkRow}>
+                    <TextInput
+                      style={[styles.input, { flex: 1 }]}
+                      placeholder={t('Cole o link da imagem (.jpg, .png...)')}
+                      placeholderTextColor={colors.textMuted}
+                      keyboardType="url"
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                      value={linkInputUrl}
+                      onChangeText={setLinkInputUrl}
+                    />
+                    <Pressable style={styles.applyLinkBtn} onPress={applyLinkImage}>
+                      <Text style={styles.applyLinkBtnText}>{t('Adicionar')}</Text>
+                    </Pressable>
+                  </View>
+                )}
+              </View>
+            )}
+          </View>
+
+          {/* Botões Cancelar e Salvar no fim do formulário com margem e padding seguros */}
+          <View style={styles.formBtnsRow}>
+            <Pressable
+              style={styles.cancelBtn}
+              onPress={() => {
+                if (productForm.imageStoragePath && !productForm.id) {
+                  deleteUploadedMedia(productForm.imageStoragePath);
+                }
+                setProductForm(null);
+              }}>
+              <Text style={styles.cancelBtnText}>{t('Cancelar')}</Text>
+            </Pressable>
+            <Pressable style={styles.saveBtn} onPress={handleSaveProduct}>
+              <CoralSheen />
+              <Text style={styles.saveBtnText}>
+                {productForm.id ? t('Salvar alterações') : t('Salvar produto')}
+              </Text>
+            </Pressable>
+          </View>
+        </ScrollView>
       </View>
     );
-  };
+  }
 
-  // 1. Visão de Detalhes do Produto & Fotos
+  // ---------------------------------------------------------------------
+  // 1. Visão de Detalhes do Produto
+  // ---------------------------------------------------------------------
+
   if (folder && product) {
+    const photo = product.photos[0];
     return (
       <ScrollView style={styles.container} contentContainerStyle={styles.content}>
         <Pressable style={styles.backBtn} onPress={() => openProduct(null)}>
           <Icon name="voltar" size={18} color={colors.textMuted} />
-          <Text style={styles.backBtnText}>Voltar aos {items} de {folder.name}</Text>
+          <Text style={styles.backBtnText}>{t('Voltar aos {items} de {name}', { items, name: folder.name })}</Text>
         </Pressable>
 
-        {productForm ? (
-          renderProductForm(productForm, folder.name, true)
-        ) : (
-          <View style={styles.card}>
-            <Text style={styles.badge}>{capitalize(item)}</Text>
-            <Text style={styles.title}>{product.title}</Text>
-            <Text style={styles.price}>{formatPrice(product, segment)}</Text>
-            {attributeLines(product, segment).map(line => (
-              <Text key={line} style={styles.attribute}>
-                {line}
-              </Text>
-            ))}
-            <Text style={styles.desc}>{product.shortDescription}</Text>
-            <Text style={styles.mediaUrl} numberOfLines={1}>
-              {product.datasheetUrl ? `Link: ${product.datasheetUrl}` : 'Sem link'}
-            </Text>
-            <View style={styles.formBtnsRow}>
-              <Pressable style={styles.cancelBtn} onPress={() => setProductForm(productToForm(product))}>
-                <Text style={styles.cancelBtnText}>Editar</Text>
-              </Pressable>
-              <Pressable style={styles.dangerBtn} onPress={() => handleDeleteProduct(product)}>
-                <Text style={styles.dangerBtnText}>Excluir</Text>
-              </Pressable>
-            </View>
+        <View style={styles.card}>
+          {photo?.url ? (
+            <Image source={{ uri: photo.url }} style={styles.detailImage} resizeMode="cover" />
+          ) : null}
+
+          <Text style={styles.badge}>{folder.name}</Text>
+          <Text style={styles.title}>{product.title}</Text>
+          <Text style={styles.price}>{formatPrice(product, segment)}</Text>
+          {product.shortDescription ? <Text style={styles.desc}>{product.shortDescription}</Text> : null}
+
+          <View style={styles.formBtnsRow}>
+            <Pressable style={styles.cancelBtn} onPress={() => startEditProduct(product, folder.id)}>
+              <Text style={styles.cancelBtnText}>{t('Editar')}</Text>
+            </Pressable>
+            <Pressable style={styles.dangerBtn} onPress={() => handleDeleteProduct(product)}>
+              <Text style={styles.dangerBtnText}>{t('Excluir')}</Text>
+            </Pressable>
           </View>
-        )}
-
-        <Text style={styles.cloudInfo}>
-          Escolha da galeria, use a câmera ou cole um link direto do arquivo. No WhatsApp o teclado envia a foto
-          direto na conversa; vídeos abrem o WhatsApp para você confirmar a conversa. Links de página (YouTube,
-          pasta do Drive) vão como link.
-        </Text>
-
-        {renderMediaSection('image', product.photos)}
-        {renderMediaSection('video', product.videos)}
+        </View>
       </ScrollView>
     );
   }
 
-  // 2. Visão de Produtos dentro de uma Pasta
+  // ---------------------------------------------------------------------
+  // 2. Visão de Produtos dentro de uma Pasta (Categoria)
+  // ---------------------------------------------------------------------
+
   if (folder) {
     return (
       <View style={styles.container}>
         <View style={styles.headerBar}>
           <Pressable style={styles.headerBack} hitSlop={8} onPress={() => openFolder(null)}>
             <Icon name="voltar" size={18} color={colors.textMuted} />
-            <Text style={styles.backBtnText}>Pastas</Text>
+            <Text style={styles.backBtnText}>{t('Pastas')}</Text>
           </Pressable>
           <Text style={styles.headerTitle} numberOfLines={1}>{folder.name}</Text>
           <Pressable
             style={styles.addBtn}
-            onPress={() => {
-              setFolderForm(null);
-              setProductForm(EMPTY_PRODUCT_FORM);
-            }}>
+            onPress={() => startCreateProduct(folder.id)}>
             <CoralSheen />
             <Icon name="adicionar" size={18} color={colors.onPrimary} />
-            <Text style={styles.addBtnText}>Novo {item}</Text>
+            <Text style={styles.addBtnText}>{t('Novo {item}', { item })}</Text>
           </Pressable>
         </View>
 
@@ -616,44 +508,44 @@ export function ProductsManagerScreen() {
           <Pressable
             hitSlop={6}
             onPress={() => {
-              setProductForm(null);
               setFolderForm({ id: folder.id, name: folder.name, description: folder.description ?? '' });
             }}>
-            <Text style={styles.linkText}>Editar pasta</Text>
+            <Text style={styles.linkText}>{t('Editar pasta')}</Text>
           </Pressable>
           <Pressable hitSlop={6} onPress={() => handleDeleteFolder(folder)}>
-            <Text style={styles.deleteText}>Excluir pasta</Text>
+            <Text style={styles.deleteText}>{t('Excluir pasta')}</Text>
           </Pressable>
         </View>
 
         {folderForm && renderFolderForm(folderForm)}
-        {productForm && renderProductForm(productForm, folder.name)}
 
         <FlatList
           data={folder.products}
           keyExtractor={item => item.id}
           contentContainerStyle={styles.list}
           ListEmptyComponent={
-            productForm ? null : (
-              <EmptyState
-                icon="arquivos"
-                title={`Nenhum ${item} nesta pasta`}
-                text={`Toque em "Novo ${item}" e cadastre com preço, descrição e fotos.`}
-              />
-            )
+            <EmptyState
+              icon="arquivos"
+              title={t('Nenhum {item} nesta pasta', { item })}
+              text={t('Toque em "Novo {item}" e cadastre com preço, descrição e foto.', { item })}
+            />
           }
           renderItem={({ item: p }) => (
             <Pressable
               style={styles.itemCard}
               onPress={() => openProduct(p.id)}>
-              <IconTile name="foto" size={40} />
+              {p.photos[0]?.url ? (
+                <Image source={{ uri: p.photos[0].url }} style={styles.itemThumb} resizeMode="cover" />
+              ) : (
+                <IconTile name="foto" size={40} />
+              )}
               <View style={styles.itemInfo}>
                 <Text style={styles.itemTitle}>{p.title}</Text>
                 <Text style={styles.itemSub} numberOfLines={2}>
-                  {formatPrice(p, segment)} • {p.shortDescription}
+                  {formatPrice(p, segment)}{p.shortDescription ? ` • ${p.shortDescription}` : ''}
                 </Text>
               </View>
-              <Text style={styles.itemMeta}>{p.photos.length} fotos</Text>
+              <Icon name="avancar" size={18} color={colors.textMuted} />
             </Pressable>
           )}
         />
@@ -661,24 +553,31 @@ export function ProductsManagerScreen() {
     );
   }
 
-  // 3. Visão Principal: Lista de Pastas
+  // ---------------------------------------------------------------------
+  // 3. Visão Principal: Lista de Pastas (Categorias)
+  // ---------------------------------------------------------------------
+
   return (
     <View style={styles.container}>
       <View style={styles.headerBar}>
         <View>
-          <Text style={styles.badge}>Catálogo</Text>
+          <Text style={styles.badge}>{t('Catálogo')}</Text>
           <Text style={styles.headerTitle}>{segment.terms.catalog}</Text>
         </View>
-        {/* Sem pastas, o botão fica só no estado vazio (um botão por ação) */}
-        {folders.length > 0 && (
+        <View style={styles.headerActions}>
           <Pressable
             style={styles.addBtn}
-            onPress={() => setFolderForm({ id: null, name: '', description: '' })}>
+            onPress={() => startCreateProduct()}>
             <CoralSheen />
-            <Icon name="novaPasta" size={18} color={colors.onPrimary} />
-            <Text style={styles.addBtnText}>Nova pasta</Text>
+            <Icon name="adicionar" size={18} color={colors.onPrimary} />
+            <Text style={styles.addBtnText}>{t('Novo {item}', { item })}</Text>
           </Pressable>
-        )}
+          <Pressable
+            style={styles.secondaryHeaderBtn}
+            onPress={() => setFolderForm({ id: null, name: '', description: '' })}>
+            <Icon name="novaPasta" size={18} color={colors.text} />
+          </Pressable>
+        </View>
       </View>
 
       {folderForm && renderFolderForm(folderForm)}
@@ -691,9 +590,9 @@ export function ProductsManagerScreen() {
           folderForm ? null : (
             <EmptyState
               icon="novaPasta"
-              title="Comece pela primeira pasta"
-              text={`As pastas organizam seus ${items}. ${segment.examples.folderName}.`}
-              actionLabel="Criar pasta"
+              title={t('Comece pela primeira pasta')}
+              text={t('As pastas organizam seus {items}. {folderName}.', { items, folderName: segment.examples.folderName })}
+              actionLabel={t('Criar pasta')}
               onAction={() => setFolderForm({ id: null, name: '', description: '' })}
             />
           )
@@ -729,11 +628,16 @@ const useStyles = makeStyles(colors => ({
     alignItems: 'center',
     gap: spacing.sm,
   },
-  headerBack: { flexDirection: 'row', alignItems: 'center', gap: 2 },
+  headerBack: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   headerTitle: {
     flexShrink: 1,
     ...typography.h2,
     color: colors.text,
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
   },
   badge: {
     ...typography.overline,
@@ -755,6 +659,30 @@ const useStyles = makeStyles(colors => ({
     color: colors.onPrimary,
     ...typography.button,
   },
+  secondaryHeaderBtn: {
+    width: touchTarget,
+    height: touchTarget,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: radius.md,
+    backgroundColor: colors.surfaceAlt,
+    ...glassBorder(colors),
+  },
+  saveHeaderBtn: {
+    paddingHorizontal: spacing.md,
+    minHeight: 36,
+    borderRadius: radius.md,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: colors.primary,
+    ...coralGlass(colors),
+  },
+  saveHeaderBtnText: {
+    ...onCoralText,
+    color: colors.onPrimary,
+    fontSize: 14,
+    fontWeight: '600',
+  },
   folderActions: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
@@ -774,82 +702,26 @@ const useStyles = makeStyles(colors => ({
     marginBottom: spacing.lg,
     gap: spacing.sm,
   },
-  title: { ...typography.h2, color: colors.text },
-  price: { fontSize: 17, fontWeight: '700', color: colors.successText },
-  desc: { ...typography.body, color: colors.textSecondary },
-  attribute: { fontSize: 14, color: colors.text },
-  fieldGap: { gap: spacing.sm },
-  choiceRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
-  choice: {
-    minHeight: 40,
-    paddingHorizontal: spacing.md,
-    justifyContent: 'center',
-    borderRadius: radius.pill,
+  detailImage: {
+    width: '100%',
+    height: 220,
+    borderRadius: radius.lg,
     backgroundColor: colors.surfaceAlt,
+    marginBottom: spacing.xs,
   },
-  choiceSelected: { backgroundColor: colors.primarySoft },
-  choiceText: { fontSize: 14, fontWeight: '500', color: colors.textSecondary },
-  choiceTextSelected: { color: colors.primaryText, fontWeight: '600' },
-  cardHeaderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
+  title: { ...typography.h2, color: colors.text },
+  price: { fontSize: 18, fontWeight: '700', color: colors.successText },
+  desc: { ...typography.body, color: colors.textSecondary, marginTop: 4 },
   sectionTitle: {
     ...typography.title,
     color: colors.text,
     marginBottom: 4,
-  },
-  smallAddBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: colors.surfaceAlt,
-    paddingHorizontal: spacing.md,
-    minHeight: 36,
-    borderRadius: radius.sm,
-  },
-  smallAddBtnText: {
-    color: colors.text,
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  cloudInfo: {
-    fontSize: 13,
-    color: colors.textMuted,
-    lineHeight: 19,
-    marginBottom: spacing.lg,
   },
   hint: {
     fontSize: 12,
     color: colors.textMuted,
     marginTop: 2,
     lineHeight: 17,
-  },
-  uploadBox: {
-    backgroundColor: colors.surfaceAlt,
-    padding: spacing.md,
-    borderRadius: radius.md,
-    marginVertical: spacing.sm,
-    gap: 6,
-  },
-  mediaItemRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: colors.surfaceAlt,
-    padding: spacing.md,
-    borderRadius: radius.sm,
-    marginTop: 6,
-  },
-  mediaInfo: { flex: 1, marginRight: spacing.sm },
-  mediaTitle: { color: colors.text, fontSize: 14, fontWeight: '600' },
-  mediaUrl: { color: colors.textMuted, fontSize: 12, marginTop: 2 },
-  emptyText: {
-    color: colors.textMuted,
-    fontSize: 14,
-    textAlign: 'center',
-    paddingVertical: spacing.lg,
   },
   list: { paddingHorizontal: spacing.lg, paddingVertical: spacing.sm, gap: spacing.sm },
   itemCard: {
@@ -861,10 +733,15 @@ const useStyles = makeStyles(colors => ({
     alignItems: 'center',
     gap: spacing.md,
   },
+  itemThumb: {
+    width: 44,
+    height: 44,
+    borderRadius: radius.md,
+    backgroundColor: colors.surfaceAlt,
+  },
   itemInfo: { flex: 1 },
   itemTitle: { fontSize: 15, fontWeight: '600', color: colors.text },
   itemSub: { fontSize: 13, color: colors.textMuted, marginTop: 2 },
-  itemMeta: { fontSize: 12, color: colors.textMuted, fontWeight: '500' },
   newFolderBox: {
     backgroundColor: colors.surface,
     ...glassBorder(colors),
@@ -874,20 +751,21 @@ const useStyles = makeStyles(colors => ({
     borderRadius: radius.xl,
     gap: spacing.sm,
   },
-  formContainer: {
-    backgroundColor: colors.surface,
-    ...glassBorder(colors),
+  formScroll: {
+    flex: 1,
+  },
+  formScrollContent: {
     padding: spacing.lg,
-    marginHorizontal: spacing.lg,
-    marginBottom: spacing.md,
-    borderRadius: radius.xl,
-    gap: spacing.sm,
-    maxHeight: 420,
+    paddingBottom: 60,
+    gap: spacing.md,
+  },
+  fieldBlock: {
+    gap: 6,
   },
   label: {
     ...typography.label,
     color: colors.textSecondary,
-    marginTop: 4,
+    fontSize: 13,
   },
   input: {
     backgroundColor: colors.surfaceAlt,
@@ -899,12 +777,104 @@ const useStyles = makeStyles(colors => ({
     fontSize: 15,
   },
   textArea: {
-    minHeight: 80,
+    minHeight: 88,
     textAlignVertical: 'top',
+  },
+  categoryChipsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+  },
+  categoryChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    minHeight: 36,
+    paddingHorizontal: spacing.md,
+    borderRadius: radius.pill,
+    backgroundColor: colors.surfaceAlt,
+    ...glassBorder(colors),
+  },
+  categoryChipSelected: {
+    backgroundColor: colors.primarySoft,
+    borderColor: colors.primary,
+  },
+  categoryChipText: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: colors.textSecondary,
+  },
+  categoryChipTextSelected: {
+    color: colors.primaryText,
+    fontWeight: '600',
+  },
+  uploadArea: {
+    gap: spacing.sm,
+    backgroundColor: colors.surfaceAlt,
+    padding: spacing.md,
+    borderRadius: radius.lg,
+  },
+  imagePreviewBox: {
+    backgroundColor: colors.surfaceAlt,
+    borderRadius: radius.lg,
+    overflow: 'hidden',
+    padding: spacing.sm,
+    gap: spacing.sm,
+  },
+  imagePreview: {
+    width: '100%',
+    height: 180,
+    borderRadius: radius.md,
+    backgroundColor: colors.surface,
+  },
+  imageActionsRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: spacing.sm,
+  },
+  imageActionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: colors.surface,
+    paddingHorizontal: spacing.md,
+    minHeight: 36,
+    borderRadius: radius.sm,
+  },
+  imageActionBtnText: {
+    color: colors.text,
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  imageDeleteBtn: {
+    backgroundColor: colors.dangerBg,
+  },
+  imageDeleteBtnText: {
+    color: colors.danger,
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  linkRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginTop: spacing.xs,
+  },
+  applyLinkBtn: {
+    backgroundColor: colors.surface,
+    ...glassBorder(colors),
+    paddingHorizontal: spacing.md,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: radius.md,
+  },
+  applyLinkBtnText: {
+    color: colors.primaryText,
+    fontSize: 13,
+    fontWeight: '600',
   },
   formBtnsRow: {
     flexDirection: 'row',
-    gap: spacing.sm,
+    gap: spacing.md,
     marginTop: spacing.md,
   },
   cancelBtn: {

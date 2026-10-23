@@ -1,3 +1,4 @@
+import { t } from '../../i18n';
 import React from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { KeyboardBridge } from '../../native/KeyboardBridge';
@@ -14,17 +15,15 @@ export function LoginRequiredPanel() {
   return (
     <View style={styles.container} testID="login-required">
       <KeyconMark size={36} />
-      <Text style={styles.title}>Entre no app para usar o teclado</Text>
+      <Text style={styles.title}>{t('Entre no app para usar o teclado')}</Text>
       <Text style={styles.desc}>
-        Seus produtos e atalhos aparecem aqui depois do login no app KEYCON. Enquanto isso, o
-        botão ABC continua disponível para digitar.
-      </Text>
+        {t('Seus produtos e atalhos aparecem aqui depois do login no app KEYCON. Enquanto isso, o botão ABC continua disponível para digitar.')}</Text>
       <Pressable
         testID="login-open-app"
         style={({ pressed }) => [styles.btn, pressed && styles.pressed]}
         onPress={() => KeyboardBridge.openApp()}>
         <CoralSheen radius={radius.md} />
-        <Text style={styles.btnText}>Abrir o app e entrar</Text>
+        <Text style={styles.btnText}>{t('Abrir o app e entrar')}</Text>
       </Pressable>
     </View>
   );

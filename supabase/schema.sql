@@ -19,6 +19,9 @@ create table if not exists public.profiles (
   agency      text not null default '',
   phone       text not null default '',
   segment     text not null default 'general',
+  -- Idioma do app (pt, en, es) e onde vende (moeda): ver src/i18n
+  language    text not null default 'pt',
+  market      text not null default 'BR',
   updated_at  timestamptz not null default now()
 );
 
@@ -28,14 +31,16 @@ language plpgsql
 security definer set search_path = public
 as $$
 begin
-  insert into public.profiles (id, name, agency, phone, segment)
+  insert into public.profiles (id, name, agency, phone, segment, language, market)
   values (
     new.id,
     -- Cadastro pelo app envia name/agency/phone/segment; o Google envia full_name
     coalesce(new.raw_user_meta_data ->> 'name', new.raw_user_meta_data ->> 'full_name', ''),
     coalesce(new.raw_user_meta_data ->> 'agency', ''),
     coalesce(new.raw_user_meta_data ->> 'phone', ''),
-    coalesce(nullif(new.raw_user_meta_data ->> 'segment', ''), 'general')
+    coalesce(nullif(new.raw_user_meta_data ->> 'segment', ''), 'general'),
+    coalesce(nullif(new.raw_user_meta_data ->> 'language', ''), 'pt'),
+    coalesce(nullif(new.raw_user_meta_data ->> 'market', ''), 'BR')
   )
   on conflict (id) do nothing;
   return new;
@@ -214,3 +219,7 @@ alter table public.profiles add column if not exists segment text not null defau
 alter table public.products add column if not exists attributes jsonb not null default '[]'::jsonb;
 alter table public.products drop constraint if exists products_price_check;
 alter table public.products add constraint products_price_check check (price >= 0);
+
+-- Idiomas e moeda
+alter table public.profiles add column if not exists language text not null default 'pt';
+alter table public.profiles add column if not exists market text not null default 'BR';

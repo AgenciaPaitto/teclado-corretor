@@ -19,6 +19,7 @@ import { canRecord, cancelRecording, RecorderError, startRecording, stopRecordin
 import { pickAudioFile } from '../../native/MediaPicker';
 import { deleteUploadedMedia, formatDuration } from '../../services/mediaUpload';
 import type { LocalMedia } from '../../services/mediaUpload';
+import { t } from '../../i18n';
 
 /** Formulários de criação/edição: id null = criando um atalho novo. */
 interface TextForm {
@@ -42,9 +43,9 @@ interface AudioForm {
 const EMPTY_AUDIO_FORM: AudioForm = { id: null, title: '', url: '', duration: '', transcript: '' };
 
 function confirmDelete(title: string, onConfirm: () => void) {
-  Alert.alert('Excluir atalho', `Deseja excluir "${title}"?`, [
-    { text: 'Cancelar', style: 'cancel' },
-    { text: 'Excluir', style: 'destructive', onPress: onConfirm },
+  Alert.alert(t('Excluir atalho'), t('Deseja excluir "{title}"?', { title }), [
+    { text: t('Cancelar'), style: 'cancel' },
+    { text: t('Excluir'), style: 'destructive', onPress: onConfirm },
   ]);
 }
 
@@ -103,7 +104,7 @@ export function ShortcutsManagerScreen() {
       setElapsed(0);
       setRecordingSince(Date.now());
     } catch (e) {
-      setRecordError(e instanceof RecorderError ? e.message : 'Não foi possível usar o microfone.');
+      setRecordError(e instanceof RecorderError ? e.message : t('Não foi possível usar o microfone.'));
     }
   };
 
@@ -112,7 +113,7 @@ export function ShortcutsManagerScreen() {
     try {
       applyRecordedAudio(await stopRecording());
     } catch (e) {
-      setRecordError(e instanceof RecorderError ? e.message : 'Não foi possível terminar a gravação.');
+      setRecordError(e instanceof RecorderError ? e.message : t('Não foi possível terminar a gravação.'));
     }
   };
 
@@ -155,7 +156,7 @@ export function ShortcutsManagerScreen() {
   const handleSaveText = () => {
     if (!textForm) return;
     if (!textForm.title.trim() || !textForm.text.trim()) {
-      Alert.alert('Atenção', 'Preencha o título e o texto da mensagem.');
+      Alert.alert(t('Atenção'), t('Preencha o título e o texto da mensagem.'));
       return;
     }
 
@@ -172,18 +173,18 @@ export function ShortcutsManagerScreen() {
     }
     refreshShortcuts();
     setTextForm(null);
-    Alert.alert('Sucesso', textForm.id ? 'Atalho atualizado!' : 'Atalho de texto criado e sincronizado com o teclado!');
+    Alert.alert(t('Sucesso'), textForm.id ? t('Atalho atualizado!') : t('Atalho de texto criado e sincronizado com o teclado!'));
   };
 
   const handleSaveAudio = () => {
     if (!audioForm) return;
     if (!audioForm.title.trim()) {
-      Alert.alert('Atenção', 'Preencha o título do áudio.');
+      Alert.alert(t('Atenção'), t('Preencha o título do áudio.'));
       return;
     }
     const audioUrl = normalizeUrl(audioForm.url);
     if (!audioUrl) {
-      Alert.alert('Atenção', 'Grave o áudio, escolha um arquivo do celular ou cole o link.');
+      Alert.alert(t('Atenção'), t('Grave o áudio, escolha um arquivo do celular ou cole o link.'));
       return;
     }
     // Trocou o áudio de um atalho que já tinha arquivo na nuvem: apaga o antigo
@@ -208,7 +209,7 @@ export function ShortcutsManagerScreen() {
     refreshShortcuts();
     setPendingUpload(null); // salvo: o arquivo agora pertence ao atalho
     setAudioForm(null);
-    Alert.alert('Sucesso', audioForm.id ? 'Áudio atualizado!' : 'Atalho de áudio adicionado e sincronizado com o teclado!');
+    Alert.alert(t('Sucesso'), audioForm.id ? t('Áudio atualizado!') : t('Atalho de áudio adicionado e sincronizado com o teclado!'));
   };
 
   const handleDeleteText = (item: TextShortcut) => {
@@ -231,10 +232,10 @@ export function ShortcutsManagerScreen() {
   const renderItemActions = (onEdit: () => void, onDelete: () => void) => (
     <View style={styles.itemActions}>
       <Pressable hitSlop={6} onPress={onEdit}>
-        <Text style={styles.linkText}>Editar</Text>
+        <Text style={styles.linkText}>{t('Editar')}</Text>
       </Pressable>
       <Pressable hitSlop={6} onPress={onDelete}>
-        <Text style={styles.deleteText}>Excluir</Text>
+        <Text style={styles.deleteText}>{t('Excluir')}</Text>
       </Pressable>
     </View>
   );
@@ -243,8 +244,8 @@ export function ShortcutsManagerScreen() {
     <View style={styles.container}>
       <View style={styles.headerBar}>
         <View>
-          <Text style={styles.badge}>Respostas rápidas</Text>
-          <Text style={styles.headerTitle}>Atalhos do Teclado</Text>
+          <Text style={styles.badge}>{t('Respostas rápidas')}</Text>
+          <Text style={styles.headerTitle}>{t('Atalhos do Teclado')}</Text>
         </View>
         <Pressable
           style={styles.addBtn}
@@ -255,7 +256,7 @@ export function ShortcutsManagerScreen() {
           <CoralSheen />
           <Icon name="adicionar" size={18} color={colors.onPrimary} />
           <Text style={styles.addBtnText}>
-            {activeTab === 'text' ? 'Novo texto' : 'Novo áudio'}
+            {activeTab === 'text' ? t('Novo texto') : t('Novo áudio')}
           </Text>
         </Pressable>
       </View>
@@ -266,52 +267,48 @@ export function ShortcutsManagerScreen() {
           style={[styles.toggleBtn, activeTab === 'text' && styles.toggleBtnActive]}
           onPress={() => switchTab('text')}>
           <Text style={[styles.toggleText, activeTab === 'text' && styles.toggleTextActive]}>
-            Textos ({shortcuts.texts.length})
-          </Text>
+            {t('Textos ({length})', { length: shortcuts.texts.length })}</Text>
         </Pressable>
         <Pressable
           style={[styles.toggleBtn, activeTab === 'audio' && styles.toggleBtnActive]}
           onPress={() => switchTab('audio')}>
           <Text style={[styles.toggleText, activeTab === 'audio' && styles.toggleTextActive]}>
-            Áudios Rápidos ({shortcuts.audios.length})
-          </Text>
+            {t('Áudios Rápidos ({length})', { length: shortcuts.audios.length })}</Text>
         </Pressable>
       </View>
 
       {/* Formulário de Texto (criar / editar) */}
       {textForm && (
         <ScrollView style={styles.formContainer} keyboardShouldPersistTaps="handled">
-          <Text style={styles.sectionTitle}>{textForm.id ? 'Editar Atalho de Texto' : 'Novo Atalho de Texto'}</Text>
-          <Text style={styles.label}>Título do Atalho</Text>
+          <Text style={styles.sectionTitle}>{textForm.id ? t('Editar Atalho de Texto') : t('Novo Atalho de Texto')}</Text>
+          <Text style={styles.label}>{t('Título do Atalho')}</Text>
           <TextInput
             style={styles.input}
-            placeholder="Ex: Formas de pagamento, Chave Pix"
+            placeholder={t('Ex: Formas de pagamento, Chave Pix')}
             placeholderTextColor={colors.textMuted}
             value={textForm.title}
             onChangeText={title => setTextForm({ ...textForm, title })}
           />
 
-          <Text style={styles.label}>Conteúdo da Mensagem</Text>
+          <Text style={styles.label}>{t('Conteúdo da Mensagem')}</Text>
           <TextInput
             style={[styles.input, styles.textArea]}
-            placeholder="Escreva a mensagem que será colada no WhatsApp."
+            placeholder={t('Escreva a mensagem que será colada no WhatsApp.')}
             placeholderTextColor={colors.textMuted}
             multiline
             value={textForm.text}
             onChangeText={text => setTextForm({ ...textForm, text })}
           />
           <Text style={styles.hint}>
-            Variáveis: {'{{nome}}'}, {'{{empresa}}'} e {'{{telefone}}'} são trocadas pelos dados do
-            seu perfil.
-          </Text>
+            {t('Variáveis: {{nome}}, {{empresa}} e {{telefone}} são trocadas pelos dados do seu perfil.')}</Text>
 
           <View style={styles.formBtnsRow}>
             <Pressable style={styles.cancelBtn} onPress={() => setTextForm(null)}>
-              <Text style={styles.cancelBtnText}>Cancelar</Text>
+              <Text style={styles.cancelBtnText}>{t('Cancelar')}</Text>
             </Pressable>
             <Pressable style={styles.saveBtn} onPress={handleSaveText}>
               <CoralSheen />
-              <Text style={styles.saveBtnText}>Salvar Atalho</Text>
+              <Text style={styles.saveBtnText}>{t('Salvar Atalho')}</Text>
             </Pressable>
           </View>
         </ScrollView>
@@ -320,29 +317,29 @@ export function ShortcutsManagerScreen() {
       {/* Formulário de Áudio (criar / editar) */}
       {audioForm && (
         <ScrollView style={styles.formContainer} keyboardShouldPersistTaps="handled">
-          <Text style={styles.sectionTitle}>{audioForm.id ? 'Editar Áudio' : 'Novo Áudio Pré-gravado'}</Text>
-          <Text style={styles.label}>Título do Áudio</Text>
+          <Text style={styles.sectionTitle}>{audioForm.id ? t('Editar Áudio') : t('Novo Áudio Pré-gravado')}</Text>
+          <Text style={styles.label}>{t('Título do Áudio')}</Text>
           <TextInput
             style={styles.input}
-            placeholder="Ex: Apresentação Inicial, Proposta Aceita"
+            placeholder={t('Ex: Apresentação Inicial, Proposta Aceita')}
             placeholderTextColor={colors.textMuted}
             value={audioForm.title}
             onChangeText={title => setAudioForm({ ...audioForm, title })}
           />
 
-          <Text style={styles.label}>Áudio</Text>
+          <Text style={styles.label}>{t('Áudio')}</Text>
           {recordingSince !== null ? (
             // Gravando: tempo correndo, parar ou cancelar
             <View style={styles.recordBox}>
               <View style={styles.recDot} />
               <Text style={styles.recTime}>{formatDuration(elapsed) || '0:00'}</Text>
-              <Text style={styles.recLabel}>Gravando…</Text>
+              <Text style={styles.recLabel}>{t('Gravando…')}</Text>
               <Pressable style={styles.recCancel} onPress={handleCancelRecording}>
-                <Text style={styles.cancelBtnText}>Cancelar</Text>
+                <Text style={styles.cancelBtnText}>{t('Cancelar')}</Text>
               </Pressable>
               <Pressable style={styles.recStop} onPress={handleStopRecording}>
                 <CoralSheen />
-                <Text style={styles.saveBtnText}>Parar e usar</Text>
+                <Text style={styles.saveBtnText}>{t('Parar e usar')}</Text>
               </Pressable>
             </View>
           ) : audioForm.url && !audioForm.linkMode ? (
@@ -350,13 +347,13 @@ export function ShortcutsManagerScreen() {
             <View style={styles.audioReady}>
               <IconTile name="audio" size={36} />
               <View style={styles.flex}>
-                <Text style={styles.itemTitle}>{audioForm.storagePath ? 'Áudio salvo na nuvem' : 'Áudio por link'}</Text>
+                <Text style={styles.itemTitle}>{audioForm.storagePath ? t('Áudio salvo na nuvem') : t('Áudio por link')}</Text>
                 <Text style={styles.urlText} numberOfLines={1}>
-                  {audioForm.duration || (audioForm.storagePath ? 'Pronto para enviar' : audioForm.url)}
+                  {audioForm.duration || (audioForm.storagePath ? t('Pronto para enviar') : audioForm.url)}
                 </Text>
               </View>
               <Pressable hitSlop={6} onPress={() => setAudioForm({ ...audioForm, url: '', storagePath: undefined })}>
-                <Text style={styles.linkText}>Trocar</Text>
+                <Text style={styles.linkText}>{t('Trocar')}</Text>
               </Pressable>
             </View>
           ) : (
@@ -364,15 +361,15 @@ export function ShortcutsManagerScreen() {
               <SourceButtons
                 disabled={!!uploader.uploading}
                 options={[
-                  ...(canRecord ? [{ key: 'audio-record', icon: 'audio' as const, label: 'Gravar agora', onPress: handleStartRecording }] : []),
-                  { key: 'audio-file', icon: 'arquivos', label: 'Arquivo do celular', onPress: handlePickAudioFile },
-                  { key: 'audio-link', icon: 'compartilhar', label: 'Colar link', onPress: () => setAudioForm({ ...audioForm, linkMode: true }) },
+                  ...(canRecord ? [{ key: 'audio-record', icon: 'audio' as const, label: t('Gravar agora'), onPress: handleStartRecording }] : []),
+                  { key: 'audio-file', icon: 'arquivos', label: t('Arquivo do celular'), onPress: handlePickAudioFile },
+                  { key: 'audio-link', icon: 'compartilhar', label: t('Colar link'), onPress: () => setAudioForm({ ...audioForm, linkMode: true }) },
                 ]}
               />
               {audioForm.linkMode && (
                 <TextInput
                   style={styles.input}
-                  placeholder="Cole o link direto do arquivo (.mp3, .ogg, .m4a)"
+                  placeholder={t('Cole o link direto do arquivo (.mp3, .ogg, .m4a)')}
                   placeholderTextColor={colors.textMuted}
                   keyboardType="url"
                   autoCapitalize="none"
@@ -385,19 +382,19 @@ export function ShortcutsManagerScreen() {
           )}
           <UploadStatus uploading={uploader.uploading} error={recordError ?? uploader.error} />
 
-          <Text style={styles.label}>Duração (opcional)</Text>
+          <Text style={styles.label}>{t('Duração (opcional)')}</Text>
           <TextInput
             style={styles.input}
-            placeholder="Ex: 0:45"
+            placeholder={t('Ex: 0:45')}
             placeholderTextColor={colors.textMuted}
             value={audioForm.duration}
             onChangeText={duration => setAudioForm({ ...audioForm, duration })}
           />
 
-          <Text style={styles.label}>Transcrição do Áudio (opcional)</Text>
+          <Text style={styles.label}>{t('Transcrição do Áudio (opcional)')}</Text>
           <TextInput
             style={[styles.input, styles.textArea]}
-            placeholder="Texto do áudio para conferência rápida antes de enviar"
+            placeholder={t('Texto do áudio para conferência rápida antes de enviar')}
             placeholderTextColor={colors.textMuted}
             multiline
             value={audioForm.transcript}
@@ -406,14 +403,14 @@ export function ShortcutsManagerScreen() {
 
           <View style={styles.formBtnsRow}>
             <Pressable style={styles.cancelBtn} onPress={closeAudioForm}>
-              <Text style={styles.cancelBtnText}>Cancelar</Text>
+              <Text style={styles.cancelBtnText}>{t('Cancelar')}</Text>
             </Pressable>
             <Pressable
               style={[styles.saveBtn, (!!uploader.uploading || recordingSince !== null) && styles.disabledBtn]}
               disabled={!!uploader.uploading || recordingSince !== null}
               onPress={handleSaveAudio}>
               <CoralSheen />
-              <Text style={styles.saveBtnText}>Salvar Áudio</Text>
+              <Text style={styles.saveBtnText}>{t('Salvar Áudio')}</Text>
             </Pressable>
           </View>
         </ScrollView>
@@ -429,9 +426,9 @@ export function ShortcutsManagerScreen() {
             textForm ? null : (
               <EmptyState
                 icon="respostas"
-                title="Nenhum atalho de texto"
-                text="Salve as mensagens que você manda sempre e envie pelo teclado com um toque."
-                actionLabel="Criar atalho de texto"
+                title={t('Nenhum atalho de texto')}
+                text={t('Salve as mensagens que você manda sempre e envie pelo teclado com um toque.')}
+                actionLabel={t('Criar atalho de texto')}
                 onAction={() => setTextForm({ id: null, title: '', text: '' })}
               />
             )
@@ -459,9 +456,9 @@ export function ShortcutsManagerScreen() {
             audioForm ? null : (
               <EmptyState
                 icon="audio"
-                title="Nenhum áudio"
-                text="Grave ou escolha um áudio para enviar na conversa sem gravar de novo."
-                actionLabel="Adicionar áudio"
+                title={t('Nenhum áudio')}
+                text={t('Grave ou escolha um áudio para enviar na conversa sem gravar de novo.')}
+                actionLabel={t('Adicionar áudio')}
                 onAction={() => setAudioForm(EMPTY_AUDIO_FORM)}
               />
             )
@@ -475,7 +472,7 @@ export function ShortcutsManagerScreen() {
               </View>
               {item.transcript ? <Text style={styles.transcriptText}>"{item.transcript}"</Text> : null}
               <Text style={styles.urlText} numberOfLines={1}>
-                {item.storagePath ? 'Áudio salvo na nuvem' : item.audioUrl}
+                {item.storagePath ? t('Áudio salvo na nuvem') : item.audioUrl}
               </Text>
               {renderItemActions(
                 () =>

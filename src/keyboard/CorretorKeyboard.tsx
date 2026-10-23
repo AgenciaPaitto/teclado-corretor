@@ -1,14 +1,16 @@
 /**
  * CorretorKeyboard.tsx — Componente RAIZ do teclado KEYCON.
  * Menu com os botões do sistema mantido SEMPRE VISÍVEL no topo do teclado:
- * ABC (teclado de letras próprio), Produtos, Atalhos, IA e Mais.
+ * ABC (teclado de letras próprio), Produtos, Atalhos, Arquivos, IA e Mais.
  */
+import { t, tSell } from '../i18n';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Animated, Text, View } from 'react-native';
 import { KeyboardBridge } from '../native/KeyboardBridge';
 import { LoginRequiredPanel } from './components/LoginRequiredPanel';
 import type { KeyboardData, MainSystemTab, ThemePreference } from '../types';
 import { AICopilotTab } from './components/AICopilotTab';
+import { FilesTab } from './components/FilesTab';
 import { MoreTab } from './components/MoreTab';
 import { ProductsTab } from './components/ProductsTab';
 import { ShortcutsTab } from './components/ShortcutsTab';
@@ -17,6 +19,8 @@ import { TypingKeyboard } from './components/TypingKeyboard';
 import { Aurora } from './components/Glass';
 import { useKeyboardData } from './hooks/useKeyboardData';
 import { buildLexicon } from './typing/lexicon';
+import { useLanguage } from '../i18n/useLanguage';
+import { applyProfileLanguages } from '../i18n/profile';
 import { getSegment } from '../segments/segments';
 import { makeStyles, radius, ThemeProvider } from './theme';
 
@@ -73,11 +77,10 @@ function ErrorFallback({ message, onRetry }: { message: string | null; onRetry: 
   const styles = useStyles();
   return (
     <View style={[styles.root, styles.errorContainer]}>
-      <Text style={styles.errorTitle}>KEYCON</Text>
-      <Text style={styles.errorSubtitle}>{message || 'Erro ao inicializar visualização'}</Text>
+      <Text style={styles.errorTitle}>{t('KEYCON')}</Text>
+      <Text style={styles.errorSubtitle}>{message || t('Erro ao inicializar visualização')}</Text>
       <Text style={styles.errorButton} onPress={onRetry}>
-        Tentar novamente
-      </Text>
+        {t('Tentar novamente')}</Text>
     </View>
   );
 }
@@ -91,7 +94,12 @@ interface ContentProps {
 }
 
 function CorretorKeyboardContent({ data, loggedIn, onThemeChange, onDataChanged }: ContentProps) {
+  useLanguage();
   const styles = useStyles();
+
+  useEffect(() => {
+    applyProfileLanguages(data.seller);
+  }, [data.seller]);
   const [tab, setTab] = useState<MainSystemTab>('products');
   const [toast, setToast] = useState<string | null>(null);
   const toastOpacity = useRef(new Animated.Value(0)).current;
@@ -141,9 +149,9 @@ function CorretorKeyboardContent({ data, loggedIn, onThemeChange, onDataChanged 
     async (text: string) => {
       try {
         const ok = await KeyboardBridge.insertText(text);
-        showToast(ok ? 'Inserido' : 'Campo indisponível');
+        showToast(ok ? t('Inserido') : t('Campo indisponível'));
       } catch {
-        showToast('Não foi possível inserir');
+        showToast(t('Não foi possível inserir'));
       }
     },
     [showToast],
@@ -156,26 +164,26 @@ function CorretorKeyboardContent({ data, loggedIn, onThemeChange, onDataChanged 
   const sendImage = useCallback(
     async (url: string, title: string) => {
       if (sending.current) {
-        showToast('Aguarde o envio anterior');
+        showToast(t('Aguarde o envio anterior'));
         return;
       }
       sending.current = true;
-      showToast('Baixando foto...', 30000);
+      showToast(t('Baixando foto...'), 30000);
       let reason: string;
       try {
         const result = await KeyboardBridge.commitImage(url, title);
         if (result === 'sent') {
-          showToast('Foto enviada para a conversa');
+          showToast(t('Foto enviada para a conversa'));
           return;
         }
-        reason = result === 'unsupported' ? 'Este app não recebe fotos pelo teclado' : 'O app recusou a foto';
+        reason = result === 'unsupported' ? t('Este app não recebe fotos pelo teclado') : t('O app recusou a foto');
       } catch (e) {
         reason = describeError(e);
       } finally {
         sending.current = false;
       }
-      const ok = await KeyboardBridge.insertText(`[Foto] ${title}: ${url}`).catch(() => false);
-      showToast(ok ? `${sentence(reason)} Link inserido.` : reason, 4000);
+      const ok = await KeyboardBridge.insertText(`[${tSell('Foto')}] ${title}: ${url}`).catch(() => false);
+      showToast(ok ? t('{v} Link inserido.', { v: sentence(reason) }) : reason, 4000);
     },
     [showToast],
   );
@@ -187,18 +195,18 @@ function CorretorKeyboardContent({ data, loggedIn, onThemeChange, onDataChanged 
   const shareMedia = useCallback(
     async (urls: string[], fallbackText: string) => {
       if (sending.current) {
-        showToast('Aguarde o envio anterior');
+        showToast(t('Aguarde o envio anterior'));
         return;
       }
       sending.current = true;
-      showToast(urls.length > 1 ? `Baixando ${urls.length} arquivos...` : 'Baixando arquivo...', 60000);
+      showToast(urls.length > 1 ? t('Baixando {length} arquivos...', { length: urls.length }) : t('Baixando arquivo...'), 60000);
       try {
         await KeyboardBridge.shareMedia(urls);
-        showToast('Escolha a conversa para enviar', 2500);
+        showToast(t('Escolha a conversa para enviar'), 2500);
       } catch (e) {
         const reason = describeError(e);
         const ok = await KeyboardBridge.insertText(fallbackText).catch(() => false);
-        showToast(ok ? `${sentence(reason)} Link inserido.` : reason, 4000);
+        showToast(ok ? t('{v} Link inserido.', { v: sentence(reason) }) : reason, 4000);
       } finally {
         sending.current = false;
       }
@@ -235,10 +243,22 @@ function CorretorKeyboardContent({ data, loggedIn, onThemeChange, onDataChanged 
             onInsert={insert}
             onSendImage={sendImage}
             onShare={shareMedia}
+            onExpandedChange={setExpanded}
+            onChanged={onDataChanged}
           />
         )}
         {loggedIn && tab === 'shortcuts' && (
           <ShortcutsTab shortcuts={data.shortcuts} seller={data.seller} onInsert={insert} onShare={shareMedia} />
+        )}
+        {loggedIn && tab === 'files' && (
+          <FilesTab
+            files={data.files}
+            onSendImage={sendImage}
+            onShare={shareMedia}
+            onInsert={insert}
+            onExpandedChange={setExpanded}
+            onChanged={onDataChanged}
+          />
         )}
         {loggedIn && tab === 'copilot' && <AICopilotTab onInsert={insert} />}
         {loggedIn && tab === 'more' && (

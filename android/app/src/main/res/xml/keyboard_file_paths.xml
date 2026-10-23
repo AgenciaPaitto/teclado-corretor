@@ -2,4 +2,6 @@
 <!-- Pasta do cache que o teclado pode entregar ao WhatsApp e outros apps -->
 <paths>
     <cache-path name="keyboard_media" path="keyboard_media/" />
+    <!-- Onde a câmera grava a foto/vídeo pedido pelo teclado (seção Arquivos) -->
+    <cache-path name="picked" path="picked/" />
 </paths>

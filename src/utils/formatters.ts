@@ -1,77 +1,70 @@
 /**
  * Formatadores de mensagens — Minimalista, sem emojis.
  */
+import { getLanguage, getSellingLanguage, tIn } from '../i18n';
+import type { Lang } from '../i18n';
+import { currentMarketInfo, formatMoney } from '../i18n/markets';
 import { getSegment } from '../segments/segments';
 import type { SegmentProfile } from '../segments/segments';
 import type { Product, ProductAttribute, ProductFolder, SegmentId, SellerProfile } from '../types';
 
-export function formatBRL(value: number): string {
-  const [int, dec] = value.toFixed(2).split('.');
-  const withDots = int.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
-  return `R$ ${withDots},${dec}`;
+type SegmentRef = SegmentId | SegmentProfile;
+
+/** O ramo no idioma pedido (aceita o id ou o perfil já carregado). */
+function segmentIn(segment: SegmentRef, lang: Lang): SegmentProfile {
+  return getSegment(typeof segment === 'string' ? segment : segment.id, lang);
 }
 
-/**
- * Converte um valor digitado em formato brasileiro para número.
- * Aceita "850000", "850.000", "850.000,50", "R$ 1.200,00" e "1200.50".
- * Retorna null se não houver um número válido maior que zero.
- */
-export function parseBRL(input: string): number | null {
-  let s = input.replace(/[^\d.,]/g, '');
-  if (!s) return null;
-  if (s.includes(',')) {
-    // Vírgula = separador decimal; pontos = milhar
-    s = s.replace(/\./g, '').replace(',', '.');
-  } else if (/\.\d{3}(\.|$)/.test(s)) {
-    // "850.000" → pontos são separadores de milhar
-    s = s.replace(/\./g, '');
-  }
-  const n = parseFloat(s);
-  return Number.isFinite(n) && n > 0 ? n : null;
+/** Valor na moeda de quem vende: "R$ 1.234,56", "$1,234.56", "1.234,56 €". */
+export function formatCurrency(value: number): string {
+  return formatMoney(value, currentMarketInfo());
 }
 
 /**
  * Preço como o ramo mostra: "R$ 450.000,00", "a partir de R$ 89,90/mês",
  * "R$ 2.500,00/mês" (locação). Preço 0 = "Sob consulta".
+ * lang: idioma do texto (padrão: o das telas; mensagens ao cliente usam o de venda).
  */
 export function formatPrice(
   p: Pick<Product, 'price' | 'attributes'>,
-  segment: SegmentId | SegmentProfile = 'general',
+  segment: SegmentRef = 'general',
+  lang: Lang = getLanguage(),
 ): string {
-  if (!(p.price > 0)) return 'Sob consulta';
-  const { prefix, suffix } = (typeof segment === 'string' ? getSegment(segment) : segment).price;
+  if (!(p.price > 0)) return tIn(lang, 'Sob consulta');
+  const { prefix, suffix } = segmentIn(segment, lang).price;
   const after = typeof suffix === 'function' ? suffix(p) : suffix ?? '';
-  return `${prefix ? `${prefix} ` : ''}${formatBRL(p.price)}${after}`;
+  return `${prefix ? `${prefix} ` : ''}${formatCurrency(p.price)}${after}`;
 }
 
-/** "Área: 85 m²" (a unidade vem do campo do ramo, quando houver). */
-export function formatAttribute(a: ProductAttribute, segment: SegmentId | SegmentProfile = 'general'): string {
-  const profile = typeof segment === 'string' ? getSegment(segment) : segment;
-  const unit = profile.fields.find(f => f.key === a.key)?.unit;
-  return `${a.label}: ${a.value}${unit ? ` ${unit}` : ''}`;
+/**
+ * "Área: 85 m²" (a unidade vem do campo do ramo, quando houver). O nome do
+ * campo e as opções (Venda, Locação...) saem no idioma pedido.
+ */
+export function formatAttribute(a: ProductAttribute, segment: SegmentRef = 'general', lang: Lang = getLanguage()): string {
+  const field = segmentIn(segment, lang).fields.find(f => f.key === a.key);
+  const label = field?.label ?? tIn(lang, a.label);
+  const value = field?.options ? tIn(lang, a.value) : a.value;
+  return `${label}: ${value}${field?.unit ? ` ${field.unit}` : ''}`;
 }
 
 /** Características preenchidas do produto, já formatadas. */
-export function attributeLines(p: Pick<Product, 'attributes'>, segment: SegmentId | SegmentProfile = 'general'): string[] {
-  return (p.attributes ?? []).filter(a => a.value.trim()).map(a => formatAttribute(a, segment));
+export function attributeLines(p: Pick<Product, 'attributes'>, segment: SegmentRef = 'general', lang: Lang = getLanguage()): string[] {
+  return (p.attributes ?? []).filter(a => a.value.trim()).map(a => formatAttribute(a, segment, lang));
 }
 
-/** Mensagem limpa formatada para envio no WhatsApp (sem emojis). */
-export function formatProductMessage(
-  p: Product,
-  folder?: ProductFolder,
-  segment: SegmentId | SegmentProfile = 'general',
-): string {
-  const details = attributeLines(p, segment);
+/** Mensagem limpa para envio no WhatsApp (sem emojis), no idioma de venda. */
+export function formatProductMessage(p: Product, folder?: ProductFolder, segment: SegmentRef = 'general'): string {
+  const lang = getSellingLanguage();
+  const details = attributeLines(p, segment, lang);
   return [
     `*${p.title}*`,
     folder ? folder.name : null,
-    `*${formatPrice(p, segment)}*`,
+    `*${formatPrice(p, segment, lang)}*`,
     ...(details.length ? ['', ...details] : []),
     '',
     p.shortDescription,
     // Sem link cadastrado, a mensagem termina na descrição
-    ...(p.datasheetUrl ? ['', `Veja mais: ${p.datasheetUrl}`] : []),
+    ...(p.datasheetUrl ? ['', tIn(lang, 'Veja mais: {url}', { url: p.datasheetUrl })] : []),
   ]
     .filter(line => line !== null)
     .join('\n')
@@ -80,9 +73,9 @@ export function formatProductMessage(
     .trim();
 }
 
-/** Mensagem de retorno do CRM ({{cliente}} = nome do cliente). */
+/** Mensagem de retorno do CRM ({{cliente}} = nome do cliente), no idioma de venda. */
 export function formatFollowUp(clientName: string, segment: SegmentId): string {
-  return getSegment(segment).followUp.replace(/\{\{cliente\}\}/g, clientName);
+  return getSegment(segment, getSellingLanguage()).followUp.replace(/\{\{cliente\}\}/g, clientName);
 }
 
 /**

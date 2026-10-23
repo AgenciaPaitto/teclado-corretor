@@ -1,224 +1,564 @@
-import React, { useState } from 'react';
-import { FlatList, Pressable, ScrollView, Text, View } from 'react-native';
+/**
+ * Produtos no teclado: ver e enviar os produtos na conversa e também
+ * gerenciá-los ali mesmo — criar, editar e excluir pastas (categorias) e
+ * produtos (nome, preço, categoria, descrição e imagem).
+ *
+ * As regras de salvar são as mesmas do app (src/catalog) e tudo grava no
+ * mesmo armazenamento: o que muda aqui aparece no app e vice-versa.
+ * Os formulários abrem com o teclado em tela grande, com o teclado de letras
+ * do KEYCON escrevendo nos campos (KeyboardForm).
+ */
+import { t, tSell } from '../../i18n';
+import React, { useEffect, useMemo, useState } from 'react';
+import { FlatList, Image, Pressable, ScrollView, Text, View } from 'react-native';
+import { deleteFolder, deleteProduct, draftFromProduct, emptyDraft, saveFolder, saveProductDraft } from '../../catalog/catalog';
+import type { ProductDraft } from '../../catalog/catalog';
+import { currentMarketInfo, formatMoney, moneyFromDigits } from '../../i18n/markets';
+import { KeyboardBridge } from '../../native/KeyboardBridge';
+import type { KeyboardPickSource } from '../../native/KeyboardBridge';
 import type { SegmentProfile } from '../../segments/segments';
 import type { MediaItem, Product, ProductFolder } from '../../types';
-import { attributeLines, formatPrice, formatProductMessage } from '../../utils/formatters';
-import { coralGlass, glassBorder, makeStyles, onCoralText, radius, spacing, touchTarget, useColors } from '../theme';
+import { formatPrice, formatProductMessage } from '../../utils/formatters';
+import { UploadStatus, useUploader } from '../../app/components/MediaUpload';
+import { coralGlass, glassBorder, makeStyles, onCoralText, radius, spacing, touchTarget, typography, useColors } from '../theme';
 import { CoralSheen } from './Glass';
 import { Icon } from './Icon';
 import { ItemCard } from './ItemCard';
+import { ActionButton, BarButton, ConfirmDelete } from './KeyboardButtons';
+import { Header } from './KeyboardCRM';
+import { ChoiceRow, KeyboardFormField, KeyboardFormKeys, useKeyboardForm } from './KeyboardForm';
+import type { FormFieldSpec } from './KeyboardForm';
 
 interface Props {
   folders: ProductFolder[];
-  /** Ramo do usuário: preço, características e nomes da ficha. */
+  /** Ramo do usuário: preço e nomes da ficha. */
   segment: SegmentProfile;
   onInsert: (text: string) => void;
   /** Foto direto na conversa (cai no link se o app não aceitar). */
   onSendImage: (url: string, title: string) => void;
   /** Compartilhamento do Android; fallbackText é inserido se falhar. */
   onShare: (urls: string[], fallbackText: string) => void;
+  /** Os formulários abrem com o teclado em tela grande. */
+  onExpandedChange: (expanded: boolean) => void;
+  /** Depois de gravar: relê os dados. */
+  onChanged: () => void;
 }
 
-const photoLink = (m: MediaItem) => `[Foto] ${m.title}: ${m.url}`;
-const videoLink = (m: MediaItem) => `[Vídeo] ${m.title}${m.duration ? ` (${m.duration})` : ''}: ${m.url}`;
+const photoLink = (m: MediaItem) => `[${tSell('Foto')}] ${m.title}: ${m.url}`;
 
-type ProductDetailView = 'details' | 'photos' | 'videos';
+type Screen =
+  | { name: 'browse' }
+  | { name: 'product'; id: string }
+  | { name: 'product-form'; id: string | null }
+  | { name: 'folder-form'; id: string | null };
 
-/**
- * Aba de Produtos — Pastas com informações sobre cada produto (Fotos, vídeos e detalhes).
- * Mídias hospedadas em Cloud Object Storage sem ocupar armazenamento do dispositivo.
- */
-export function ProductsTab({ folders, segment, onInsert, onSendImage, onShare }: Props) {
-  const colors = useColors();
-  const styles = useStyles();
-  const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
-  const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
-  const [activeSubTab, setActiveSubTab] = useState<ProductDetailView>('details');
+export function ProductsTab({ folders, segment, onInsert, onSendImage, onExpandedChange, onChanged }: Props) {
+  /** Pasta aberta (null = lista de pastas). */
+  const [folderId, setFolderId] = useState<string | null>(null);
+  const [screen, setScreen] = useState<Screen>({ name: 'browse' });
 
-  const folder = folders.find(f => f.id === selectedFolderId);
-  const product = folder?.products.find(p => p.id === selectedProductId);
+  const folder = folderId ? folders.find(f => f.id === folderId) : undefined;
+  // Pasta excluída (aqui ou no app): volta para a lista
+  useEffect(() => {
+    if (folderId && !folder) setFolderId(null);
+  }, [folderId, folder]);
 
-  // 1. Nível 1: Lista de Pastas
-  if (!folder) {
+  const editing = screen.name === 'product-form' || screen.name === 'folder-form';
+  useEffect(() => {
+    onExpandedChange(editing);
+    if (!editing) return;
+    // A galeria fecha o teclado; ao voltar, o Android o reabre no tamanho
+    // normal: o formulário pede a tela grande de novo
+    return KeyboardBridge.onKeyboardShow(() => onExpandedChange(true));
+  }, [editing, onExpandedChange]);
+  // Sair da aba com um formulário aberto: o teclado volta ao normal
+  useEffect(() => () => onExpandedChange(false), [onExpandedChange]);
+
+  const browse = () => setScreen({ name: 'browse' });
+  const locate = (productId: string) => folders.find(f => f.products.some(p => p.id === productId));
+
+  if (screen.name === 'folder-form') {
+    const target = screen.id ? folders.find(f => f.id === screen.id) : undefined;
     return (
-      <FlatList
-        data={folders}
-        keyExtractor={f => f.id}
-        contentContainerStyle={styles.list}
-        keyboardShouldPersistTaps="always"
-        ListEmptyComponent={
-          <Text style={styles.empty}>
-            Nada por aqui ainda. Cadastre seus {segment.terms.items} no app KEYCON para enviá-los por este teclado.
-          </Text>
-        }
-        renderItem={({ item }) => (
-          <ItemCard
-            testID={`folder-${item.id}`}
-            title={item.name}
-            subtitle={item.description}
-            meta={`${item.products.length} itens`}
-            icon="pasta"
-            onPress={() => setSelectedFolderId(item.id)}
-          />
-        )}
+      <FolderForm
+        folder={target}
+        onCancel={browse}
+        onSaved={id => {
+          onChanged();
+          setFolderId(id);
+          browse();
+        }}
+        onDeleted={() => {
+          if (target) deleteFolder(target);
+          onChanged();
+          setFolderId(null);
+          browse();
+        }}
       />
     );
   }
 
-  // 2. Nível 2: Lista de Produtos dentro da Pasta selecionada
-  if (!product) {
+  if (screen.name === 'product-form') {
+    const from = screen.id ? locate(screen.id) : undefined;
+    const product = from?.products.find(p => p.id === screen.id);
     return (
-      <View style={styles.flex}>
-        <Pressable testID="folder-back" onPress={() => setSelectedFolderId(null)} style={styles.breadcrumb}>
-          <Icon name="voltar" size={18} color={colors.textMuted} />
-          <Text style={styles.back}>Voltar</Text>
-          <Text style={styles.crumbTitle} numberOfLines={1}>{folder.name}</Text>
-        </Pressable>
+      <ProductForm
+        segment={segment}
+        folders={folders}
+        initial={product && from ? draftFromProduct(product, from.id) : emptyDraft(folder?.id ?? folders[0]?.id ?? '')}
+        onCancel={() => (product ? setScreen({ name: 'product', id: product.id }) : browse())}
+        onSaved={(id, savedFolderId) => {
+          onChanged();
+          setFolderId(savedFolderId);
+          setScreen({ name: 'product', id });
+        }}
+      />
+    );
+  }
+
+  if (screen.name === 'product') {
+    const from = locate(screen.id);
+    const product = from?.products.find(p => p.id === screen.id);
+    if (product && from) {
+      return (
+        <ProductDetail
+          product={product}
+          folder={from}
+          segment={segment}
+          onBack={browse}
+          onInsert={onInsert}
+          onSendImage={onSendImage}
+          onEdit={() => setScreen({ name: 'product-form', id: product.id })}
+          onDelete={() => {
+            deleteProduct(from.id, product);
+            onChanged();
+            browse();
+          }}
+        />
+      );
+    }
+  }
+
+  return (
+    <Browser
+      folders={folders}
+      folder={folder}
+      segment={segment}
+      onOpenFolder={setFolderId}
+      onBack={() => setFolderId(null)}
+      onOpenProduct={id => setScreen({ name: 'product', id })}
+      onNewProduct={() => setScreen({ name: 'product-form', id: null })}
+      onNewFolder={() => setScreen({ name: 'folder-form', id: null })}
+      onEditFolder={() => folder && setScreen({ name: 'folder-form', id: folder.id })}
+    />
+  );
+}
+
+// ── Lista de pastas / produtos ──────────────────────────────────────────
+
+function Browser({
+  folders,
+  folder,
+  segment,
+  onOpenFolder,
+  onBack,
+  onOpenProduct,
+  onNewProduct,
+  onNewFolder,
+  onEditFolder,
+}: {
+  folders: ProductFolder[];
+  folder?: ProductFolder;
+  segment: SegmentProfile;
+  onOpenFolder: (id: string) => void;
+  onBack: () => void;
+  onOpenProduct: (id: string) => void;
+  onNewProduct: () => void;
+  onNewFolder: () => void;
+  onEditFolder: () => void;
+}) {
+  const colors = useColors();
+  const styles = useStyles();
+  const { item, items } = segment.terms;
+  return (
+    <View style={styles.flex} testID="products-tab">
+      <View style={styles.bar}>
+        {folder ? (
+          <Pressable testID="folder-back" accessibilityRole="button" accessibilityLabel={t('Voltar')} hitSlop={8} style={styles.barBack} onPress={onBack}>
+            <Icon name="voltar" size={20} color={colors.textMuted} />
+            <Text style={styles.barTitle} numberOfLines={1}>
+              {folder.name}
+            </Text>
+          </Pressable>
+        ) : (
+          <Text style={[styles.barTitle, styles.barTitleRoot]} numberOfLines={1}>
+            {segment.terms.catalog}
+          </Text>
+        )}
+        {folder ? (
+          <BarButton testID="products-edit-folder" icon="editar" label={t('Editar pasta')} onPress={onEditFolder} />
+        ) : (
+          <BarButton testID="products-new-folder" icon="novaPasta" label={t('Nova pasta')} onPress={onNewFolder} />
+        )}
+        <BarButton testID="products-new" icon="adicionar" label={t('Novo {item}', { item })} primary onPress={onNewProduct} />
+      </View>
+
+      {folder ? (
         <FlatList
           data={folder.products}
           keyExtractor={p => p.id}
           contentContainerStyle={styles.list}
           keyboardShouldPersistTaps="always"
-          renderItem={({ item }) => (
+          ListEmptyComponent={
+            <Text style={styles.empty}>{t('Nenhum {item} nesta pasta. Toque em + para cadastrar.', { item })}</Text>
+          }
+          renderItem={({ item: p }) => (
             <ItemCard
-              testID={`product-${item.id}`}
-              title={item.title}
-              subtitle={item.shortDescription}
-              meta={formatPrice(item, segment)}
-              onPress={() => {
-                setSelectedProductId(item.id);
-                setActiveSubTab('details');
-              }}
+              testID={`product-${p.id}`}
+              title={p.title}
+              subtitle={p.shortDescription}
+              meta={formatPrice(p, segment)}
+              imageUri={p.photos[0]?.url}
+              icon={!p.photos[0]?.url ? 'foto' : undefined}
+              onPress={() => onOpenProduct(p.id)}
             />
           )}
         />
-      </View>
-    );
-  }
+      ) : (
+        <FlatList
+          data={folders}
+          keyExtractor={f => f.id}
+          contentContainerStyle={styles.list}
+          keyboardShouldPersistTaps="always"
+          ListEmptyComponent={
+            <Text style={styles.empty}>
+              {t('Nada por aqui ainda. Toque em + para cadastrar seus {items} aqui mesmo, ou pelo app KEYCON.', { items })}
+            </Text>
+          }
+          renderItem={({ item: f }) => (
+            <ItemCard
+              testID={`folder-${f.id}`}
+              title={f.name}
+              subtitle={f.description}
+              meta={f.products.length === 1 ? t('1 item') : t('{n} itens', { n: f.products.length })}
+              icon="pasta"
+              onPress={() => onOpenFolder(f.id)}
+            />
+          )}
+        />
+      )}
+    </View>
+  );
+}
 
-  // 3. Nível 3: Detalhes, Fotos e Vídeos do Produto
+// ── Produto aberto: enviar, editar, excluir ─────────────────────────────
+
+function ProductDetail({
+  product,
+  folder,
+  segment,
+  onBack,
+  onInsert,
+  onSendImage,
+  onEdit,
+  onDelete,
+}: {
+  product: Product;
+  folder: ProductFolder;
+  segment: SegmentProfile;
+  onBack: () => void;
+  onInsert: (text: string) => void;
+  onSendImage: (url: string, title: string) => void;
+  onEdit: () => void;
+  onDelete: () => void;
+}) {
+  const colors = useColors();
+  const styles = useStyles();
+  const [confirming, setConfirming] = useState(false);
+  const photo = product.photos[0];
   return (
     <View style={styles.flex}>
-      <Pressable testID="product-back" onPress={() => setSelectedProductId(null)} style={styles.breadcrumb}>
-        <Icon name="voltar" size={18} color={colors.textMuted} />
-        <Text style={styles.back}>Voltar</Text>
-        <Text style={styles.crumbTitle} numberOfLines={1}>{product.title}</Text>
-      </Pressable>
-
-      {/* Sub-abas do Produto: Detalhes, Fotos, Vídeos */}
-      <View style={styles.subTabBar}>
-        <Pressable
-          style={[styles.subTab, activeSubTab === 'details' && styles.subTabActive]}
-          onPress={() => setActiveSubTab('details')}>
-          <Text style={[styles.subTabLabel, activeSubTab === 'details' && styles.subTabLabelActive]}>
-            Detalhes
+      {/* Editar e excluir na barra: no teclado de tamanho normal, sempre à vista */}
+      <View style={styles.bar}>
+        <Pressable testID="product-back" accessibilityRole="button" accessibilityLabel={t('Voltar')} hitSlop={8} style={styles.barBack} onPress={onBack}>
+          <Icon name="voltar" size={20} color={colors.textMuted} />
+          <Text style={styles.barTitle} numberOfLines={1}>
+            {product.title}
           </Text>
         </Pressable>
-        <Pressable
-          style={[styles.subTab, activeSubTab === 'photos' && styles.subTabActive]}
-          onPress={() => setActiveSubTab('photos')}>
-          <Text style={[styles.subTabLabel, activeSubTab === 'photos' && styles.subTabLabelActive]}>
-            Fotos ({product.photos.length})
-          </Text>
-        </Pressable>
-        <Pressable
-          style={[styles.subTab, activeSubTab === 'videos' && styles.subTabActive]}
-          onPress={() => setActiveSubTab('videos')}>
-          <Text style={[styles.subTabLabel, activeSubTab === 'videos' && styles.subTabLabelActive]}>
-            Vídeos ({product.videos.length})
-          </Text>
-        </Pressable>
+        <BarButton testID="product-edit" icon="editar" label={t('Editar')} onPress={onEdit} />
+        <BarButton testID="product-delete" icon="lixeira" label={t('Excluir')} onPress={() => setConfirming(true)} />
       </View>
-
-      <View style={styles.productBody}>
-        {activeSubTab === 'details' && (
-          <ScrollView contentContainerStyle={styles.detailsContainer} keyboardShouldPersistTaps="always">
-            <Text style={styles.productPrice}>{formatPrice(product, segment)}</Text>
-            {attributeLines(product, segment).map(line => (
-              <Text key={line} style={styles.productAttr}>
-                {line}
-              </Text>
-            ))}
-            <Text style={styles.productDesc}>{product.shortDescription}</Text>
+      <ScrollView contentContainerStyle={styles.details} keyboardShouldPersistTaps="always">
+        {confirming && (
+          <ConfirmDelete
+            testID="product-delete-confirm"
+            message={t('Excluir "{name}" do app e do teclado?', { name: product.title })}
+            onCancel={() => setConfirming(false)}
+            onConfirm={onDelete}
+          />
+        )}
+        {photo?.url ? (
+          <View style={styles.photoContainer}>
+            <Image source={{ uri: photo.url }} style={styles.productPhoto} resizeMode="cover" />
             <Pressable
-              style={styles.actionBtn}
-              onPress={() => onInsert(formatProductMessage(product, folder, segment))}>
-              <CoralSheen radius={radius.sm} />
-              <Text style={styles.actionBtnText}>Inserir ficha do {segment.terms.item}</Text>
+              style={styles.sendPhotoBtn}
+              onPress={() => onSendImage(photo.url, photo.title)}
+              onLongPress={() => onInsert(photoLink(photo))}>
+              <Icon name="foto" size={18} color={colors.text} />
+              <Text style={styles.sendPhotoBtnText}>{t('Enviar foto')}</Text>
             </Pressable>
-          </ScrollView>
-        )}
+          </View>
+        ) : null}
 
-        {activeSubTab === 'photos' && (
-          <FlatList
-            data={product.photos}
-            keyExtractor={photo => photo.id}
-            contentContainerStyle={styles.mediaList}
-            keyboardShouldPersistTaps="always"
-            ListEmptyComponent={<Text style={styles.empty}>Nenhuma foto cadastrada.</Text>}
-            ListHeaderComponent={
-              product.photos.length > 1 ? (
-                <Pressable
-                  style={styles.actionBtn}
-                  onPress={() =>
-                    onShare(
-                      product.photos.map(p => p.url),
-                      product.photos.map(photoLink).join('\n'),
-                    )
-                  }>
-                  <CoralSheen radius={radius.sm} />
-                  <Text style={styles.actionBtnText}>Enviar todas as fotos ({product.photos.length})</Text>
-                </Pressable>
-              ) : null
-            }
-            renderItem={({ item }) => (
-              <Pressable
-                style={styles.mediaCard}
-                onPress={() => onSendImage(item.url, item.title)}
-                onLongPress={() => onInsert(photoLink(item))}>
-                <Icon name="foto" size={20} />
-                <View style={styles.flex}>
-                  <Text style={styles.mediaTitle}>{item.title}</Text>
-                  <Text style={styles.mediaMeta}>Toque: enviar a foto • Segure: enviar o link</Text>
-                </View>
-              </Pressable>
-            )}
+        <View style={styles.cardInfo}>
+          <Text style={styles.categoryBadge}>{folder.name}</Text>
+          <Text style={styles.productPrice}>{formatPrice(product, segment)}</Text>
+          {product.shortDescription ? <Text style={styles.productDesc}>{product.shortDescription}</Text> : null}
+        </View>
+
+        <Pressable testID="product-insert" style={styles.actionBtn} onPress={() => onInsert(formatProductMessage(product, folder, segment))}>
+          <CoralSheen radius={radius.sm} />
+          <Text style={styles.actionBtnText}>{t('Inserir ficha do {item}', { item: segment.terms.item })}</Text>
+        </Pressable>
+      </ScrollView>
+    </View>
+  );
+}
+
+// ── Cadastro / edição do produto ────────────────────────────────────────
+
+/** Opção "nova pasta" na escolha de categoria. */
+const NEW_FOLDER = '__new__';
+
+function ProductForm({
+  segment,
+  folders,
+  initial,
+  onCancel,
+  onSaved,
+}: {
+  segment: SegmentProfile;
+  folders: ProductFolder[];
+  initial: ProductDraft;
+  onCancel: () => void;
+  onSaved: (productId: string, folderId: string) => void;
+}) {
+  const colors = useColors();
+  const styles = useStyles();
+  const { item } = segment.terms;
+  const market = currentMarketInfo();
+  const [category, setCategory] = useState(initial.folderId && folders.some(f => f.id === initial.folderId) ? initial.folderId : NEW_FOLDER);
+  const [image, setImage] = useState({ url: initial.imageUrl, storagePath: initial.imageStoragePath });
+  const [error, setError] = useState<string | null>(null);
+  const uploader = useUploader();
+
+  const fields = useMemo<FormFieldSpec[]>(
+    () => [
+      { key: 'title', label: 'Nome do produto', placeholder: segment.examples.itemTitle || 'Toque e digite' },
+      {
+        key: 'price',
+        // Em ramos com preço opcional, em branco = "Sob consulta"
+        label: segment.price.optional ? 'Preço (opcional)' : 'Preço',
+        placeholder: formatMoney(0, market),
+        kind: 'money',
+        format: digits => formatMoney(moneyFromDigits(digits, market), market),
+      },
+      { key: 'desc', label: 'Descrição', placeholder: segment.examples.itemDescription || 'Opcional', kind: 'multiline' },
+      ...(category === NEW_FOLDER ? [{ key: 'newCategoryName', label: 'Nome da nova pasta', placeholder: 'Toque e digite' }] : []),
+    ],
+    [category, market, segment],
+  );
+  const form = useKeyboardForm(fields, { title: initial.title, price: initial.price, desc: initial.desc, newCategoryName: '' });
+  const activeSpec = fields.find(f => f.key === form.active) ?? fields[0];
+
+  const pickImage = (source: KeyboardPickSource) => {
+    setError(null);
+    uploader.run(
+      () => KeyboardBridge.pickMedia(source),
+      uploaded => setImage({ url: uploaded.url, storagePath: uploaded.storagePath }),
+    );
+  };
+
+  const save = () => {
+    const result = saveProductDraft(
+      {
+        ...initial,
+        folderId: category === NEW_FOLDER ? '' : category,
+        newCategoryName: form.values.newCategoryName ?? '',
+        title: form.values.title ?? '',
+        price: form.values.price ?? '',
+        desc: form.values.desc ?? '',
+        imageUrl: image.url,
+        imageStoragePath: image.storagePath,
+      },
+      segment,
+      category === NEW_FOLDER,
+    );
+    if (!result.ok) {
+      setError(result.error);
+      return;
+    }
+    onSaved(result.product.id, result.folderId);
+  };
+
+  const categories = [
+    ...folders.map(f => ({ value: f.id, label: f.name })),
+    { value: NEW_FOLDER, label: t('+ Nova pasta') },
+  ];
+
+  return (
+    <View style={styles.flex}>
+      <Header
+        title={initial.id ? t('Editar {item}', { item }) : t('Novo {item}', { item })}
+        onBack={onCancel}
+        actionLabel={t('Salvar')}
+        onAction={save}
+        disabled={!!uploader.uploading}
+      />
+      <ScrollView style={styles.flex} contentContainerStyle={styles.form} keyboardShouldPersistTaps="always">
+        {error ? (
+          <View style={styles.error} accessibilityLiveRegion="polite">
+            <Icon name="info" size={16} color={colors.danger} />
+            <Text style={styles.errorText}>{error}</Text>
+          </View>
+        ) : null}
+        {fields.slice(0, 2).map(f => (
+          <KeyboardFormField key={f.key} spec={f} value={form.values[f.key] ?? ''} active={form.active === f.key} onPress={() => form.setActive(f.key)} />
+        ))}
+
+        <Text style={styles.section}>{t('Categoria')}</Text>
+        <ChoiceRow
+          options={categories}
+          value={category}
+          onChange={value => {
+            setCategory(value);
+            if (value === NEW_FOLDER) form.setActive('newCategoryName');
+            // O campo da pasta nova sumiu: o teclado volta a escrever no nome
+            else if (form.active === 'newCategoryName') form.setActive('title');
+          }}
+        />
+        {category === NEW_FOLDER && (
+          <KeyboardFormField
+            spec={fields.find(f => f.key === 'newCategoryName')!}
+            value={form.values.newCategoryName ?? ''}
+            active={form.active === 'newCategoryName'}
+            onPress={() => form.setActive('newCategoryName')}
           />
         )}
 
-        {activeSubTab === 'videos' && (
-          <FlatList
-            data={product.videos}
-            keyExtractor={video => video.id}
-            contentContainerStyle={styles.mediaList}
-            keyboardShouldPersistTaps="always"
-            ListEmptyComponent={<Text style={styles.empty}>Nenhum vídeo cadastrado.</Text>}
-            renderItem={({ item }) => (
-              <Pressable
-                style={styles.mediaCard}
-                onPress={() => onShare([item.url], videoLink(item))}
-                onLongPress={() => onInsert(videoLink(item))}>
-                <Icon name="video" size={20} />
-                <View style={styles.flex}>
-                  <Text style={styles.mediaTitle}>{item.title}</Text>
-                  <Text style={styles.mediaMeta}>
-                    {item.duration ? `${item.duration} • ` : ''}Toque: enviar o vídeo • Segure: enviar o link
-                  </Text>
-                </View>
-              </Pressable>
-            )}
-          />
-        )}
-      </View>
+        <KeyboardFormField spec={fields[2]} value={form.values.desc ?? ''} active={form.active === 'desc'} onPress={() => form.setActive('desc')} />
+
+        <Text style={styles.section}>{t('Imagem do produto')}</Text>
+        <View style={styles.imageRow}>
+          {image.url ? (
+            <Image source={{ uri: image.url }} style={styles.imagePreview} resizeMode="cover" />
+          ) : (
+            <View style={[styles.imagePreview, styles.imageEmpty]}>
+              <Icon name="foto" size={22} color={colors.textMuted} />
+            </View>
+          )}
+          <View style={styles.imageActions}>
+            <View style={styles.row}>
+              <ActionButton
+                testID="product-image-gallery"
+                icon="galeria"
+                label={t('Galeria')}
+                disabled={!!uploader.uploading}
+                onPress={() => pickImage('gallery-photo')}
+              />
+              <ActionButton
+                testID="product-image-camera"
+                icon="foto"
+                label={t('Câmera')}
+                disabled={!!uploader.uploading}
+                onPress={() => pickImage('camera-photo')}
+              />
+            </View>
+            {image.url ? (
+              <ActionButton
+                testID="product-image-remove"
+                icon="lixeira"
+                label={t('Remover')}
+                // A foto antiga só sai da nuvem ao salvar (src/catalog)
+                onPress={() => setImage({ url: '', storagePath: undefined })}
+              />
+            ) : null}
+          </View>
+        </View>
+        <UploadStatus uploading={uploader.uploading} error={uploader.error} />
+      </ScrollView>
+      <KeyboardFormKeys sink={form.sink} activeKey={form.active} spec={activeSpec} />
+    </View>
+  );
+}
+
+// ── Pasta: criar, renomear, excluir ─────────────────────────────────────
+
+const FOLDER_FIELDS: FormFieldSpec[] = [
+  { key: 'name', label: 'Nome da pasta', placeholder: 'Toque e digite' },
+  { key: 'description', label: 'Descrição', placeholder: 'Opcional' },
+];
+
+function FolderForm({
+  folder,
+  onCancel,
+  onSaved,
+  onDeleted,
+}: {
+  folder?: ProductFolder;
+  onCancel: () => void;
+  onSaved: (id: string) => void;
+  onDeleted: () => void;
+}) {
+  const styles = useStyles();
+  const form = useKeyboardForm(FOLDER_FIELDS, { name: folder?.name ?? '', description: folder?.description ?? '' });
+  const [confirming, setConfirming] = useState(false);
+  const name = (form.values.name ?? '').trim();
+  const count = folder?.products.length ?? 0;
+  return (
+    <View style={styles.flex}>
+      <Header
+        title={folder ? t('Editar pasta') : t('Nova pasta')}
+        onBack={onCancel}
+        actionLabel={t('Salvar')}
+        disabled={!name}
+        onAction={() => {
+          const result = saveFolder(folder?.id ?? null, form.values.name ?? '', form.values.description ?? '');
+          if (result.ok) onSaved(result.id);
+        }}
+      />
+      <ScrollView style={styles.flex} contentContainerStyle={styles.form} keyboardShouldPersistTaps="always">
+        {FOLDER_FIELDS.map(f => (
+          <KeyboardFormField key={f.key} spec={f} value={form.values[f.key] ?? ''} active={form.active === f.key} onPress={() => form.setActive(f.key)} />
+        ))}
+        {folder &&
+          (confirming ? (
+            <ConfirmDelete
+              testID="folder-delete-confirm"
+              message={
+                count > 0
+                  ? t('Excluir a pasta "{name}" e os {n} itens dentro dela?', { name: folder.name, n: count })
+                  : t('Excluir a pasta "{name}"?', { name: folder.name })
+              }
+              onCancel={() => setConfirming(false)}
+              onConfirm={onDeleted}
+            />
+          ) : (
+            <ActionButton testID="folder-delete" icon="lixeira" label={t('Excluir pasta')} onPress={() => setConfirming(true)} />
+          ))}
+      </ScrollView>
+      <KeyboardFormKeys sink={form.sink} activeKey={form.active} />
     </View>
   );
 }
 
 const useStyles = makeStyles(colors => ({
   flex: { flex: 1 },
+  row: { flexDirection: 'row', gap: spacing.sm },
   list: { padding: spacing.sm },
-  empty: { color: colors.textMuted, textAlign: 'center', marginTop: spacing.xl, fontSize: 13 },
-  breadcrumb: {
+  empty: { color: colors.textMuted, textAlign: 'center', marginTop: spacing.xl, fontSize: 13, lineHeight: 19, paddingHorizontal: spacing.lg },
+  bar: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.xs,
@@ -226,96 +566,55 @@ const useStyles = makeStyles(colors => ({
     paddingHorizontal: spacing.sm,
     backgroundColor: colors.bg,
   },
-  back: { color: colors.textMuted, fontWeight: '600', fontSize: 13, marginRight: spacing.sm },
-  crumbTitle: { color: colors.text, fontWeight: '600', fontSize: 15, flex: 1 },
-  subTabBar: {
-    flexDirection: 'row',
-    paddingHorizontal: spacing.sm,
-    gap: 6,
-    paddingBottom: 6,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.divider,
-  },
-  subTab: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: 36,
-    borderRadius: radius.sm,
-  },
-  subTabActive: {
-    backgroundColor: colors.primarySoft,
-  },
-  subTabLabel: {
-    fontSize: 13,
-    color: colors.textMuted,
-    fontWeight: '500',
-  },
-  subTabLabelActive: {
-    color: colors.primaryText,
-    fontWeight: '600',
-  },
-  productBody: {
-    flex: 1,
-    padding: spacing.sm,
-  },
-  detailsContainer: {
-    padding: spacing.md,
+  barBack: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
+  barTitle: { fontSize: 15, fontWeight: '600', color: colors.text, flexShrink: 1 },
+  barTitleRoot: { flex: 1, paddingLeft: spacing.xs },
+  details: { padding: spacing.md, gap: spacing.md },
+  photoContainer: {
     backgroundColor: colors.surface,
     ...glassBorder(colors),
     borderRadius: radius.md,
-    gap: spacing.sm,
+    overflow: 'hidden',
+    gap: spacing.xs,
+    paddingBottom: spacing.xs,
   },
-  productPrice: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: colors.text,
+  productPhoto: { width: '100%', height: 120, backgroundColor: colors.surfaceAlt },
+  sendPhotoBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 8,
+    marginHorizontal: spacing.xs,
+    borderRadius: radius.sm,
+    backgroundColor: colors.surfaceAlt,
   },
-  productAttr: {
-    fontSize: 13,
-    color: colors.text,
+  sendPhotoBtnText: { color: colors.text, fontSize: 13, fontWeight: '600' },
+  cardInfo: {
+    backgroundColor: colors.surface,
+    ...glassBorder(colors),
+    borderRadius: radius.md,
+    padding: spacing.md,
+    gap: spacing.xs,
   },
-  productDesc: {
-    fontSize: 14,
-    color: colors.textSecondary,
-    lineHeight: 20,
-  },
+  categoryBadge: { ...typography.overline, color: colors.primaryText, marginBottom: 2 },
+  productPrice: { fontSize: 18, fontWeight: '700', color: colors.successText },
+  productDesc: { fontSize: 14, color: colors.textSecondary, lineHeight: 20, marginTop: 4 },
   actionBtn: {
     backgroundColor: colors.primary,
     minHeight: touchTarget,
     justifyContent: 'center',
     borderRadius: radius.sm,
     alignItems: 'center',
-    marginTop: 6,
-    marginBottom: 6,
     ...coralGlass(colors, { pill: false }),
   },
-  actionBtnText: {
-    ...onCoralText,
-    color: colors.onPrimary,
-    fontSize: 15,
-    fontWeight: '600',
-  },
-  mediaList: {
-    gap: 6,
-  },
-  mediaCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-    backgroundColor: colors.surface,
-    ...glassBorder(colors),
-    padding: spacing.md,
-    borderRadius: radius.md,
-  },
-  mediaTitle: {
-    color: colors.text,
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  mediaMeta: {
-    color: colors.textMuted,
-    fontSize: 12,
-    marginTop: 2,
-  },
+  actionBtnText: { ...onCoralText, color: colors.onPrimary, fontSize: 15, fontWeight: '600' },
+  form: { padding: spacing.sm, gap: spacing.sm },
+  section: { fontSize: 12, fontWeight: '600', color: colors.textMuted, marginTop: spacing.xs },
+  error: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, padding: spacing.sm, borderRadius: radius.sm, backgroundColor: colors.dangerBg },
+  errorText: { flex: 1, fontSize: 13, color: colors.danger },
+  imageRow: { flexDirection: 'row', gap: spacing.sm, alignItems: 'center' },
+  imagePreview: { width: 84, height: 84, borderRadius: radius.md, backgroundColor: colors.surfaceAlt },
+  imageEmpty: { alignItems: 'center', justifyContent: 'center' },
+  imageActions: { flex: 1, gap: spacing.sm },
 }));

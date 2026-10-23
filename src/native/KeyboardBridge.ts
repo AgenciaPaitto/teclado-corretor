@@ -6,6 +6,7 @@
  * TurboModules (basta trocar a implementação deste arquivo).
  */
 import { NativeEventEmitter, NativeModules, Platform } from 'react-native';
+import type { LocalMedia } from '../services/mediaUpload';
 
 interface KeyboardBridgeNative {
   insertText(text: string): Promise<boolean>;
@@ -29,7 +30,11 @@ interface KeyboardBridgeNative {
   shareMedia?(urls: string[]): Promise<'direct' | 'chooser'>;
   prefetchMedia?(urls: string[]): Promise<number>;
   openApp?(): Promise<boolean>;
+  pickMedia?(source: KeyboardPickSource): Promise<LocalMedia | null>;
 }
+
+/** De onde o teclado pega o arquivo da seção Arquivos. */
+export type KeyboardPickSource = 'gallery' | 'gallery-photo' | 'camera-photo' | 'camera-video';
 
 /** sent = foto entregue na conversa; unsupported = o app só aceita texto (ou outro formato). */
 export type CommitImageResult = 'sent' | 'unsupported' | 'failed';
@@ -111,6 +116,17 @@ export const KeyboardBridge = {
     Native?.shareMedia
       ? Native.shareMedia(urls)
       : Promise.reject(new Error('Compartilhamento indisponível neste aparelho.')),
+
+  /** O teclado consegue abrir a galeria e a câmera (Android)? */
+  canPickMedia: !!Native?.pickMedia,
+  /**
+   * Abre a galeria ou a câmera por cima da conversa e devolve o arquivo no
+   * aparelho (null = cancelou). O teclado some enquanto a galeria está aberta.
+   */
+  pickMedia: (source: KeyboardPickSource): Promise<LocalMedia | null> =>
+    Native?.pickMedia
+      ? Native.pickMedia(source)
+      : Promise.reject(new Error('Adicione fotos e vídeos pelo app KEYCON neste aparelho.')),
 
   /** Abre o app KEYCON (ex.: para fazer login). */
   openApp: (): Promise<boolean> => (Native?.openApp ? Native.openApp() : noop()),

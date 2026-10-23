@@ -5,6 +5,7 @@
  */
 import type { LocalMedia } from '../services/mediaUpload';
 import { MAX_UPLOAD_BYTES } from '../services/mediaUpload';
+import { t } from '../i18n';
 
 export type MediaKind = 'image' | 'video';
 
@@ -30,7 +31,7 @@ function chooseFile(accept: string, capture?: string): Promise<LocalMedia | null
         return;
       }
       if (file.size > MAX_UPLOAD_BYTES) {
-        reject(new PickError('O arquivo passa de 50 MB.'));
+        reject(new PickError(t('O arquivo passa de 50 MB.')));
         return;
       }
       resolve({ uri: URL.createObjectURL(file), name: file.name, mimeType: file.type || 'application/octet-stream', size: file.size, file });
@@ -43,6 +44,7 @@ function chooseFile(accept: string, capture?: string): Promise<LocalMedia | null
 export const pickFromGallery = (kind: MediaKind) => chooseFile(kind === 'image' ? 'image/*' : 'video/*');
 export const captureWithCamera = (kind: MediaKind) => chooseFile(kind === 'image' ? 'image/*' : 'video/*', 'environment');
 export const pickAudioFile = () => chooseFile('audio/*');
+export const pickPhotoOrVideo = () => chooseFile('image/*,video/*');
 
 /** No navegador do computador não há câmera de verdade para esse fluxo. */
 export const canUseCamera = false;

@@ -24,6 +24,9 @@ import type { IconName } from '../keyboard/components/Icon';
 import { KeyconLogo } from '../keyboard/components/KeyconLogo';
 import { glassBorder, makeStyles, onCoralText, radius, spacing, ThemeProvider, useColors } from '../keyboard/theme';
 import { Aurora } from '../keyboard/components/Glass';
+import { t } from '../i18n';
+import { applyProfileLanguages } from '../i18n/profile';
+import { useLanguage } from '../i18n/useLanguage';
 import { AuthScreen } from './screens/AuthScreen';
 import { HomeScreen } from './screens/HomeScreen';
 import type { AppTarget } from './screens/HomeScreen';
@@ -32,9 +35,10 @@ import { ProfileSettingsScreen } from './screens/ProfileSettingsScreen';
 import type { AccountSection } from './screens/ProfileSettingsScreen';
 import { AgendaScreen } from './screens/AgendaScreen';
 import { ClientsScreen } from './screens/ClientsScreen';
+import { FilesManagerScreen } from './screens/FilesManagerScreen';
 import { TutorialScreen } from './screens/TutorialScreen';
 
-type AppTab = 'home' | 'products' | 'clients' | 'agenda' | 'profile';
+type AppTab = 'home' | 'products' | 'clients' | 'agenda' | 'files' | 'profile';
 
 const NAV_ITEMS: Array<{ key: AppTab; label: string; icon: IconName }> = [
   { key: 'home', label: 'Início', icon: 'casa' },
@@ -43,9 +47,14 @@ const NAV_ITEMS: Array<{ key: AppTab; label: string; icon: IconName }> = [
   // Mesmos dados do CRM e da Agenda do teclado
   { key: 'clients', label: 'Clientes', icon: 'clientes' },
   { key: 'agenda', label: 'Agenda', icon: 'calendario' },
+  // Pastas com fotos e vídeos (as mesmas da aba Arquivos do teclado)
+  { key: 'files', label: 'Arquivos', icon: 'galeria' },
   // Configurações = engrenagem (manual de marca)
   { key: 'profile', label: 'Conta', icon: 'configuracoes' },
 ];
+
+// Idioma e moeda do perfil salvo, antes da primeira tela
+applyProfileLanguages(Repo.getSeller());
 
 export default function App() {
   const [theme, setTheme] = useState<ThemePreference>(() => Repo.getTheme());
@@ -62,6 +71,9 @@ function AppShell({ onThemeChange }: { onThemeChange: (theme: ThemePreference) =
   const styles = useStyles();
   const barStyle = colors.scheme === 'dark' ? 'light-content' : 'dark-content';
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => Repo.isLoggedIn());
+  // Idioma: a área logada é recriada no idioma novo; o login/cadastro só redesenha
+  // (para não perder o que já foi digitado)
+  const language = useLanguage();
   const [currentTab, setCurrentTab] = useState<AppTab>('home');
   /** Muda a cada toque no menu: a aba volta para a tela principal dela. */
   const [tabVisit, setTabVisit] = useState(0);
@@ -79,7 +91,14 @@ function AppShell({ onThemeChange }: { onThemeChange: (theme: ThemePreference) =
     // Confere a sessão do Supabase (desfaz logins antigos de demonstração)
     restoreSession().then(ok => {
       setIsAuthenticated(ok);
-      if (ok) pullProfile().then(p => p && setSeller(p)).catch(() => {});
+      if (ok)
+        pullProfile()
+          .then(p => {
+            if (!p) return;
+            setSeller(p);
+            applyProfileLanguages(p);
+          })
+          .catch(() => {});
     });
 
     // Renova o token só com o app em primeiro plano (recomendação do Supabase p/ RN)
@@ -103,6 +122,7 @@ function AppShell({ onThemeChange }: { onThemeChange: (theme: ThemePreference) =
         <AuthScreen
           onSuccess={() => {
             setSeller(Repo.getSeller());
+            applyProfileLanguages(Repo.getSeller());
             setCurrentTab('home');
             setShowTutorial(!Repo.isTutorialSeen());
             setIsAuthenticated(true);
@@ -121,12 +141,13 @@ function AppShell({ onThemeChange }: { onThemeChange: (theme: ThemePreference) =
 
   const navigateFromHome = (target: AppTarget) => {
     if (target === 'catalog') openTab('products');
+    else if (target === 'files') openTab('files');
     else openTab('profile', 'data');
   };
 
   if (showTutorial) {
     return (
-      <SafeAreaView style={styles.root}>
+      <SafeAreaView key={language} style={styles.root}>
         <Aurora />
         <StatusBar barStyle={barStyle} backgroundColor={colors.canvas} />
         <TutorialScreen
@@ -141,7 +162,7 @@ function AppShell({ onThemeChange }: { onThemeChange: (theme: ThemePreference) =
   }
 
   return (
-    <SafeAreaView style={styles.root}>
+    <SafeAreaView key={language} style={styles.root}>
       <Aurora />
       <StatusBar barStyle={barStyle} backgroundColor={colors.canvas} />
 
@@ -150,7 +171,7 @@ function AppShell({ onThemeChange }: { onThemeChange: (theme: ThemePreference) =
         <KeyconLogo size={28} />
         <Pressable
           style={styles.avatar}
-          accessibilityLabel="Abrir conta"
+          accessibilityLabel={t('Abrir conta')}
           onPress={() => openTab('profile')}>
           <Text style={styles.avatarText}>{initials(seller.name)}</Text>
         </Pressable>
@@ -172,12 +193,16 @@ function AppShell({ onThemeChange }: { onThemeChange: (theme: ThemePreference) =
             }}
           />
         )}
+        {currentTab === 'files' && <FilesManagerScreen key={tabVisit} />}
         {currentTab === 'agenda' && <AgendaScreen key={`${tabVisit}-${scheduleClientId ?? ''}`} presetClientId={scheduleClientId} />}
         {currentTab === 'profile' && (
           <ProfileSettingsScreen
             key={tabVisit}
             initialSection={accountSection}
-            onProfileChange={setSeller}
+            onProfileChange={p => {
+              setSeller(p);
+              applyProfileLanguages(p);
+            }}
             onThemeChange={onThemeChange}
             onLogout={() => {
               signOut().catch(() => {});
@@ -199,8 +224,8 @@ function AppShell({ onThemeChange }: { onThemeChange: (theme: ThemePreference) =
               style={[styles.navBtn, active && styles.navBtnActive]}
               onPress={() => openTab(item.key)}>
               <Icon name={item.icon} size={22} color={active ? colors.primaryText : colors.textSecondary} />
-              <Text style={[styles.navLabel, active && styles.navLabelActive]}>
-                {item.key === 'products' ? segment.terms.catalog : item.label}
+              <Text style={[styles.navLabel, active && styles.navLabelActive]} numberOfLines={1}>
+                {item.key === 'products' ? segment.terms.catalog : t(item.label)}
               </Text>
             </Pressable>
           );
@@ -253,10 +278,10 @@ const useStyles = makeStyles(colors => ({
   },
   navBar: {
     flexDirection: 'row',
-    gap: spacing.xs,
+    gap: 2,
     marginHorizontal: spacing.lg,
     marginBottom: spacing.sm,
-    padding: spacing.sm,
+    padding: spacing.xs,
     borderRadius: 32,
     backgroundColor: colors.glassFillStrong,
     ...glassBorder(colors),
@@ -278,7 +303,8 @@ const useStyles = makeStyles(colors => ({
     backgroundColor: colors.primarySoft,
   },
   navLabel: {
-    fontSize: 12,
+    // 6 itens: 11 px para "Arquivos" e "Clientes" caberem num celular de 360 dp
+    fontSize: 11,
     color: colors.textSecondary,
     fontWeight: '500',
   },

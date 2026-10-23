@@ -15,8 +15,10 @@ function mediaUrls(data: KeyboardData): string[] {
   const products = data.folders.flatMap(f => f.products);
   return [
     ...products.flatMap(p => p.photos.map(m => m.url)),
+    ...data.files.files.filter(f => f.type === 'image').map(f => f.url),
     ...data.shortcuts.audios.map(a => a.audioUrl),
     ...products.flatMap(p => p.videos.map(m => m.url)),
+    ...data.files.files.filter(f => f.type === 'video').map(f => f.url),
   ].filter(url => /^https?:\/\//i.test(url));
 }
 

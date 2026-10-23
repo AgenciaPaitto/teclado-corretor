@@ -1,5 +1,6 @@
 import React, { memo } from 'react';
 import { Pressable, Text, View } from 'react-native';
+import { t } from '../../i18n';
 import type { MainSystemTab } from '../../types';
 import { makeStyles, radius, touchTarget, useColors } from '../theme';
 import type { IconName } from './Icon';
@@ -10,6 +11,7 @@ const BUTTONS: Array<{ key: MainSystemTab; label: string; icon: IconName }> = [
   { key: 'keyboard', label: 'ABC', icon: 'teclado' },
   { key: 'products', label: 'Produtos', icon: 'arquivos' },
   { key: 'shortcuts', label: 'Atalhos', icon: 'atalhos' },
+  { key: 'files', label: 'Arquivos', icon: 'galeria' },
   { key: 'copilot', label: 'IA', icon: 'ia' },
   { key: 'more', label: 'Mais', icon: 'mais' },
 ];
@@ -23,7 +25,7 @@ interface Props {
 
 /**
  * Menu com os botões do sistema mantido SEMPRE VISÍVEL no topo do teclado.
- * Botões: ABC (teclado de letras), Produtos, Atalhos, IA, Mais — cada um com
+ * Botões: ABC (teclado de letras), Produtos, Atalhos, Arquivos, IA, Mais — cada um com
  * ícone e texto em cinza (como o menu do app); o item ativo fica coral, com fundo coral suave.
  */
 export const SystemMenuBar = memo(({ active, onChange, catalogLabel }: Props) => {
@@ -33,7 +35,7 @@ export const SystemMenuBar = memo(({ active, onChange, catalogLabel }: Props) =>
     <View style={styles.bar} testID="system-menu-bar">
       {BUTTONS.map(btn => {
         const selected = btn.key === active;
-        const label = btn.key === 'products' && catalogLabel ? catalogLabel : btn.label;
+        const label = btn.key === 'products' && catalogLabel ? catalogLabel : t(btn.label);
         return (
           <Pressable
             key={btn.key}

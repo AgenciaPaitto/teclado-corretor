@@ -1,3 +1,4 @@
+import { t } from '../i18n';
 /**
  * Envio de fotos, vídeos e áudios para o Storage do Supabase (bucket "media").
  *
@@ -79,11 +80,11 @@ export function publicUrl(storagePath: string): string {
  */
 export async function uploadMedia(media: LocalMedia, onProgress?: (fraction: number) => void): Promise<UploadedMedia> {
   if (media.size && media.size > MAX_UPLOAD_BYTES) {
-    throw new UploadError('O arquivo passa de 50 MB. Escolha um menor ou mande o link.');
+    throw new UploadError(t('O arquivo passa de 50 MB. Escolha um menor ou mande o link.'));
   }
   const { data } = await supabase.auth.getSession();
   const session = data.session;
-  if (!session) throw new UploadError('Sessão expirada. Entre na conta de novo para enviar arquivos.');
+  if (!session) throw new UploadError(t('Sessão expirada. Entre na conta de novo para enviar arquivos.'));
 
   const storagePath = `${session.user.id}/${randomName()}.${extensionFor(media)}`;
   const body = new FormData();
@@ -112,8 +113,8 @@ export async function uploadMedia(media: LocalMedia, onProgress?: (fraction: num
       }
       reject(new UploadError(uploadErrorMessage(xhr.status, xhr.responseText)));
     };
-    xhr.onerror = () => reject(new UploadError('Sem conexão com a internet. Verifique e tente de novo.'));
-    xhr.ontimeout = () => reject(new UploadError('O envio demorou demais. Tente de novo com uma conexão melhor.'));
+    xhr.onerror = () => reject(new UploadError(t('Sem conexão com a internet. Verifique e tente de novo.')));
+    xhr.ontimeout = () => reject(new UploadError(t('O envio demorou demais. Tente de novo com uma conexão melhor.')));
     xhr.timeout = 10 * 60 * 1000;
     xhr.send(body);
   });
@@ -124,13 +125,13 @@ export async function uploadMedia(media: LocalMedia, onProgress?: (fraction: num
 function uploadErrorMessage(status: number, response: string): string {
   const text = response.toLowerCase();
   if (status === 413 || text.includes('payload too large') || text.includes('exceeded the maximum')) {
-    return 'O arquivo passa do limite de 50 MB.';
+    return t('O arquivo passa do limite de 50 MB.');
   }
   if (text.includes('bucket not found')) {
-    return 'O armazenamento de arquivos ainda não foi criado. Rode o arquivo supabase/schema.sql no Supabase.';
+    return t('O armazenamento de arquivos ainda não foi criado. Rode o arquivo supabase/schema.sql no Supabase.');
   }
-  if (status === 401 || status === 403) return 'Sem permissão para enviar. Entre na conta de novo.';
-  return `Não foi possível enviar o arquivo (erro ${status}).`;
+  if (status === 401 || status === 403) return t('Sem permissão para enviar. Entre na conta de novo.');
+  return t('Não foi possível enviar o arquivo (erro {status}).', { status });
 }
 
 /** Apaga do Storage um arquivo enviado pelo app (links externos ficam como estão). */

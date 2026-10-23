@@ -5,6 +5,9 @@
  * a página de testes registra aqui um "host" (o campo de mensagem da conversa
  * simulada) e o teclado escreve nele. Mesma API do KeyboardBridge.ts.
  */
+import type { LocalMedia } from '../services/mediaUpload';
+import { captureWithCamera, pickFromGallery, pickPhotoOrVideo } from './MediaPicker';
+
 export interface KeyboardShowEvent {
   targetPackage: string | null;
   restarting: boolean;
@@ -12,6 +15,8 @@ export interface KeyboardShowEvent {
 }
 
 export type CommitImageResult = 'sent' | 'unsupported' | 'failed';
+
+export type KeyboardPickSource = 'gallery' | 'gallery-photo' | 'camera-photo' | 'camera-video';
 
 export interface InputContext {
   before: string;
@@ -114,6 +119,14 @@ export const KeyboardBridge = {
   shareMedia: (_urls: string[]): Promise<'direct' | 'chooser'> => unavailable('O compartilhamento de arquivos'),
   // Na web os arquivos não são guardados no aparelho
   prefetchMedia: async (_urls: string[]) => 0,
+  // Na web o seletor de arquivos do navegador faz o papel da galeria
+  canPickMedia: true,
+  pickMedia: (source: KeyboardPickSource): Promise<LocalMedia | null> =>
+    source === 'gallery'
+      ? pickPhotoOrVideo()
+      : source === 'gallery-photo'
+        ? pickFromGallery('image')
+        : captureWithCamera(source === 'camera-video' ? 'video' : 'image'),
   openApp: async () => {
     openAppHandler?.();
     return !!openAppHandler;

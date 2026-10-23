@@ -1,7 +1,7 @@
 /**
  * Palavras que costumam vir depois de cada palavra (bigramas), para o
- * corretor entender a frase. Gerado por scripts/build_bigrams.py a partir das frases
- * em português do Tatoeba (https://tatoeba.org), licença CC BY 2.0 FR.
+ * corretor entender a frase. Gerado por scripts/build_bigrams.py a partir das
+ * frases em português do Tatoeba (https://tatoeba.org), licença CC BY 2.0 FR.
  *
  * Formato: uma linha por palavra: "palavra<TAB>seguinte:força seguinte:força".
  * "^" = começo de frase. Força de 1 a 9 (quanto aquela continuação é comum).
@@ -364,7 +364,7 @@ agulha	e:9 num:3
 agência	de:9 espacial:6 dos:2 central:1 internacional:1 das:1
 agências	governamentais:6 de:4 da:3
 ah	se:4 não:2 que:2 é:2 você:1 sim:1
-ai	de:7 meu:4 ai:2
+ai	de:7 meu:5 ai:2
 ainda	não:8 está:3 estou:1 é:1 estão:1 mais:1
 aires	é:7
 aja	como:9 com:4
@@ -2313,7 +2313,7 @@ conheces	a:9 o:3 alguma:2 os:2 essa:1 alguém:1
 conhecesse	a:7 o:4 os:3
 conheceu	a:5 o:4 uma:2 os:1 maria:1 um:1
 conheci	o:5 um:3 na:2 uma:2 a:2 em:1
-conhecia	o:6 a:3 bem:3 ninguém:2 esse:1 essa:1
+conhecia	o:6 a:4 bem:3 ninguém:2 esse:1 essa:1
 conheciam	o:6 essa:6
 conhecida	como:9 por:4 tanto:1 pelo:1 e:1
 conhecidas	como:9 por:6 pela:2
@@ -7320,7 +7320,7 @@ pessoa	que:5 muito:2 mais:2 a:1 de:1 com:1
 pessoais	e:5 que:3 de:3
 pessoal	vamos:2 do:2 de:2 a:1 e:1 é:1
 pessoas	que:3 não:1 de:1 estão:1 com:1 são:1
-peter	é:2 e:2 está:2
+peter	é:3 e:3 está:2
 petersburgo	é:9
 petróleo	e:5 no:2 a:2 para:1
 peão	branco:3 é:2 de:2 preto:2 pode:2 negro:2

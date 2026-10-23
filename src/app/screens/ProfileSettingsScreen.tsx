@@ -1,3 +1,8 @@
+import { LANGUAGES, t } from '../../i18n';
+import type { Lang } from '../../i18n';
+import type { MarketId } from '../../i18n/markets';
+import { applyProfileLanguages } from '../../i18n/profile';
+import { LanguagePicker, MarketPicker, marketSummary } from '../components/LanguagePickers';
 /**
  * Conta — perfil e configurações, cada assunto no seu submenu.
  */
@@ -13,7 +18,7 @@ import { AuthError, currentEmail, pushProfile } from '../../services/auth';
 import { SegmentPicker } from '../components/SegmentPicker';
 import { Button, Card, CardText, CardTitle, MenuGroup, MenuRow, Page, ScreenTitle, StatusChip, SubHeader } from '../components/ui';
 
-export type AccountSection = 'root' | 'data' | 'segment' | 'theme' | 'status' | 'about';
+export type AccountSection = 'root' | 'data' | 'segment' | 'market' | 'language' | 'theme' | 'status' | 'about';
 
 interface Props {
   onLogout: () => void;
@@ -47,13 +52,11 @@ export function ProfileSettingsScreen({ onLogout, onThemeChange, onProfileChange
     onProfileChange?.(updated);
     try {
       await pushProfile(updated);
-      Alert.alert('Salvo', successMessage);
+      Alert.alert(t('Salvo'), successMessage);
     } catch (e) {
       Alert.alert(
-        'Salvo só neste aparelho',
-        `O teclado já usa os novos dados, mas não foi possível salvar na nuvem: ${
-          e instanceof AuthError ? e.message : String(e)
-        }`,
+        t('Salvo só neste aparelho'),
+        t('O teclado já usa os novos dados, mas não foi possível salvar na nuvem: {v}', { v: e instanceof AuthError ? e.message : String(e) }),
       );
     }
     setSection('root');
@@ -84,6 +87,34 @@ export function ProfileSettingsScreen({ onLogout, onThemeChange, onProfileChange
     );
   }
 
+  if (section === 'language') {
+    return (
+      <LanguageSection
+        current={seller.language ?? 'pt'}
+        onBack={back}
+        onSave={language => {
+          const updated = { ...seller, language };
+          applyProfileLanguages(updated);
+          saveProfile(updated, t('Idioma alterado com sucesso.'));
+        }}
+      />
+    );
+  }
+
+  if (section === 'market') {
+    return (
+      <MarketSection
+        current={seller.market ?? 'BR'}
+        onBack={back}
+        onSave={market => {
+          const updated = { ...seller, market };
+          applyProfileLanguages(updated);
+          saveProfile(updated, t('Mercado e moeda alterados com sucesso.'));
+        }}
+      />
+    );
+  }
+
   if (section === 'theme') {
     return (
       <ThemeSection
@@ -103,33 +134,45 @@ export function ProfileSettingsScreen({ onLogout, onThemeChange, onProfileChange
 
   return (
     <Page>
-      <ScreenTitle title="Conta" />
+      <ScreenTitle title={t('Conta')} />
 
       <ProfileCard seller={seller} email={email} />
 
       <MenuGroup>
-        <MenuRow testID="account-data" icon="clientes" title="Seus dados" subtitle="Nome, negócio e WhatsApp" onPress={() => setSection('data')} />
+        <MenuRow testID="account-data" icon="clientes" title={t('Seus dados')} subtitle={t('Nome, negócio e WhatsApp')} onPress={() => setSection('data')} />
         <MenuRow
           testID="account-segment"
           icon={getSegment(seller.segment).icon}
-          title="Ramo do negócio"
+          title={t('Ramo do negócio')}
           value={getSegment(seller.segment).label}
           onPress={() => setSection('segment')}
         />
         <MenuRow
+          icon="globo"
+          title={t('Idioma do app')}
+          value={LANGUAGES.find(l => l.id === (seller.language ?? 'pt'))?.label}
+          onPress={() => setSection('language')}
+        />
+        <MenuRow
+          icon="etiquetas"
+          title={t('Onde você vende?')}
+          value={marketSummary(seller.market ?? 'BR')}
+          onPress={() => setSection('market')}
+        />
+        <MenuRow
           icon="configuracoes"
-          title="Aparência"
+          title={t('Aparência')}
           value={THEME_OPTIONS.find(o => o.key === theme)?.label}
           onPress={() => setSection('theme')}
         />
       </MenuGroup>
 
       <MenuGroup>
-        <MenuRow icon="dados" title="Status da conta" subtitle="Conexão e sincronização" onPress={() => setSection('status')} />
-        <MenuRow icon="info" title="Sobre e licenças" onPress={() => setSection('about')} />
+        <MenuRow icon="dados" title={t('Status da conta')} subtitle={t('Conexão e sincronização')} onPress={() => setSection('status')} />
+        <MenuRow icon="info" title={t('Sobre e licenças')} onPress={() => setSection('about')} />
       </MenuGroup>
 
-      <Button label="Sair da conta" variant="danger" icon="sair" onPress={onLogout} />
+      <Button label={t('Sair da conta')} variant="danger" icon="sair" onPress={onLogout} />
     </Page>
   );
 }
@@ -151,7 +194,7 @@ function ProfileCard({ seller, email }: { seller: SellerProfile; email: string |
       </View>
       <View style={styles.flex}>
         <Text style={styles.profileName} numberOfLines={1}>
-          {seller.name || 'Seu nome'}
+          {seller.name || t('Seu nome')}
         </Text>
         <Text style={styles.profileSub} numberOfLines={1}>
           {email ?? ' '}
@@ -170,7 +213,7 @@ function DataSection({ seller, onBack, onSave }: { seller: SellerProfile; onBack
 
   const save = () => {
     if (!name.trim()) {
-      Alert.alert('Atenção', 'Preencha seu nome.');
+      Alert.alert(t('Atenção'), t('Preencha seu nome.'));
       return;
     }
     onSave({ ...seller, name: name.trim(), business: business.trim(), phone: phone.trim() });
@@ -192,14 +235,14 @@ function DataSection({ seller, onBack, onSave }: { seller: SellerProfile; onBack
 
   return (
     <Page>
-      <SubHeader title="Seus dados" onBack={onBack} />
+      <SubHeader title={t('Seus dados')} onBack={onBack} />
       <Card>
-        <CardText>Usados nas mensagens prontas: {'{{nome}}'}, {'{{empresa}}'} e {'{{telefone}}'}.</CardText>
+        <CardText>{t('Usados nas mensagens prontas: {{nome}}, {{empresa}} e {{telefone}}.')}</CardText>
         {field('Nome completo', name, setName, 'Seu nome')}
         {field('Nome do negócio', business, setBusiness, 'Nome da sua empresa ou loja')}
         {field('WhatsApp', phone, setPhone, 'Seu número com DDD', true)}
       </Card>
-      <Button testID="data-save" label="Salvar" onPress={save} />
+      <Button testID="data-save" label={t('Salvar')} onPress={save} />
     </Page>
   );
 }
@@ -208,12 +251,12 @@ function SegmentSection({ current, onBack, onSave }: { current: SegmentId; onBac
   const [segment, setSegment] = useState<SegmentId>(current);
   return (
     <Page>
-      <SubHeader title="Ramo do negócio" onBack={onBack} />
+      <SubHeader title={t('Ramo do negócio')} onBack={onBack} />
       <Card>
-        <CardText>Muda os nomes, os campos dos itens, o funil de clientes e a IA. Nada do que você cadastrou é apagado.</CardText>
+        <CardText>{t('Muda os nomes, os campos dos itens, o funil de clientes e a IA. Nada do que você cadastrou é apagado.')}</CardText>
         <SegmentPicker value={segment} onChange={setSegment} />
       </Card>
-      <Button label="Salvar" disabled={segment === current} onPress={() => onSave(segment)} />
+      <Button label={t('Salvar')} disabled={segment === current} onPress={() => onSave(segment)} />
     </Page>
   );
 }
@@ -223,9 +266,9 @@ function ThemeSection({ theme, onBack, onSelect }: { theme: ThemePreference; onB
   const styles = useStyles();
   return (
     <Page>
-      <SubHeader title="Aparência" onBack={onBack} />
+      <SubHeader title={t('Aparência')} onBack={onBack} />
       <Card>
-        <CardText>Vale para o app e para o teclado.</CardText>
+        <CardText>{t('Vale para o app e para o teclado.')}</CardText>
         {THEME_OPTIONS.map(opt => {
           const selected = theme === opt.key;
           return (
@@ -250,23 +293,23 @@ function ThemeSection({ theme, onBack, onSelect }: { theme: ThemePreference; onB
 
 function StatusSection({ email, onBack }: { email: string | null; onBack: () => void }) {
   const rows: Array<{ done: boolean; title: string; text: string }> = [
-    { done: !!email, title: 'Conta', text: email ? `Conectada: ${email}` : 'Verificando conexão...' },
-    { done: true, title: 'Teclado', text: 'Login e dados compartilhados com o teclado neste aparelho.' },
-    { done: false, title: 'Itens e atalhos', text: 'Salvos neste aparelho. Sincronização com a nuvem em breve.' },
-    { done: false, title: 'Fotos e vídeos', text: 'Enviados como links externos por enquanto.' },
+    { done: !!email, title: t('Conta'), text: email ? t('Conectada: {email}', { email }) : t('Verificando conexão...') },
+    { done: true, title: t('Teclado'), text: t('Login e dados compartilhados com o teclado neste aparelho.') },
+    { done: false, title: t('Itens e atalhos'), text: t('Salvos neste aparelho. Sincronização com a nuvem em breve.') },
+    { done: false, title: t('Fotos e vídeos'), text: t('Enviados como links externos por enquanto.') },
     {
       done: !AI_CONFIG.useMock,
-      title: 'IA',
-      text: AI_CONFIG.useMock ? 'Modo demonstração (servidor não configurado).' : 'Conectada ao servidor.',
+      title: t('IA'),
+      text: AI_CONFIG.useMock ? t('Modo demonstração (servidor não configurado).') : t('Conectada ao servidor.'),
     },
   ];
   return (
     <Page>
-      <SubHeader title="Status da conta" onBack={onBack} />
+      <SubHeader title={t('Status da conta')} onBack={onBack} />
       {rows.map(r => (
         <Card key={r.title}>
           <CardTitle>{r.title}</CardTitle>
-          <StatusChip done={r.done} label={r.done ? 'Pronto' : 'Pendente'} />
+          <StatusChip done={r.done} label={r.done ? t('Pronto') : t('Pendente')} />
           <CardText>{r.text}</CardText>
         </Card>
       ))}
@@ -277,39 +320,65 @@ function StatusSection({ email, onBack }: { email: string | null; onBack: () => 
 function AboutSection({ onBack }: { onBack: () => void }) {
   return (
     <Page>
-      <SubHeader title="Sobre e licenças" onBack={onBack} />
+      <SubHeader title={t('Sobre e licenças')} onBack={onBack} />
       <Card>
-        <CardTitle>KEYCON</CardTitle>
-        <CardText>Teclado inteligente. Vendas organizadas.</CardText>
+        <CardTitle>{t('KEYCON')}</CardTitle>
+        <CardText>{t('Teclado inteligente. Vendas organizadas.')}</CardText>
       </Card>
       <Card>
-        <CardTitle>Dicionário do teclado</CardTitle>
+        <CardTitle>{t('Dicionário do teclado')}</CardTitle>
         <CardText>
-          Lista de palavras do português baseada em FrequencyWords, de Hermit Dave (legendas do OpenSubtitles),
-          licença Creative Commons BY-SA 4.0.
-        </CardText>
+          {t('Listas de palavras do português, inglês e espanhol baseadas em FrequencyWords, de Hermit Dave (legendas do OpenSubtitles), licença Creative Commons BY-SA 4.0.')}</CardText>
         <Button
-          label="Ver licença"
+          label={t('Ver licença')}
           variant="secondary"
           onPress={() => Linking.openURL('https://creativecommons.org/licenses/by-sa/4.0/').catch(() => {})}
         />
       </Card>
       <Card>
-        <CardTitle>Frases do corretor</CardTitle>
+        <CardTitle>{t('Frases do corretor')}</CardTitle>
         <CardText>
-          Palavras que costumam vir em sequência, tiradas das frases em português do Tatoeba (tatoeba.org),
-          licença Creative Commons BY 2.0 FR.
-        </CardText>
+          {t('Palavras que costumam vir em sequência, tiradas das frases em português, inglês e espanhol do Tatoeba (tatoeba.org), licença Creative Commons BY 2.0 FR.')}</CardText>
         <Button
-          label="Ver licença"
+          label={t('Ver licença')}
           variant="secondary"
           onPress={() => Linking.openURL('https://creativecommons.org/licenses/by/2.0/fr/').catch(() => {})}
         />
       </Card>
       <Card>
-        <CardTitle>Fonte</CardTitle>
-        <CardText>Inter, de Rasmus Andersson, licença SIL Open Font License 1.1.</CardText>
+        <CardTitle>{t('Fonte')}</CardTitle>
+        <CardText>{t('Inter, de Rasmus Andersson, licença SIL Open Font License 1.1.')}</CardText>
       </Card>
+    </Page>
+  );
+}
+
+function LanguageSection({ current, onBack, onSave }: { current: Lang; onBack: () => void; onSave: (lang: Lang) => void }) {
+  const [selected, setSelected] = useState<Lang>(current);
+  return (
+    <Page>
+      <SubHeader title={t('Idioma do app')} onBack={onBack} />
+      <Card>
+        <CardTitle>{t('Escolha o idioma')}</CardTitle>
+        <CardText>{t('Define o idioma de todas as telas do aplicativo e dos botões do teclado.')}</CardText>
+        <LanguagePicker value={selected} onChange={setSelected} />
+      </Card>
+      <Button label={t('Salvar')} onPress={() => onSave(selected)} />
+    </Page>
+  );
+}
+
+function MarketSection({ current, onBack, onSave }: { current: MarketId; onBack: () => void; onSave: (market: MarketId) => void }) {
+  const [selected, setSelected] = useState<MarketId>(current);
+  return (
+    <Page>
+      <SubHeader title={t('Onde você vende?')} onBack={onBack} />
+      <Card>
+        <CardTitle>{t('Mercado e moeda')}</CardTitle>
+        <CardText>{t('Define a moeda dos preços e o idioma das mensagens que vão para os seus clientes.')}</CardText>
+        <MarketPicker value={selected} onChange={setSelected} />
+      </Card>
+      <Button label={t('Salvar')} onPress={() => onSave(selected)} />
     </Page>
   );
 }

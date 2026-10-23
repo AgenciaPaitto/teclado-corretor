@@ -12,6 +12,7 @@ import { Icon, IconTile } from '../../keyboard/components/Icon';
 import type { IconName } from '../../keyboard/components/Icon';
 import { coralGlass, glassBorder, makeStyles, onCoralText, radius, spacing, touchTarget, typography, useColors } from '../../keyboard/theme';
 import type { Palette } from '../../keyboard/theme';
+import { t } from '../../i18n';
 
 /** Vidro do card: raio maior, contorno com luz em cima e sombra em duas alturas (só iOS/web). */
 const GLASS_RADIUS = 24;
@@ -55,7 +56,7 @@ export function SubHeader({ title, onBack }: { title: string; onBack: () => void
   const colors = useColors();
   const styles = useStyles();
   return (
-    <Pressable accessibilityRole="button" accessibilityLabel="Voltar" style={styles.subHeader} onPress={onBack} hitSlop={8}>
+    <Pressable accessibilityRole="button" accessibilityLabel={t('Voltar')} style={styles.subHeader} onPress={onBack} hitSlop={8}>
       <Icon name="voltar" size={20} color={colors.textMuted} />
       <Text style={styles.subHeaderTitle} numberOfLines={1}>
         {title}

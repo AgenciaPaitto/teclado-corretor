@@ -1,17 +1,24 @@
 /**
- * Motor de palavras do teclado (português do Brasil).
+ * Motor de palavras do teclado (português, inglês e espanhol).
  *
  *  - suggest(): completa a palavra, corrige erro de digitação e devolve o
  *    acento ("voce" → "você") para a barra de sugestões, levando em conta a
- *    palavra anterior da frase (bigramsPt), e diz se dá para corrigir sozinho;
+ *    palavra anterior da frase (bigramas), e diz se dá para corrigir sozinho;
  *  - predictNext(): as próximas palavras prováveis, logo depois do espaço;
  *  - nextLetterLogProb(): chance de cada letra ser a próxima da palavra — é o
  *    que deixa a "área invisível" da tecla provável maior (ver keyResolver).
  *
- * Tudo roda no próprio aparelho, sem internet. O índice é montado uma vez
- * (buildLexicon), fora do primeiro toque, e cada consulta leva < 1 ms.
+ * Tudo roda no próprio aparelho, sem internet. O índice é montado fora do
+ * caminho do primeiro toque e cada consulta leva < 1 ms. Respeita o idioma de
+ * venda escolhido pelo usuário (português, inglês ou espanhol).
  */
+import { getTypingLanguage, onTypingLanguageChange } from '../../i18n';
+import type { Lang } from '../../i18n';
+import { BIGRAMS_EN } from './bigramsEn';
+import { BIGRAMS_ES } from './bigramsEs';
 import { BIGRAMS_PT } from './bigramsPt';
+import { WORDS_EN } from './wordsEn';
+import { WORDS_ES } from './wordsEs';
 import { WORDS_PT } from './wordsPt';
 
 const ACCENT_MAP: Record<string, string> = {
@@ -44,17 +51,75 @@ const NEIGHBORS: Record<string, string> = {
 };
 
 /** Palavras que nunca aparecem como sugestão (continuam contando para a "tecla invisível"). */
-const NEVER_SUGGEST = new Set([
-  'porra', 'caralho', 'merda', 'puta', 'puto', 'foda', 'foder', 'fodido', 'fodeu', 'cacete', 'buceta',
-  'viado', 'bosta', 'piroca', 'cu', 'xoxota', 'vagabunda',
-]);
+const NEVER_SUGGEST_BY_LANG: Record<Lang, Set<string>> = {
+  pt: new Set([
+    'porra', 'caralho', 'merda', 'puta', 'puto', 'foda', 'foder', 'fodido', 'fodeu', 'cacete', 'buceta',
+    'viado', 'bosta', 'piroca', 'cu', 'xoxota', 'vagabunda',
+  ]),
+  en: new Set([
+    'fuck', 'fucking', 'fucked', 'fucker', 'shit', 'bitch', 'asshole', 'dick', 'pussy', 'bastard',
+    'cunt', 'nigger', 'nigga', 'motherfucker', 'whore', 'slut', 'cock', 'tits',
+  ]),
+  es: new Set([
+    'mierda', 'puta', 'puto', 'coño', 'joder', 'cabron', 'cabrón', 'carajo', 'verga', 'pendejo',
+    'pendeja', 'culiao', 'chingar', 'chingada', 'marica', 'maricon', 'maricón', 'zorra', 'culo',
+  ]),
+};
 
 /** Abreviações de conversa → palavra completa (aparece como 1ª sugestão). */
-const ABBREVIATIONS: Record<string, string> = {
-  vc: 'você', vcs: 'vocês', tb: 'também', tbm: 'também', obg: 'obrigado', obgd: 'obrigado',
-  pq: 'porque', q: 'que', blz: 'beleza', msg: 'mensagem', td: 'tudo', hj: 'hoje', cmg: 'comigo',
-  ctg: 'contigo', mt: 'muito', mto: 'muito', dps: 'depois', vdd: 'verdade', fds: 'fim de semana',
-  qdo: 'quando', qnd: 'quando', tmj: 'tamo junto', pfv: 'por favor', pf: 'por favor', add: 'adicionar',
+const ABBREVIATIONS_BY_LANG: Record<Lang, Record<string, string>> = {
+  pt: {
+    vc: 'você', vcs: 'vocês', tb: 'também', tbm: 'também', obg: 'obrigado', obgd: 'obrigado',
+    pq: 'porque', q: 'que', blz: 'beleza', msg: 'mensagem', td: 'tudo', hj: 'hoje', cmg: 'comigo',
+    ctg: 'contigo', mt: 'muito', mto: 'muito', dps: 'depois', vdd: 'verdade', fds: 'fim de semana',
+    qdo: 'quando', qnd: 'quando', tmj: 'tamo junto', pfv: 'por favor', pf: 'por favor', add: 'adicionar',
+  },
+  en: {
+    u: 'you', ur: 'your', pls: 'please', plz: 'please', thx: 'thanks', ty: 'thank you',
+    idk: "i don't know", tbh: 'to be honest', btw: 'by the way', omg: 'oh my god',
+    imo: 'in my opinion', brb: 'be right back', bc: 'because', cuz: 'because',
+    msg: 'message', pic: 'picture', np: 'no problem', yw: "you're welcome",
+    asap: 'as soon as possible', tmrw: 'tomorrow',
+  },
+  es: {
+    q: 'que', k: 'que', pq: 'porque', pk: 'porque', xq: 'porque', tmb: 'también', tb: 'también',
+    tbien: 'también', xfa: 'por favor', porfa: 'por favor', pf: 'por favor', msg: 'mensaje',
+    msj: 'mensaje', bno: 'bueno', dnd: 'donde', vdd: 'verdad', grax: 'gracias', grx: 'gracias',
+    ola: 'hola', ntp: 'no te preocupes',
+  },
+};
+
+/**
+ * Como a palavra aparece na tela. As listas de inglês guardam as contrações
+ * sem apóstrofo ("dont", "im") e o pronome "i" minúsculo: aqui saem como
+ * "don't", "I'm" e "I" — na barra e na correção ao apertar espaço. Ficam de
+ * fora as que também são palavras ("ill", "id", "its", "were", "well").
+ */
+const DISPLAY_FORMS: Partial<Record<Lang, Record<string, string>>> = {
+  en: {
+    i: 'I', im: "I'm", ive: "I've", dont: "don't", doesnt: "doesn't", didnt: "didn't", cant: "can't",
+    couldnt: "couldn't", wouldnt: "wouldn't", shouldnt: "shouldn't", isnt: "isn't", arent: "aren't",
+    wasnt: "wasn't", werent: "weren't", wont: "won't", havent: "haven't", hasnt: "hasn't", hadnt: "hadn't",
+    youre: "you're", youve: "you've", youll: "you'll", theyre: "they're", theyve: "they've", weve: "we've",
+    thats: "that's", whats: "what's", theres: "there's", hes: "he's", shes: "she's", aint: "ain't",
+  },
+};
+
+const displayForm = (word: string) => DISPLAY_FORMS[currentLexiconLang]?.[word] ?? word;
+
+/** Chave da tabela de seguintes: "don't" está lá como "dont". */
+const bigramKey = (word: string) => (currentLexiconLang === 'en' ? word.replace(/['’]/g, '') : word);
+
+const WORDS_BY_LANG: Record<Lang, string> = {
+  pt: WORDS_PT,
+  en: WORDS_EN,
+  es: WORDS_ES,
+};
+
+const BIGRAMS_BY_LANG: Record<Lang, string> = {
+  pt: BIGRAMS_PT,
+  en: BIGRAMS_EN,
+  es: BIGRAMS_ES,
 };
 
 interface Entry {
@@ -76,30 +141,63 @@ interface Lexicon {
 
 const weightOf = (rank: number) => 1 / (rank + 50);
 
+let currentLexiconLang: Lang = 'pt';
 let lexicon: Lexicon | null = null;
+let bigrams: Map<string, Map<string, number>> | null = null;
+let seenInSentences: Set<string> | null = null;
 
-/** Monta o índice (uma vez). Chame cedo, fora do caminho do primeiro toque. */
-export function buildLexicon(): void {
-  if (lexicon) return;
-  const list = WORDS_PT.split(' ');
-  const byKey = new Map<string, Entry[]>();
-  for (let rank = 0; rank < list.length; rank++) {
-    const word = list[rank];
-    const key = toKey(word);
-    const forms = byKey.get(key);
-    // A lista vem de legendas e tem erros de acento ("voce", "nâo"): uma forma
-    // muito mais rara que a principal com a mesma chave é descartada. Formas
-    // de uso parecido ficam as duas ("e" / "é", "esta" / "está").
-    if (forms && rank > 15 * (forms[0].rank + 20)) continue;
-    const entry = { word, key, rank };
-    if (forms) forms.push(entry);
-    else byKey.set(key, [entry]);
+const lexiconCache: Partial<Record<Lang, Lexicon>> = {};
+const bigramsCache: Partial<Record<Lang, { bigrams: Map<string, Map<string, number>>; seen: Set<string> }>> = {};
+
+/** Monta o índice para o idioma pedido (padrão: o de digitação, que começa no de venda). */
+export function buildLexicon(targetLang?: Lang): void {
+  const target = targetLang ?? getTypingLanguage();
+  if (lexicon && currentLexiconLang === target) return;
+
+  currentLexiconLang = target;
+
+  if (lexiconCache[target]) {
+    lexicon = lexiconCache[target]!;
+  } else {
+    const list = WORDS_BY_LANG[target].split(' ');
+    const byKey = new Map<string, Entry[]>();
+    for (let rank = 0; rank < list.length; rank++) {
+      const word = list[rank];
+      const key = toKey(word);
+      const forms = byKey.get(key);
+      if (forms && rank > 15 * (forms[0].rank + 20)) continue;
+      const entry = { word, key, rank };
+      if (forms) forms.push(entry);
+      else byKey.set(key, [entry]);
+    }
+    const entries = [...byKey.values()].flat();
+    const sorted = entries.sort((a, b) => (a.key < b.key ? -1 : a.key > b.key ? 1 : a.rank - b.rank));
+    const cumulative = new Float64Array(sorted.length + 1);
+    for (let i = 0; i < sorted.length; i++) cumulative[i + 1] = cumulative[i] + weightOf(sorted[i].rank);
+    lexicon = { sorted, cumulative, byKey, words: new Set(entries.map(e => e.word)) };
+    lexiconCache[target] = lexicon;
   }
-  const entries = [...byKey.values()].flat();
-  const sorted = entries.sort((a, b) => (a.key < b.key ? -1 : a.key > b.key ? 1 : a.rank - b.rank));
-  const cumulative = new Float64Array(sorted.length + 1);
-  for (let i = 0; i < sorted.length; i++) cumulative[i + 1] = cumulative[i] + weightOf(sorted[i].rank);
-  lexicon = { sorted, cumulative, byKey, words: new Set(entries.map(e => e.word)) };
+
+  if (bigramsCache[target]) {
+    bigrams = bigramsCache[target]!.bigrams;
+    seenInSentences = bigramsCache[target]!.seen;
+  } else {
+    bigrams = null;
+    seenInSentences = null;
+  }
+}
+
+// Troca o dicionário junto com o idioma de digitação (mercado novo ou espaço segurado)
+onTypingLanguageChange(lang => {
+  buildLexicon(lang);
+});
+
+function ensureLexicon(): Lexicon | null {
+  const desired = getTypingLanguage();
+  if (!lexicon || currentLexiconLang !== desired) {
+    buildLexicon(desired);
+  }
+  return lexicon;
 }
 
 export const isLexiconReady = () => lexicon !== null;
@@ -130,7 +228,7 @@ function rangeWeight(lex: Lexicon, [start, end]: [number, number]): number {
  * Devolve null quando o dicionário não sabe nada sobre o prefixo (sem palpite).
  */
 export function nextLetterLogProb(prefix: string, letter: string): number | null {
-  const lex = lexicon;
+  const lex = ensureLexicon();
   if (!lex) return null;
   const p = toKey(prefix);
   const total = rangeWeight(lex, prefixRange(lex, p));
@@ -142,7 +240,8 @@ export function nextLetterLogProb(prefix: string, letter: string): number | null
 
 /** Palavra conhecida do jeito que foi digitada (ignorando maiúsculas)? */
 export function isKnownWord(word: string): boolean {
-  return !!lexicon && lexicon.words.has(word.toLowerCase());
+  const lex = ensureLexicon();
+  return !!lex && lex.words.has(word.toLowerCase());
 }
 
 /** Mantém o jeito que a pessoa escreveu: "Voce" → "Você", "VOCE" → "VOCÊ". */
@@ -205,17 +304,19 @@ const AUTOCORRECT_MARGIN = 0.6;
 
 const ONLY_LETTERS = /^[a-zà-öø-ÿ]+(?:-[a-zà-öø-ÿ]+)*$/i;
 
-/** Palavra anterior → seguintes → força (1–9). "^" = começo de frase. */
-let bigrams: Map<string, Map<string, number>> | null = null;
-/** Palavras vistas em frases em português (tabela de seguintes). */
-let seenInSentences: Set<string> | null = null;
 /** Até esta posição na lista de frequência, a palavra é comum o bastante para corrigir sozinha. */
 const COMMON_RANK = 3000;
 
 function loadBigrams(): Map<string, Map<string, number>> {
   if (bigrams) return bigrams;
+  if (bigramsCache[currentLexiconLang]) {
+    bigrams = bigramsCache[currentLexiconLang]!.bigrams;
+    seenInSentences = bigramsCache[currentLexiconLang]!.seen;
+    return bigrams;
+  }
   const map = new Map<string, Map<string, number>>();
-  for (const line of BIGRAMS_PT.split('\n')) {
+  const raw = BIGRAMS_BY_LANG[currentLexiconLang];
+  for (const line of raw.split('\n')) {
     const tab = line.indexOf('\t');
     if (tab < 0) continue;
     const next = new Map<string, number>();
@@ -229,6 +330,7 @@ function loadBigrams(): Map<string, Map<string, number>> {
   const seen = new Set<string>(map.keys());
   for (const next of map.values()) for (const w of next.keys()) seen.add(w);
   seenInSentences = seen;
+  bigramsCache[currentLexiconLang] = { bigrams: map, seen };
   return map;
 }
 
@@ -244,8 +346,11 @@ function candidatesFor(lex: Lexicon, typed: string, prev?: string): Candidate[] 
   const key = toKey(typed);
   const known = lex.words.has(lowerTyped);
   const found = new Map<string, Candidate>();
+  const neverSuggest = NEVER_SUGGEST_BY_LANG[currentLexiconLang] ?? NEVER_SUGGEST_BY_LANG.pt;
+  const abbreviations = ABBREVIATIONS_BY_LANG[currentLexiconLang] ?? ABBREVIATIONS_BY_LANG.pt;
+
   const offer = (word: string, base: number, kind: Kind) => {
-    if (word === lowerTyped || NEVER_SUGGEST.has(word)) return;
+    if (word === lowerTyped || neverSuggest.has(word)) return;
     const context = contextStrength(prev, word);
     const score = base + CONTEXT_WEIGHT * context;
     const old = found.get(word);
@@ -253,8 +358,8 @@ function candidatesFor(lex: Lexicon, typed: string, prev?: string): Candidate[] 
   };
   const freq = (e: Entry) => Math.log(weightOf(e.rank));
 
-  // 0) Abreviação de conversa: "vc" → "você" (só na barra, nunca sozinha)
-  const expanded = ABBREVIATIONS[lowerTyped];
+  // 0) Abreviação de conversa (só na barra, nunca sozinha)
+  const expanded = abbreviations[lowerTyped];
   if (expanded) offer(expanded, 100, 'abbr');
 
   // 1) Mesma palavra com acento: "voce" → "você", "nao" → "não"
@@ -274,7 +379,7 @@ function candidatesFor(lex: Lexicon, typed: string, prev?: string): Candidate[] 
       best.sort((a, b) => a.rank - b.rank);
     }
   }
-  // A frase também entra aqui: depois de "bom", "di" já sugere "dia"
+  // A frase também entra aqui
   if (prev) {
     for (const [word] of loadBigrams().get(prev) ?? []) {
       const forms = lex.byKey.get(toKey(word));
@@ -298,19 +403,24 @@ function candidatesFor(lex: Lexicon, typed: string, prev?: string): Candidate[] 
  * Sugestões para a palavra que está sendo digitada.
  * `prev`: palavra anterior da frase, em minúsculas ("^" = começo de frase).
  */
-export function suggest(typed: string, limit = 3, prev?: string): Suggestions {
-  const lex = lexicon;
+export function suggest(typed: string, limit = 3, prevWord?: string): Suggestions {
+  const lex = ensureLexicon();
+  const prev = prevWord && bigramKey(prevWord);
   if (!lex || !typed) return { unknown: false, words: [], autocorrect: null };
   const known = lex.words.has(typed.toLowerCase());
   const all = candidatesFor(lex, typed, prev);
   const fix = pickAutocorrect(lex, typed, known, all);
   // A correção automática vai na frente (é a que aparece em destaque)
   const ordered = fix ? [fix, ...all.filter(c => c !== fix)] : all;
-  const words = ordered.slice(0, limit).map(c => matchCase(typed, c.word));
+  // "dont" é palavra da lista, mas o certo na tela é "don't": vira a correção
+  const form = DISPLAY_FORMS[currentLexiconLang]?.[typed.toLowerCase()];
+  const autocorrect = fix ? matchCase(typed, displayForm(fix.word)) : form && form !== typed ? matchCase(typed, form) : null;
+  const shown = ordered.map(c => matchCase(typed, displayForm(c.word)));
+  const words = [...new Set(autocorrect ? [autocorrect, ...shown] : shown)].filter(w => w !== typed).slice(0, limit);
   return {
     unknown: !known && words.length > 0,
     words,
-    autocorrect: fix ? matchCase(typed, fix.word) : null,
+    autocorrect,
   };
 }
 
@@ -321,12 +431,11 @@ export function suggest(typed: string, limit = 3, prev?: string): Suggestions {
  */
 function pickAutocorrect(lex: Lexicon, typed: string, known: boolean, all: Candidate[]): Candidate | null {
   if (known || typed.length < 2 || !ONLY_LETTERS.test(typed)) return null;
-  if (ABBREVIATIONS[typed.toLowerCase()]) return null;
+  const abbreviations = ABBREVIATIONS_BY_LANG[currentLexiconLang] ?? ABBREVIATIONS_BY_LANG.pt;
+  if (abbreviations[typed.toLowerCase()]) return null;
   const typedLength = toKey(typed).length;
   loadBigrams();
   const fixes = all.filter(c => {
-    // Só palavras comuns ou vistas em frases em português: a lista de
-    // frequência vem de legendas e tem nomes e palavras em inglês ("yard")
     const rank = lex.byKey.get(toKey(c.word))?.find(e => e.word === c.word)?.rank ?? Infinity;
     if (rank > COMMON_RANK && !seenInSentences?.has(c.word)) return false;
     if (c.kind === 'accent' || c.kind === 'fix') return true;
@@ -337,8 +446,7 @@ function pickAutocorrect(lex: Lexicon, typed: string, known: boolean, all: Candi
   if (!best) return null;
   // Acento é certeiro: "voce" → "você"
   if (best.kind === 'accent') return best;
-  // Rival que só muda a última letra (obrigado/obrigada, casa/casas) não trava:
-  // vale a mais comum
+  // Rival que só muda a última letra não trava: vale a mais comum
   const stem = (w: string) => toKey(w).slice(0, -1);
   const rival = fixes.slice(1).find(c => stem(c.word) !== stem(best.word));
   if (rival && best.score - rival.score < AUTOCORRECT_MARGIN && best.context <= rival.context) return null;
@@ -347,14 +455,16 @@ function pickAutocorrect(lex: Lexicon, typed: string, known: boolean, all: Candi
 
 /** Próximas palavras prováveis depois de `prev` (barra logo após o espaço). */
 export function predictNext(prev: string, limit = 3): string[] {
-  if (!lexicon) return [];
-  const next = loadBigrams().get(prev);
+  const lex = ensureLexicon();
+  if (!lex) return [];
+  const next = loadBigrams().get(bigramKey(prev));
   if (!next) return [];
+  const neverSuggest = NEVER_SUGGEST_BY_LANG[currentLexiconLang] ?? NEVER_SUGGEST_BY_LANG.pt;
   return [...next.entries()]
-    .filter(([w]) => !NEVER_SUGGEST.has(w))
+    .filter(([w]) => !neverSuggest.has(w))
     .sort((a, b) => b[1] - a[1])
     .slice(0, limit)
-    .map(([w]) => w);
+    .map(([w]) => displayForm(w));
 }
 
 /** Mantém maiúsculas como a pessoa digitou (para quem aplica a correção). */

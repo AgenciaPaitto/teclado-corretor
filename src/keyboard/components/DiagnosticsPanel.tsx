@@ -1,3 +1,4 @@
+import { t } from '../../i18n';
 import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 import { KeyboardBridge } from '../../native/KeyboardBridge';
@@ -56,36 +57,35 @@ export function DiagnosticsPanel({ onInsert }: Props) {
 
   const { targetApp, mimeTypes } = snapshot;
   const checks = IMAGE_CHECKS.map(c => ({ ...c, ok: acceptsMime(mimeTypes, c.mime) }));
-  const formats = mimeTypes.length > 0 ? mimeTypes.join(', ') : 'Nenhum (o campo só aceita texto)';
+  const formats = mimeTypes.length > 0 ? mimeTypes.join(', ') : t('Nenhum (o campo só aceita texto)');
 
   const report = [
-    'Diagnóstico do KEYCON',
-    `App em foco: ${targetApp || 'desconhecido'}`,
-    `Formatos aceitos: ${formats}`,
-    ...checks.map(c => `${c.label} direto na conversa: ${c.ok ? 'sim' : 'não'}`),
+    t('Diagnóstico do KEYCON'),
+    t('App em foco: {app}', { app: targetApp || t('desconhecido') }),
+    t('Formatos aceitos: {formats}', { formats }),
+    ...checks.map(c => t('{label} direto na conversa: {answer}', { label: c.label, answer: c.ok ? t('sim') : t('não') })),
   ].join('\n');
 
   return (
     <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="always">
       <Text style={styles.hint}>
-        Abra o teclado no campo de mensagem do WhatsApp e entre aqui para ver o que ele aceita.
-      </Text>
+        {t('Abra o teclado no campo de mensagem do WhatsApp e entre aqui para ver o que ele aceita.')}</Text>
 
       <View style={styles.card}>
-        <Row label="App em foco" value={targetApp || 'desconhecido'} />
-        <Row label="Formatos aceitos" value={formats} />
+        <Row label={t('App em foco')} value={targetApp || 'desconhecido'} />
+        <Row label={t('Formatos aceitos')} value={formats} />
         {checks.map(c => (
-          <Row key={c.mime} label={`${c.label} direto na conversa`} value={c.ok ? 'Sim' : 'Não'} highlight={c.ok} />
+          <Row key={c.mime} label={t('{label} direto na conversa', { label: c.label })} value={c.ok ? 'Sim' : 'Não'} highlight={c.ok} />
         ))}
-        <Row label="Áudio, vídeo e várias fotos" value="Pelo compartilhamento" />
+        <Row label={t('Áudio, vídeo e várias fotos')} value="Pelo compartilhamento" />
       </View>
 
       <View style={styles.actions}>
         <Pressable style={styles.btn} onPress={load}>
-          <Text style={styles.btnText}>Atualizar</Text>
+          <Text style={styles.btnText}>{t('Atualizar')}</Text>
         </Pressable>
         <Pressable style={[styles.btn, styles.btnPrimary]} onPress={() => onInsert(report)}>
-          <Text style={[styles.btnText, styles.btnPrimaryText]}>Inserir relatório</Text>
+          <Text style={[styles.btnText, styles.btnPrimaryText]}>{t('Inserir relatório')}</Text>
         </Pressable>
       </View>
     </ScrollView>

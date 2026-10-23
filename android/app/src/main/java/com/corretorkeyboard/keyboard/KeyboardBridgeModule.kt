@@ -311,6 +311,41 @@ class KeyboardBridgeModule(reactContext: ReactApplicationContext) :
         }
     }
 
+    /**
+     * Foto ou vídeo para a seção Arquivos, escolhido de dentro do teclado:
+     * source = "gallery", "gallery-photo" (só fotos), "camera-photo" ou
+     * "camera-video". Resolve com o
+     * arquivo no cache ({ uri, name, mimeType, size, durationMs }) ou null se a
+     * pessoa cancelar.
+     */
+    @ReactMethod
+    fun pickMedia(source: String, promise: Promise) {
+        UiThreadUtil.runOnUiThread {
+            try {
+                // Pelo contexto do teclado visível: o Android deixa abrir a tela mesmo com o app em segundo plano
+                val context = CustomKeyboardService.instance ?: reactApplicationContext
+                MediaPickActivity.start(context, source) { result ->
+                    when (result) {
+                        is MediaPickActivity.Result.Ok -> {
+                            val p = result.picked
+                            promise.resolve(Arguments.createMap().apply {
+                                putString("uri", "file://${p.file.absolutePath}")
+                                putString("name", p.name)
+                                putString("mimeType", p.mimeType)
+                                putDouble("size", p.file.length().toDouble())
+                                p.durationMs?.let { putDouble("durationMs", it.toDouble()) }
+                            })
+                        }
+                        is MediaPickActivity.Result.Cancelled -> promise.resolve(null)
+                        is MediaPickActivity.Result.Error -> promise.reject("E_PICK", result.message)
+                    }
+                }
+            } catch (t: Throwable) {
+                promise.reject("E_PICK", t.message ?: "Não foi possível abrir a galeria.", t)
+            }
+        }
+    }
+
     // Obrigatórios para NativeEventEmitter no RN ≥ 0.65
     @ReactMethod fun addListener(eventName: String) { /* no-op */ }
     @ReactMethod fun removeListeners(count: Double) { /* no-op */ }

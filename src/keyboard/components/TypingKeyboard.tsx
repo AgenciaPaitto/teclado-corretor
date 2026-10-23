@@ -11,6 +11,9 @@ import { TypingContext } from '../typing/typingContext';
 import { createDeleteRepeater } from '../utils/deleteRepeater';
 import type { IconName } from './Icon';
 import { Icon } from './Icon';
+import { LANGUAGES, getTypingLanguage, t, nextTypingLanguage, onTypingLanguageChange, setTypingLanguage } from '../../i18n';
+import type { Lang } from '../../i18n';
+import { useLanguage } from '../../i18n/useLanguage';
 import { SuggestionBar } from './SuggestionBar';
 import type { SuggestionBarHandle, SuggestionItem } from './SuggestionBar';
 
@@ -130,13 +133,18 @@ function pointsOf(e: GestureResponderEvent): NativeTouchEvent[] {
 
 const isLetter = (c: string) => /^[a-zà-ÿç]$/i.test(c);
 
-function buildRows(mode: Mode, shift: ShiftState): KeyDef[][] {
+/** Segurar o espaço por este tempo troca o idioma de digitação. */
+const LANGUAGE_HOLD_MS = 500;
+
+function buildRows(mode: Mode, shift: ShiftState, typingLang: Lang): KeyDef[][] {
   const upper = mode === 'alpha' && shift !== 'off';
   const charKey = (c: string): KeyDef => {
     const v = upper ? c.toUpperCase() : c;
     return { id: `c:${c}`, label: v, kind: 'char', flex: 1, action: { t: 'char', v }, letter: isLetter(c) ? c : undefined };
   };
-  const [r1, r2, r3] = ROWS[mode];
+  const [r1, base2, r3] = ROWS[mode];
+  // Espanhol: "ñ" na ponta da 2ª fileira, como nos teclados de lá
+  const r2 = mode === 'alpha' && typingLang === 'es' ? [...base2, 'ñ'] : base2;
   const third: KeyDef =
     mode === 'alpha'
       ? { id: 'shift', label: '⇧', icon: shift === 'lock' ? 'capsLock' : 'shift', kind: 'func', flex: 1.5, action: { t: 'shift' } }
@@ -161,7 +169,8 @@ function buildRows(mode: Mode, shift: ShiftState): KeyDef[][] {
       },
       { id: 'globe', label: '🌐', icon: 'globo', kind: 'func', flex: 1, action: { t: 'globe' } },
       { id: 'comma', label: ',', kind: 'char', flex: 1, action: { t: 'char', v: ',' } },
-      { id: 'space', label: 'espaço', kind: 'space', flex: 4, action: { t: 'space' } },
+      // O nome do idioma de digitação no espaço (segurar troca)
+      { id: 'space', label: LANGUAGES.find(l => l.id === typingLang)?.label ?? '', kind: 'space', flex: 4, action: { t: 'space' } },
       { id: 'dot', label: '.', kind: 'char', flex: 1, action: { t: 'char', v: '.' } },
       { id: 'enter', label: '↵', icon: 'enter', kind: 'enter', flex: 1.5, action: { t: 'enter' } },
     ],
@@ -218,19 +227,21 @@ export interface TextSink {
 interface Props {
   /** Sem sink, digita no app em foco. */
   sink?: TextSink;
+  /** Campo de número (preço, telefone): abre já nos números. */
+  initialMode?: 'alpha' | 'numeric';
 }
 
-export function TypingKeyboard({ sink }: Props = {}) {
+export function TypingKeyboard({ sink, initialMode = 'alpha' }: Props = {}) {
   const styles = useStyles();
   // Lido nos toques (fora do ciclo do React): sempre o sink atual
   const out = useRef<TextSink>(sink ?? KeyboardBridge);
   out.current = sink ?? KeyboardBridge;
   const internal = !!sink;
-  const [mode, setModeState] = useState<Mode>('alpha');
+  const [mode, setModeState] = useState<Mode>(initialMode);
   const [shift, setShiftState] = useState<ShiftState>('off');
 
   // Os toques chegam fora do ciclo do React: o estado atual fica também em refs
-  const modeRef = useRef<Mode>('alpha');
+  const modeRef = useRef<Mode>(initialMode);
   const shiftRef = useRef<ShiftState>('off');
   const lastShiftTap = useRef(0);
   const lastSpaceAt = useRef(0);
@@ -249,7 +260,10 @@ export function TypingKeyboard({ sink }: Props = {}) {
     setShiftState(s);
   }, []);
 
-  const rows = useMemo(() => buildRows(mode, shift), [mode, shift]);
+  useLanguage();
+  const [typingLang, setTypingLang] = useState<Lang>(getTypingLanguage);
+  useEffect(() => onTypingLanguageChange(setTypingLang), []);
+  const rows = useMemo(() => buildRows(mode, shift, typingLang), [mode, shift, typingLang]);
   const rowsRef = useRef(rows);
   rowsRef.current = rows;
 
@@ -493,6 +507,13 @@ export function TypingKeyboard({ sink }: Props = {}) {
     });
   }, []);
 
+  // O teclado pode mudar de lugar sem mudar de tamanho (ex.: abriu junto com a
+  // tela grande): mede de novo logo depois de aparecer e ao fim de cada toque
+  useEffect(() => {
+    const timers = [150, 400, 900].map(ms => setTimeout(() => measureOrigin(), ms));
+    return () => timers.forEach(clearTimeout);
+  }, [measureOrigin]);
+
   /** Retângulo de cada tecla, calculado pelas linhas (as teclas dividem a linha pelo flex). */
   const keyRects = useCallback((): KeyRect<KeyDef>[] => {
     const out: KeyRect<KeyDef>[] = [];
@@ -574,6 +595,14 @@ export function TypingKeyboard({ sink }: Props = {}) {
       } else if (key.action.t === 'delete') {
         active.done = true;
         deleteRepeater.start();
+      } else if (key.action.t === 'space') {
+        // Segurou o espaço: troca o idioma do corretor (o espaço não é digitado)
+        active.timer = setTimeout(() => {
+          active.timer = null;
+          if (active.done) return;
+          active.done = true;
+          setTypingLanguage(nextTypingLanguage());
+        }, LANGUAGE_HOLD_MS);
       } else if (key.letter && ACCENTS[key.letter] && modeRef.current === 'alpha') {
         const letter = key.letter;
         active.timer = setTimeout(() => {
@@ -622,8 +651,9 @@ export function TypingKeyboard({ sink }: Props = {}) {
       touches.current.delete(id);
       if (active.key.action.t === 'delete') stopDelete();
       finish(active);
+      if (touches.current.size === 0) measureOrigin();
     },
-    [finish, stopDelete],
+    [finish, measureOrigin, stopDelete],
   );
 
   const cancelAll = useCallback(() => {
@@ -704,8 +734,9 @@ const KeyView = memo(({ label, icon, kind, flex, active }: KeyViewProps) => {
   const styles = useStyles();
   return (
     <View
-      testID={`key-${label}`}
-      accessibilityLabel={label}
+      // O espaço mostra o idioma; o nome da tecla continua "espaço"
+      testID={kind === 'space' ? 'key-espaço' : `key-${label}`}
+      accessibilityLabel={kind === 'space' ? `${t('espaço')}, ${label}` : label}
       style={[
         styles.key,
         { flex },

@@ -10,12 +10,16 @@
  *  - registro profissional (a maioria dos negócios atendidos é dos EUA);
  *  - dicionário do teclado: o corretor é um só, completo, para o dia a dia.
  *
- * Para criar um ramo: some o id em SegmentId (src/types), um perfil abaixo e
- * os dados de exemplo em ./demos.ts.
+ * Para criar um ramo: some o id em SegmentId (src/types) e um perfil abaixo.
  *
- * Este arquivo também é lido pelo backend (orientação da IA): sem imports de
- * código, só de tipos.
+ * Os textos estão em português; getSegment(id, idioma) devolve o ramo
+ * traduzido (src/i18n). As etapas do CRM e as opções dos campos ficam em
+ * português nos dados salvos (são a chave) e são traduzidas só na tela.
+ *
+ * Este arquivo também é lido pelo backend (orientação da IA).
  */
+import { getLanguage, tIn } from '../i18n';
+import type { Lang } from '../i18n';
 import type { IconName } from '../keyboard/components/Icon';
 import type { Product, SegmentId } from '../types';
 
@@ -281,9 +285,49 @@ export function isSegmentId(value: unknown): value is SegmentId {
   return typeof value === 'string' && BY_ID.has(value as SegmentId);
 }
 
-/** Perfil do ramo; ramo desconhecido (dado antigo ou de outra versão) = geral. */
-export function getSegment(id: SegmentId | string | null | undefined): SegmentProfile {
-  return BY_ID.get(id as SegmentId) ?? GENERAL;
+/**
+ * Perfil do ramo no idioma pedido (padrão: o das telas). Ramo desconhecido
+ * (dado antigo ou de outra versão) = geral.
+ */
+export function getSegment(id: SegmentId | string | null | undefined, lang: Lang = getLanguage()): SegmentProfile {
+  const base = BY_ID.get(id as SegmentId) ?? GENERAL;
+  if (lang === 'pt') return base;
+  const key = `${base.id}:${lang}`;
+  let translated = TRANSLATED.get(key);
+  if (!translated) {
+    translated = translateSegment(base, lang);
+    TRANSLATED.set(key, translated);
+  }
+  return translated;
+}
+
+const TRANSLATED = new Map<string, SegmentProfile>();
+
+function translateSegment(s: SegmentProfile, lang: Lang): SegmentProfile {
+  const tr = (text: string) => (text ? tIn(lang, text) : text);
+  const suffix = s.price.suffix;
+  return {
+    ...s,
+    label: tr(s.label),
+    description: tr(s.description),
+    terms: { catalog: tr(s.terms.catalog), item: tr(s.terms.item), items: tr(s.terms.items) },
+    examples: {
+      folderName: tr(s.examples.folderName),
+      folderDescription: tr(s.examples.folderDescription),
+      itemTitle: tr(s.examples.itemTitle),
+      itemDescription: tr(s.examples.itemDescription),
+    },
+    // As opções (Venda/Locação...) continuam em português: são o valor salvo
+    fields: s.fields.map(f => ({ ...f, label: tr(f.label), placeholder: tr(f.placeholder) })),
+    price: {
+      ...s.price,
+      label: tr(s.price.label),
+      placeholder: tr(s.price.placeholder),
+      prefix: s.price.prefix ? tr(s.price.prefix) : undefined,
+      suffix: typeof suffix === 'function' ? (p: Pick<Product, 'attributes'>) => tr(suffix(p)) : suffix ? tr(suffix) : undefined,
+    },
+    followUp: tr(s.followUp),
+  };
 }
 
 export function attributeValue(p: Pick<Product, 'attributes'>, key: string): string {

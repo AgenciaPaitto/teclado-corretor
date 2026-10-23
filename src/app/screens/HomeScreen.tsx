@@ -3,6 +3,7 @@
  * Poucos cards na primeira tela (teclado, primeiros passos, atalhos para as
  * outras áreas); o detalhe de cada assunto fica num submenu.
  */
+import { t } from '../../i18n';
 import React, { useState } from 'react';
 import { Text, View } from 'react-native';
 import { IconTile } from '../../keyboard/components/Icon';
@@ -30,7 +31,7 @@ import { ShortcutsManagerScreen } from './ShortcutsManagerScreen';
 type HomeSection = 'root' | 'install' | 'steps' | 'test' | 'shortcuts';
 
 /** Destinos fora do Início (outras abas do app). */
-export type AppTarget = Extract<StepTarget, 'account-data' | 'catalog'>;
+export type AppTarget = Extract<StepTarget, 'account-data' | 'catalog'> | 'files';
 
 interface Props {
   onNavigate: (target: AppTarget) => void;
@@ -54,7 +55,7 @@ export function HomeScreen({ onNavigate, onOpenTutorial }: Props) {
     return (
       <View style={styles.flexOnly}>
         <View style={styles.subHeaderBar}>
-          <SubHeader title="Atalhos" onBack={back} />
+          <SubHeader title={t('Atalhos')} onBack={back} />
         </View>
         <ShortcutsManagerScreen />
       </View>
@@ -95,6 +96,7 @@ function HomeRoot({ steps, keyboardReady, keyboardHalfway, onSection, onNavigate
   const itemCount = folders.reduce((n, f) => n + f.products.length, 0);
   const shortcuts = Repo.getShortcuts();
   const shortcutCount = shortcuts.texts.length + shortcuts.audios.length;
+  const files = Repo.getFiles();
 
   const doneCount = steps.filter(s => s.done).length;
   const nextStep = steps.find(s => !s.done);
@@ -104,7 +106,7 @@ function HomeRoot({ steps, keyboardReady, keyboardHalfway, onSection, onNavigate
     <Page>
       <ScreenTitle
         overline={seller.business || segment.label}
-        title={firstName ? `Olá, ${firstName}` : 'Olá!'}
+        title={firstName ? t('Olá, {firstName}', { firstName }) : t('Olá!')}
       />
 
       {/* Teclado: o essencial para tudo funcionar */}
@@ -112,17 +114,17 @@ function HomeRoot({ steps, keyboardReady, keyboardHalfway, onSection, onNavigate
         <View style={styles.cardHead}>
           <IconTile name="teclado" size={44} />
           <View style={styles.flex}>
-            <CardTitle>Teclado KEYCON</CardTitle>
+            <CardTitle>{t('Teclado KEYCON')}</CardTitle>
             <StatusChip
               done={keyboardReady}
-              label={keyboardReady ? 'Ativo' : keyboardHalfway ? 'Falta selecionar' : 'Não ativado'}
+              label={keyboardReady ? t('Ativo') : keyboardHalfway ? t('Falta selecionar') : t('Não ativado')}
             />
           </View>
         </View>
         {keyboardReady ? (
-          <Button label="Testar o teclado" variant="secondary" onPress={() => onSection('test')} />
+          <Button label={t('Testar o teclado')} variant="secondary" onPress={() => onSection('test')} />
         ) : (
-          <Button testID="home-activate" label="Ativar o teclado" onPress={() => onSection('install')} />
+          <Button testID="home-activate" label={t('Ativar o teclado')} onPress={() => onSection('install')} />
         )}
       </Card>
 
@@ -130,14 +132,14 @@ function HomeRoot({ steps, keyboardReady, keyboardHalfway, onSection, onNavigate
       {nextStep && (
         <Card>
           <View style={styles.rowBetween}>
-            <CardTitle>Primeiros passos</CardTitle>
+            <CardTitle>{t('Primeiros passos')}</CardTitle>
             <Text style={styles.count}>
-              {doneCount} de {steps.length}
+              {t('{doneCount} de {length}', { doneCount, length: steps.length })}
             </Text>
           </View>
           <ProgressBar value={doneCount / steps.length} />
-          <CardText>Próximo: {nextStep.title.toLowerCase()}.</CardText>
-          <Button testID="home-steps" label="Continuar" onPress={() => onSection('steps')} />
+          <CardText>{t('Próximo: {title}.', { title: nextStep.title.toLowerCase() })}</CardText>
+          <Button testID="home-steps" label={t('Continuar')} onPress={() => onSection('steps')} />
         </Card>
       )}
 
@@ -145,19 +147,27 @@ function HomeRoot({ steps, keyboardReady, keyboardHalfway, onSection, onNavigate
         <MenuRow
           icon="arquivos"
           title={segment.terms.catalog}
-          subtitle={`${folders.length} ${folders.length === 1 ? 'pasta' : 'pastas'}`}
+          subtitle={folders.length === 1 ? t('1 pasta') : t('{n} pastas', { n: folders.length })}
           value={`${itemCount}`}
           onPress={() => onNavigate('catalog')}
         />
         <MenuRow
           icon="atalhos"
-          title="Atalhos"
-          subtitle="Textos e áudios prontos"
+          title={t('Atalhos')}
+          subtitle={t('Textos e áudios prontos')}
           value={`${shortcutCount}`}
           onPress={() => onSection('shortcuts')}
         />
-        <MenuRow icon="teclado" title="Instalação do teclado" subtitle="Android e iPhone" onPress={() => onSection('install')} />
-        <MenuRow testID="home-tutorial" icon="info" title="Tutorial do app" subtitle="Tudo o que dá para fazer" onPress={onOpenTutorial} />
+        <MenuRow
+          testID="home-files"
+          icon="galeria"
+          title={t('Arquivos')}
+          subtitle={t('Pastas com fotos e vídeos')}
+          value={`${files.files.length}`}
+          onPress={() => onNavigate('files')}
+        />
+        <MenuRow icon="teclado" title={t('Instalação do teclado')} subtitle={t('Android e iPhone')} onPress={() => onSection('install')} />
+        <MenuRow testID="home-tutorial" icon="info" title={t('Tutorial do app')} subtitle={t('Tudo o que dá para fazer')} onPress={onOpenTutorial} />
       </MenuGroup>
     </Page>
   );
@@ -176,11 +186,11 @@ function StepsScreen({ steps, onBack, onGo }: StepsProps) {
   const doneCount = steps.filter(s => s.done).length;
   return (
     <Page>
-      <SubHeader title="Primeiros passos" onBack={onBack} />
+      <SubHeader title={t('Primeiros passos')} onBack={onBack} />
       <Card>
         <View style={styles.rowBetween}>
           <CardText>
-            {doneCount === steps.length ? 'Tudo pronto!' : `${doneCount} de ${steps.length} concluídos`}
+            {doneCount === steps.length ? t('Tudo pronto!') : t('{doneCount} de {length} concluídos', { doneCount, length: steps.length })}
           </CardText>
         </View>
         <ProgressBar value={doneCount / steps.length} />
@@ -195,7 +205,7 @@ function StepsScreen({ steps, onBack, onGo }: StepsProps) {
             </View>
           </View>
           {step.done ? (
-            <StatusChip done label="Concluído" />
+            <StatusChip done label={t('Concluído')} />
           ) : (
             <Button testID={`step-${step.id}`} label={step.actionLabel} variant="secondary" onPress={() => onGo(step.target)} />
           )}

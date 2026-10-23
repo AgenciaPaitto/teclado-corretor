@@ -1,3 +1,4 @@
+import { t } from '../../i18n';
 import React, { useEffect, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import { upcoming } from '../../agenda/agenda';
@@ -10,9 +11,9 @@ import { KeyboardAgenda } from './KeyboardAgenda';
 import { KeyboardCRM } from './KeyboardCRM';
 
 const THEME_LABEL: Record<ThemePreference, string> = {
-  light: 'CLARO',
-  dark: 'ESCURO',
-  system: 'SISTEMA',
+  light: 'Claro',
+  dark: 'Escuro',
+  system: 'Sistema',
 };
 
 interface Props {
@@ -39,7 +40,7 @@ export function MoreTab({ agenda = [], crm = [], segment, theme, onThemeChange, 
   const backBar = (title: string) => (
     <Pressable onPress={() => setSelectedSubMenu(null)} style={styles.breadcrumb}>
       <Icon name="voltar" size={18} color={colors.textMuted} />
-      <Text style={styles.back}>Voltar</Text>
+      <Text style={styles.back}>{t('Voltar')}</Text>
       <Text style={styles.crumbTitle}>{title}</Text>
     </Pressable>
   );
@@ -72,10 +73,10 @@ export function MoreTab({ agenda = [], crm = [], segment, theme, onThemeChange, 
           onPress={() => setSelectedSubMenu('agenda')}>
           <IconTile name="calendario" size={36} />
           <View style={styles.menuInfo}>
-            <Text style={styles.menuTitle}>Agenda</Text>
-            <Text style={styles.menuSubtitle}>Calendário de reuniões e tarefas</Text>
+            <Text style={styles.menuTitle}>{t('Agenda')}</Text>
+            <Text style={styles.menuSubtitle}>{t('Calendário de reuniões e tarefas')}</Text>
           </View>
-          <Text style={styles.menuMeta}>{upcoming(safeAgenda, Infinity).length} próximos</Text>
+          <Text style={styles.menuMeta}>{t('{length} próximos', { length: upcoming(safeAgenda, Infinity).length })}</Text>
         </Pressable>
 
         <Pressable
@@ -84,10 +85,10 @@ export function MoreTab({ agenda = [], crm = [], segment, theme, onThemeChange, 
           onPress={() => setSelectedSubMenu('crm')}>
           <IconTile name="clientes" size={36} />
           <View style={styles.menuInfo}>
-            <Text style={styles.menuTitle}>CRM</Text>
-            <Text style={styles.menuSubtitle}>Clientes e funil de vendas</Text>
+            <Text style={styles.menuTitle}>{t('CRM')}</Text>
+            <Text style={styles.menuSubtitle}>{t('Clientes e funil de vendas')}</Text>
           </View>
-          <Text style={styles.menuMeta}>{safeCrm.length} clientes</Text>
+          <Text style={styles.menuMeta}>{t('{length} clientes', { length: safeCrm.length })}</Text>
         </Pressable>
 
         <Pressable
@@ -96,10 +97,10 @@ export function MoreTab({ agenda = [], crm = [], segment, theme, onThemeChange, 
           onPress={() => setSelectedSubMenu('settings')}>
           <IconTile name="configuracoes" size={36} />
           <View style={styles.menuInfo}>
-            <Text style={styles.menuTitle}>Configurações</Text>
-            <Text style={styles.menuSubtitle}>Aparência do teclado (Claro, Escuro ou Padrão)</Text>
+            <Text style={styles.menuTitle}>{t('Configurações')}</Text>
+            <Text style={styles.menuSubtitle}>{t('Aparência do teclado (Claro, Escuro ou Padrão)')}</Text>
           </View>
-          <Text style={styles.menuMeta}>{THEME_LABEL[theme]}</Text>
+          <Text style={styles.menuMeta}>{t(THEME_LABEL[theme]).toUpperCase()}</Text>
         </Pressable>
 
         <Pressable
@@ -108,8 +109,8 @@ export function MoreTab({ agenda = [], crm = [], segment, theme, onThemeChange, 
           onPress={() => setSelectedSubMenu('diagnostics')}>
           <IconTile name="dados" size={36} />
           <View style={styles.menuInfo}>
-            <Text style={styles.menuTitle}>Diagnóstico</Text>
-            <Text style={styles.menuSubtitle}>O que o campo em foco aceita: texto, fotos, GIFs</Text>
+            <Text style={styles.menuTitle}>{t('Diagnóstico')}</Text>
+            <Text style={styles.menuSubtitle}>{t('O que o campo em foco aceita: texto, fotos, GIFs')}</Text>
           </View>
         </Pressable>
       </ScrollView>
@@ -155,7 +156,7 @@ export function MoreTab({ agenda = [], crm = [], segment, theme, onThemeChange, 
   if (selectedSubMenu === 'diagnostics') {
     return (
       <View style={styles.flex}>
-        {backBar('Diagnóstico')}
+        {backBar(t('Diagnóstico'))}
         <DiagnosticsPanel onInsert={onInsert} />
       </View>
     );
@@ -164,16 +165,16 @@ export function MoreTab({ agenda = [], crm = [], segment, theme, onThemeChange, 
   // 4. SUBMENU: CONFIGURAÇÕES (APARÊNCIA DO TECLADO)
   return (
     <View style={styles.flex}>
-      {backBar('Aparência do Teclado')}
+      {backBar(t('Aparência do Teclado'))}
 
       <ScrollView contentContainerStyle={styles.themeOptionsContainer} keyboardShouldPersistTaps="always">
-        <Text style={styles.themeSectionTitle}>Tema da Interface</Text>
+        <Text style={styles.themeSectionTitle}>{t('Tema da Interface')}</Text>
 
         {(
           [
-            { key: 'light', label: 'Modo Claro' },
-            { key: 'dark', label: 'Modo Escuro' },
-            { key: 'system', label: 'Padrão do Sistema' },
+            { key: 'light', label: t('Modo Claro') },
+            { key: 'dark', label: t('Modo Escuro') },
+            { key: 'system', label: t('Padrão do Sistema') },
           ] as const
         ).map(opt => {
           const isSelected = theme === opt.key;

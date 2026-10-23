@@ -1,7 +1,7 @@
 """Gera a tabela de palavras seguintes (bigramas) do teclado a partir das frases
-em português do Tatoeba (CC BY 2.0 FR). Só pares de palavras do dicionário.
+do Tatoeba (CC BY 2.0 FR). Só pares de palavras do dicionário.
 
-Uso: python -I build_bigrams.py <por_sentences.tsv.bz2> <wordsPt.ts> <saída.ts>
+Uso: python -I build_bigrams.py <xxx_sentences.tsv.bz2> <wordsXx.ts> <saída.ts> [PT|EN|ES]
 """
 import bz2
 import collections
@@ -9,12 +9,14 @@ import re
 import sys
 
 src, words_ts, out = sys.argv[1:4]
+CODE = sys.argv[4] if len(sys.argv) > 4 else 'PT'
+LANG_NAME = {'PT': 'português', 'EN': 'inglês', 'ES': 'espanhol'}[CODE]
 TOP = 6          # seguintes guardadas por palavra
 MIN_PAIR = 3     # par visto pelo menos 3 vezes
 MIN_PREV = 8     # palavra anterior vista pelo menos 8 vezes
 
 text = open(words_ts, encoding='utf-8').read()
-m = re.search(r'WORDS_PT\s*=\s*([`\'"])(.*?)\1', text, re.S)
+m = re.search(r'WORDS_[A-Z]+\s*=\s*([`\'"])(.*?)\1', text, re.S)
 lexicon = set(m.group(2).split())
 print('dicionário:', len(lexicon))
 
@@ -33,6 +35,9 @@ with bz2.open(src, 'rt', encoding='utf-8', errors='replace') as f:
         n += 1
         # Cada trecho entre pontuação forte é uma frase
         for chunk in re.split(r'[.!?;:…()"«»—]+', parts[2].lower()):
+            # Contrações viram uma palavra só ("don't" → "dont", fora do dicionário),
+            # para pedaços como "don" e "ve" não virarem previsão
+            chunk = re.sub(r"(\w)['’](\w)", r"\1\2", chunk)
             toks = WORD.findall(chunk)
             if not toks:
                 continue
@@ -62,10 +67,10 @@ for a in sorted(followers):
 body = '\n'.join(lines)
 print('palavras com seguintes:', len(lines), 'tamanho:', len(body.encode('utf-8')) // 1024, 'KB')
 
-header = '''/**
+header = f'''/**
  * Palavras que costumam vir depois de cada palavra (bigramas), para o
- * corretor entender a frase. Gerado por build_bigrams.py a partir das frases
- * em português do Tatoeba (https://tatoeba.org), licença CC BY 2.0 FR.
+ * corretor entender a frase. Gerado por scripts/build_bigrams.py a partir das
+ * frases em {LANG_NAME} do Tatoeba (https://tatoeba.org), licença CC BY 2.0 FR.
  *
  * Formato: uma linha por palavra: "palavra<TAB>seguinte:força seguinte:força".
  * "^" = começo de frase. Força de 1 a 9 (quanto aquela continuação é comum).
@@ -73,5 +78,5 @@ header = '''/**
 // prettier-ignore
 '''
 with open(out, 'w', encoding='utf-8') as f:
-    f.write(header + 'export const BIGRAMS_PT = `' + body.replace('\\', '\\\\').replace('`', '\\`').replace('${', '\\${') + '`;\n')
+    f.write(header + f'export const BIGRAMS_{CODE} = `' + body.replace('\\', '\\\\').replace('`', '\\`').replace('${', '\\${') + '`;\n')
 print('ok')

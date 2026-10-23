@@ -10,6 +10,7 @@ import { glassBorder, makeStyles, radius, spacing, useColors } from '../../keybo
 import { PickError } from '../../native/MediaPicker';
 import { UploadError, uploadMedia } from '../../services/mediaUpload';
 import type { LocalMedia, UploadedMedia } from '../../services/mediaUpload';
+import { t } from '../../i18n';
 
 export interface SourceOption {
   key: string;
@@ -66,10 +67,11 @@ export function useUploader() {
         const uploaded = await uploadMedia(media, progress => setUploading({ name: media.name, progress }));
         onDone(uploaded, media);
       } catch (e) {
+        // t(): as mensagens do Android (galeria do teclado) chegam em português
         setError(
           e instanceof UploadError || e instanceof PickError || e instanceof Error
-            ? e.message
-            : 'Não foi possível enviar o arquivo.',
+            ? t(e.message)
+            : t('Não foi possível enviar o arquivo.'),
         );
       } finally {
         busy.current = false;
@@ -93,7 +95,7 @@ export function UploadStatus({ uploading, error }: { uploading: UploadState | nu
         <ActivityIndicator size="small" color={colors.primaryText} />
         <View style={styles.flex}>
           <Text style={styles.statusTitle} numberOfLines={1}>
-            Enviando {uploading.name}
+            {t('Enviando {name}', { name: uploading.name })}
           </Text>
           <View style={styles.track}>
             <View style={[styles.fill, { width: `${Math.max(4, pct)}%` }]} />

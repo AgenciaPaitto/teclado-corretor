@@ -8,6 +8,7 @@
 import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import type { InputContext } from '../../native/KeyboardBridge';
+import { t } from '../../i18n';
 import { makeStyles, radius, spacing, useColors } from '../theme';
 import { TypingKeyboard } from './TypingKeyboard';
 import type { TextSink } from './TypingKeyboard';
@@ -15,16 +16,27 @@ import type { TextSink } from './TypingKeyboard';
 /** Tipos de campo do Android: o teclado usa para maiúscula automática e sugestões. */
 const INPUT_TYPE = {
   text: 0x1 | 0x4000, // frases com maiúscula
+  multiline: 0x1 | 0x4000 | 0x20000, // texto longo (descrição)
   name: 0x1 | 0x2000, // cada palavra com maiúscula
   phone: 0x3,
+  money: 0x2, // só números: o valor é montado como em maquininha
 } as const;
+
+/** Campos que abrem o teclado já nos números. */
+const NUMERIC_KINDS = new Set<FormFieldSpec['kind']>(['phone', 'money']);
 
 export interface FormFieldSpec {
   key: string;
+  /** Em português: o campo traduz na tela. */
   label: string;
   placeholder: string;
-  kind?: 'text' | 'name' | 'phone';
+  kind?: keyof typeof INPUT_TYPE;
+  /** Como o valor aparece no visor (ex.: dígitos do preço → "R$ 189,90"). */
+  format?: (value: string) => string;
 }
+
+/** Preço: guarda só os dígitos, sem zeros à esquerda (até 13). */
+const onlyDigits = (v: string) => v.replace(/\D/g, '').replace(/^0+/, '').slice(0, 13);
 
 export function useKeyboardForm(fields: FormFieldSpec[], initial: Record<string, string> = {}) {
   const [values, setValues] = useState<Record<string, string>>(() => ({ ...initial }));
@@ -40,7 +52,9 @@ export function useKeyboardForm(fields: FormFieldSpec[], initial: Record<string,
 
   const update = useCallback((fn: (v: string) => string) => {
     const key = activeRef.current;
-    const next = { ...valuesRef.current, [key]: fn(valuesRef.current[key] ?? '') };
+    const money = fieldsRef.current.find(f => f.key === key)?.kind === 'money';
+    const value = fn(valuesRef.current[key] ?? '');
+    const next = { ...valuesRef.current, [key]: money ? onlyDigits(value) : value };
     valuesRef.current = next;
     setValues(next);
   }, []);
@@ -97,17 +111,22 @@ interface FieldProps {
 /** Visor de um campo: toque para escolher onde o teclado escreve. */
 export function KeyboardFormField({ spec, value, active, onPress }: FieldProps) {
   const styles = useStyles();
+  const long = spec.kind === 'multiline';
+  const shown = value && spec.format ? spec.format(value) : value;
+  // Digitando um texto longo: mostra o fim, onde o cursor está
+  const limit = long ? 150 : 60;
+  const visible = active && shown.length > limit ? `…${shown.slice(-limit)}` : shown;
   return (
     <Pressable
       testID={`kbfield-${spec.key}`}
       accessibilityRole="button"
-      accessibilityLabel={spec.label}
+      accessibilityLabel={t(spec.label)}
       onPress={onPress}
       style={[styles.field, active && styles.fieldActive]}>
-      <Text style={[styles.label, active && styles.labelActive]}>{spec.label}</Text>
+      <Text style={[styles.label, active && styles.labelActive]}>{t(spec.label)}</Text>
       <View style={styles.valueRow}>
-        <Text style={[styles.value, !value && styles.placeholder]} numberOfLines={2}>
-          {value || (active ? '' : spec.placeholder)}
+        <Text style={[styles.value, !value && styles.placeholder]} numberOfLines={long ? 4 : 2}>
+          {visible || (active ? '' : t(spec.placeholder))}
         </Text>
         {active && <View style={styles.caret} />}
       </View>
@@ -116,12 +135,12 @@ export function KeyboardFormField({ spec, value, active, onPress }: FieldProps) 
 }
 
 /** Teclado de letras ligado ao campo ativo do formulário. */
-export function KeyboardFormKeys({ sink, activeKey }: { sink: TextSink; activeKey: string }) {
+export function KeyboardFormKeys({ sink, activeKey, spec }: { sink: TextSink; activeKey: string; spec?: FormFieldSpec }) {
   const styles = useStyles();
   return (
     <View style={styles.keys}>
-      {/* Recria ao trocar de campo: maiúscula automática e sugestões do campo novo */}
-      <TypingKeyboard key={activeKey} sink={sink} />
+      {/* Recria ao trocar de campo: maiúscula automática, sugestões e números do campo novo */}
+      <TypingKeyboard key={activeKey} sink={sink} initialMode={NUMERIC_KINDS.has(spec?.kind) ? 'numeric' : 'alpha'} />
     </View>
   );
 }

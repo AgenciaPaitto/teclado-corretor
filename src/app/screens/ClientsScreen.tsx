@@ -1,3 +1,4 @@
+import { t } from '../../i18n';
 /**
  * Clientes (CRM) no app — mesmos dados do CRM do teclado.
  * Tela principal: busca, funil por etapa e lista; ficha e cadastro em submenus.
@@ -59,10 +60,10 @@ export function ClientsScreen({ onSchedule }: Props) {
           onSave={save}
           onSchedule={() => onSchedule(lead)}
           onDelete={() =>
-            Alert.alert('Excluir cliente', `Deseja excluir "${lead.clientName}"? Os compromissos dele continuam na agenda.`, [
-              { text: 'Cancelar', style: 'cancel' },
+            Alert.alert(t('Excluir cliente'), t('Deseja excluir "{clientName}"? Os compromissos dele continuam na agenda.', { clientName: lead.clientName }), [
+              { text: t('Cancelar'), style: 'cancel' },
               {
-                text: 'Excluir',
+                text: t('Excluir'),
                 style: 'destructive',
                 onPress: () => {
                   Repo.deleteLead(lead.id);
@@ -104,12 +105,12 @@ function LeadList({ leads, stages, onOpen, onNew }: { leads: CRMLead[]; stages: 
   if (!leads.length) {
     return (
       <Page>
-        <ScreenTitle title="Clientes" />
+        <ScreenTitle title={t('Clientes')} />
         <EmptyState
           icon="clientes"
-          title="Nenhum cliente ainda"
-          text="Cadastre aqui ou direto no teclado (Mais › CRM), durante a conversa."
-          actionLabel="Novo cliente"
+          title={t('Nenhum cliente ainda')}
+          text={t('Cadastre aqui ou direto no teclado (Mais › CRM), durante a conversa.')}
+          actionLabel={t('Novo cliente')}
           onAction={onNew}
         />
       </Page>
@@ -119,17 +120,17 @@ function LeadList({ leads, stages, onOpen, onNew }: { leads: CRMLead[]; stages: 
   return (
     <Page>
       <View style={styles.titleRow}>
-        <ScreenTitle title="Clientes" subtitle={`${leads.length} no funil`} />
+        <ScreenTitle title={t('Clientes')} subtitle={t('{length} no funil', { length: leads.length })} />
         <Pressable accessibilityRole="button" style={styles.addBtn} onPress={onNew}>
           <CoralSheen />
           <Icon name="adicionar" size={18} color={colors.onPrimary} />
-          <Text style={styles.addBtnText}>Novo</Text>
+          <Text style={styles.addBtnText}>{t('Novo')}</Text>
         </Pressable>
       </View>
 
       <TextInput
         style={styles.search}
-        placeholder="Buscar por nome ou telefone"
+        placeholder={t('Buscar por nome ou telefone')}
         placeholderTextColor={colors.textMuted}
         value={query}
         onChangeText={setQuery}
@@ -148,7 +149,7 @@ function LeadList({ leads, stages, onOpen, onNew }: { leads: CRMLead[]; stages: 
               onPress={() => setStage(s)}>
               <Text style={[styles.stageCount, active && styles.stageTextActive]}>{s ? counts.get(s) ?? 0 : leads.length}</Text>
               <Text style={[styles.stageLabel, active && styles.stageTextActive]} numberOfLines={1}>
-                {s ? `${i}. ${s}` : 'Todos'}
+                {s ? `${i}. ${t(s)}` : t('Todos')}
               </Text>
             </Pressable>
           );
@@ -156,7 +157,7 @@ function LeadList({ leads, stages, onOpen, onNew }: { leads: CRMLead[]; stages: 
       </ScrollView>
 
       <View style={styles.list}>
-        {shown.length === 0 && <CardText>Nenhum cliente encontrado.</CardText>}
+        {shown.length === 0 && <CardText>{t('Nenhum cliente encontrado.')}</CardText>}
         {shown.map(l => (
           <Pressable key={l.id} style={({ pressed }) => [styles.leadCard, pressed && styles.pressed]} onPress={() => onOpen(l.id)}>
             <View style={styles.avatar}>
@@ -167,7 +168,7 @@ function LeadList({ leads, stages, onOpen, onNew }: { leads: CRMLead[]; stages: 
                 {l.clientName}
               </Text>
               <Text style={styles.leadMeta} numberOfLines={1}>
-                {l.stage} · {lastContactLabel(l)}
+                {t(l.stage)} · {lastContactLabel(l)}
               </Text>
             </View>
             <Icon name="avancar" size={18} color={colors.textMuted} />
@@ -199,25 +200,25 @@ function LeadDetail({
   const next = upcoming(Repo.getAgenda().filter(a => a.clientId === lead.id), 3);
   return (
     <Page>
-      <SubHeader title="Clientes" onBack={onBack} />
+      <SubHeader title={t('Clientes')} onBack={onBack} />
       <Card style={styles.profile}>
         <View style={[styles.avatar, styles.avatarLarge]}>
           <Text style={[styles.avatarText, styles.avatarTextLarge]}>{initials(lead.clientName)}</Text>
         </View>
         <View style={styles.flex}>
           <Text style={styles.profileName}>{lead.clientName}</Text>
-          <Text style={styles.leadMeta}>{lead.phone || 'Sem telefone'}</Text>
-          <Text style={styles.leadMeta}>Último contato: {lastContactLabel(lead).toLowerCase()}</Text>
+          <Text style={styles.leadMeta}>{lead.phone || t('Sem telefone')}</Text>
+          <Text style={styles.leadMeta}>{t('Último contato: {lastContactLabellead}', { lastContactLabellead: lastContactLabel(lead).toLowerCase() })}</Text>
         </View>
       </Card>
 
       <Card>
-        <CardTitle>Etapa do funil</CardTitle>
-        <ChoiceRow onCard options={stages.map(s => ({ value: s, label: s }))} value={lead.stage} onChange={stage => onSave({ ...lead, stage })} />
+        <CardTitle>{t('Etapa do funil')}</CardTitle>
+        <ChoiceRow onCard options={stages.map(s => ({ value: s, label: t(s) }))} value={lead.stage} onChange={stage => onSave({ ...lead, stage })} />
       </Card>
 
       <Card>
-        <CardTitle>Próximos compromissos</CardTitle>
+        <CardTitle>{t('Próximos compromissos')}</CardTitle>
         {next.length ? (
           next.map(a => (
             <Text key={a.id} style={styles.agendaLine}>
@@ -226,21 +227,21 @@ function LeadDetail({
             </Text>
           ))
         ) : (
-          <CardText>Nada agendado com este cliente.</CardText>
+          <CardText>{t('Nada agendado com este cliente.')}</CardText>
         )}
-        <Button label="Agendar" variant="secondary" icon="calendario" onPress={onSchedule} />
+        <Button label={t('Agendar')} variant="secondary" icon="calendario" onPress={onSchedule} />
       </Card>
 
       {lead.notes ? (
         <Card>
-          <CardTitle>Anotações</CardTitle>
+          <CardTitle>{t('Anotações')}</CardTitle>
           <CardText>{lead.notes}</CardText>
         </Card>
       ) : null}
 
-      <Button label="Registrar contato agora" icon="check" onPress={() => onSave({ ...lead, lastContactAt: new Date().toISOString() })} />
-      <Button label="Editar" variant="secondary" onPress={onEdit} />
-      <Button label="Excluir cliente" variant="danger" onPress={onDelete} />
+      <Button label={t('Registrar contato agora')} icon="check" onPress={() => onSave({ ...lead, lastContactAt: new Date().toISOString() })} />
+      <Button label={t('Editar')} variant="secondary" onPress={onEdit} />
+      <Button label={t('Excluir cliente')} variant="danger" onPress={onDelete} />
     </Page>
   );
 }
@@ -255,7 +256,7 @@ function LeadForm({ lead, stages, onBack, onSave }: { lead: CRMLead | null; stag
 
   const save = () => {
     if (!name.trim()) {
-      Alert.alert('Atenção', 'Informe o nome do cliente.');
+      Alert.alert(t('Atenção'), t('Informe o nome do cliente.'));
       return;
     }
     const now = new Date().toISOString();
@@ -279,17 +280,17 @@ function LeadForm({ lead, stages, onBack, onSave }: { lead: CRMLead | null; stag
 
   return (
     <Page>
-      <SubHeader title={lead ? 'Editar cliente' : 'Novo cliente'} onBack={onBack} />
+      <SubHeader title={lead ? t('Editar cliente') : t('Novo cliente')} onBack={onBack} />
       <Card>
         {input('Nome', name, setName, 'Nome do cliente')}
         {input('Telefone / WhatsApp', phone, setPhone, 'Opcional', { keyboardType: 'phone-pad' })}
         {input('Anotações', notes, setNotes, 'Interesse, orçamento, preferências...', { multiline: true, style: [styles.input, styles.textArea] })}
       </Card>
       <Card>
-        <CardTitle>Etapa</CardTitle>
-        <ChoiceRow onCard options={stages.map(s => ({ value: s, label: s }))} value={stage} onChange={setStage} />
+        <CardTitle>{t('Etapa')}</CardTitle>
+        <ChoiceRow onCard options={stages.map(s => ({ value: s, label: t(s) }))} value={stage} onChange={setStage} />
       </Card>
-      <Button label="Salvar" onPress={save} />
+      <Button label={t('Salvar')} onPress={save} />
     </Page>
   );
 }

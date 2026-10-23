@@ -1,6 +1,7 @@
 /**
  * Regras do CRM usadas pelo app e pelo teclado.
  */
+import { t } from '../i18n';
 import type { SegmentProfile } from '../segments/segments';
 import type { CRMLead } from '../types';
 import { parseISODate, toISODate, todayISO } from '../agenda/agenda';
@@ -18,13 +19,13 @@ export function initials(name?: string): string {
 
 /** "Hoje", "Ontem", "Há 5 dias", "Sem contato". */
 export function lastContactLabel(lead: CRMLead): string {
-  if (!lead.lastContactAt) return lead.lastContact || 'Sem contato';
+  if (!lead.lastContactAt) return lead.lastContact || t('Sem contato');
   const day = toISODate(new Date(lead.lastContactAt));
   const today = todayISO();
-  if (day === today) return 'Hoje';
+  if (day === today) return t('Hoje');
   const diff = Math.round((parseISODate(today).getTime() - parseISODate(day).getTime()) / 86_400_000);
-  if (diff === 1) return 'Ontem';
-  return diff > 1 ? `Há ${diff} dias` : 'Hoje';
+  if (diff === 1) return t('Ontem');
+  return diff > 1 ? t('Há {n} dias', { n: diff }) : t('Hoje');
 }
 
 /** Etapas do ramo + as que algum cliente antigo ainda usa (de outro ramo). */

@@ -4,8 +4,11 @@
  * O marcador de login usado pelo teclado (Repo auth token) acompanha a sessão
  * do Supabase: é gravado ao entrar / renovar o token e apagado ao sair.
  */
+import { t } from '../i18n';
 import type { Session } from '@supabase/supabase-js';
 import { isSegmentId } from '../segments/segments';
+import { isLang } from '../i18n';
+import { isMarketId } from '../i18n/markets';
 import { Repo } from '../storage/storage';
 import type { SellerProfile } from '../types';
 import { supabase } from './supabase';
@@ -19,33 +22,43 @@ export interface SignUpInput extends SellerProfile {
 
 /**
  * Colunas da tabela "profiles". A coluna agency (nome antigo, da época em que o
- * app era só para corretores) guarda o nome do negócio; segment guarda o ramo.
+ * app era só para corretores) guarda o nome do negócio; segment guarda o ramo;
+ * language e market, o idioma do usuário e onde ele vende (moeda).
  */
 function toProfileRow(profile: SellerProfile) {
-  return { name: profile.name, agency: profile.business, phone: profile.phone, segment: profile.segment };
+  return {
+    name: profile.name,
+    agency: profile.business,
+    phone: profile.phone,
+    segment: profile.segment,
+    language: profile.language,
+    market: profile.market,
+  };
 }
 
-/** Banco ainda sem a coluna segment (schema.sql não foi rodado de novo). */
-function isMissingSegmentColumn(error: { message: string }): boolean {
-  return /segment/i.test(error.message);
+/** Colunas novas que um banco antigo pode não ter (schema.sql não foi rodado de novo). */
+const NEWER_COLUMNS = ['segment', 'language', 'market'] as const;
+
+function isMissingNewerColumn(error: { message: string }): boolean {
+  return NEWER_COLUMNS.some(c => new RegExp(c, 'i').test(error.message));
 }
 
 /** Traduz as mensagens mais comuns do Supabase para o usuário. */
 function friendlyMessage(raw: string): string {
   const msg = raw.toLowerCase();
-  if (msg.includes('invalid login credentials')) return 'E-mail ou senha incorretos.';
+  if (msg.includes('invalid login credentials')) return t('E-mail ou senha incorretos.');
   if (msg.includes('email not confirmed'))
-    return 'Confirme seu e-mail pelo link que enviamos antes de entrar.';
+    return t('Confirme seu e-mail pelo link que enviamos antes de entrar.');
   if (msg.includes('already registered') || msg.includes('already been registered'))
-    return 'Este e-mail já tem cadastro. Use a opção Entrar.';
+    return t('Este e-mail já tem cadastro. Use a opção Entrar.');
   if (msg.includes('password should be at least') || msg.includes('weak password'))
-    return 'A senha precisa ter pelo menos 6 caracteres.';
+    return t('A senha precisa ter pelo menos 6 caracteres.');
   if (msg.includes('invalid email') || msg.includes('unable to validate email'))
-    return 'Informe um e-mail válido.';
+    return t('Informe um e-mail válido.');
   if (msg.includes('rate limit') || msg.includes('too many'))
-    return 'Muitas tentativas seguidas. Aguarde alguns minutos e tente de novo.';
+    return t('Muitas tentativas seguidas. Aguarde alguns minutos e tente de novo.');
   if (msg.includes('network request failed') || msg.includes('fetch'))
-    return 'Sem conexão com a internet. Verifique e tente de novo.';
+    return t('Sem conexão com a internet. Verifique e tente de novo.');
   return raw;
 }
 
@@ -111,7 +124,7 @@ export async function signUp(input: SignUpInput): Promise<'signed_in' | 'confirm
 
   // Supabase devolve usuário sem identidades quando o e-mail já existe
   if (data.user && data.user.identities && data.user.identities.length === 0) {
-    throw new AuthError('Este e-mail já tem cadastro. Use a opção Entrar.');
+    throw new AuthError(t('Este e-mail já tem cadastro. Use a opção Entrar.'));
   }
 
   // Conta nova = app limpo e zerado
@@ -148,6 +161,9 @@ export async function pullProfile(): Promise<SellerProfile | null> {
     phone: data.phone,
     // Sem ramo na nuvem, mantém o escolhido neste aparelho
     segment: isSegmentId(data.segment) ? data.segment : Repo.getSegment(),
+    // Sem idioma/mercado na nuvem, mantém os escolhidos neste aparelho
+    language: isLang(data.language) ? data.language : Repo.getSeller().language,
+    market: isMarketId(data.market) ? data.market : Repo.getSeller().market,
   };
   Repo.setSeller(profile);
   return profile;
@@ -158,14 +174,14 @@ export async function pushProfile(profile: SellerProfile): Promise<void> {
   Repo.setSeller(profile);
   const { data: userData } = await supabase.auth.getUser();
   const userId = userData.user?.id;
-  if (!userId) throw new AuthError('Sessão expirada. Entre novamente.');
+  if (!userId) throw new AuthError(t('Sessão expirada. Entre novamente.'));
 
   const row = { id: userId, ...toProfileRow(profile), updated_at: new Date().toISOString() };
   let { error } = await supabase.from('profiles').upsert(row);
-  if (error && isMissingSegmentColumn(error)) {
-    // O ramo fica só no aparelho até o banco ganhar a coluna (supabase/schema.sql)
-    const { segment: _segment, ...withoutSegment } = row;
-    ({ error } = await supabase.from('profiles').upsert(withoutSegment));
+  if (error && isMissingNewerColumn(error)) {
+    // Ramo, idioma e mercado ficam só no aparelho até o banco ganhar as colunas (supabase/schema.sql)
+    const { segment: _segment, language: _language, market: _market, ...basic } = row;
+    ({ error } = await supabase.from('profiles').upsert(basic));
   }
   if (error) fail(error);
 }

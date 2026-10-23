@@ -5,6 +5,7 @@ import type { IconName } from '../../keyboard/components/Icon';
 import { makeStyles, spacing, typography } from '../../keyboard/theme';
 import type { SegmentProfile } from '../../segments/segments';
 import { Button } from '../components/ui';
+import { t } from '../../i18n';
 
 interface Slide {
   icon: IconName;
@@ -18,43 +19,48 @@ function slidesFor(segment: SegmentProfile): Slide[] {
   return [
     {
       icon: 'teclado',
-      title: 'Bem-vindo ao KEYCON',
-      text: 'Seu catálogo de vendas dentro do teclado, em qualquer conversa.',
+      title: t('Bem-vindo ao KEYCON'),
+      text: t('Seu catálogo de vendas dentro do teclado, em qualquer conversa.'),
     },
     {
       icon: 'configuracoes',
-      title: 'Ative o teclado',
-      text: 'Ligue o KEYCON nas configurações do celular. Leva menos de um minuto.',
+      title: t('Ative o teclado'),
+      text: t('Ligue o KEYCON nas configurações do celular. Leva menos de um minuto.'),
     },
     {
       icon: 'novaPasta',
-      title: `Cadastre seus ${items}`,
-      text: `Crie pastas e adicione cada ${item} com preço, fotos e vídeos.`,
+      title: t('Cadastre seus {items}', { items }),
+      text: t('Crie pastas e adicione cada {item} com preço, fotos e vídeos.', { item }),
     },
     {
       icon: 'atalhos',
-      title: 'Crie atalhos',
-      text: 'Salve os textos e áudios que você manda sempre e envie com um toque.',
+      title: t('Crie atalhos'),
+      text: t('Salve os textos e áudios que você manda sempre e envie com um toque.'),
     },
     {
       icon: 'arquivos',
-      title: 'Venda pelo teclado',
-      text: `Na conversa, toque em ${catalog} no teclado e envie a ficha ou as fotos.`,
+      title: t('Venda pelo teclado'),
+      text: t('Na conversa, toque em {catalog} no teclado e envie a ficha ou as fotos.', { catalog }),
+    },
+    {
+      icon: 'galeria',
+      title: t('Seus arquivos'),
+      text: t('Organize fotos e vídeos em pastas e subpastas, pelo app ou pelo próprio teclado, e envie na conversa.'),
     },
     {
       icon: 'clientes',
-      title: 'Clientes e agenda',
-      text: 'Acompanhe o funil e marque reuniões no app ou no teclado, que abre em tela grande.',
+      title: t('Clientes e agenda'),
+      text: t('Acompanhe o funil e marque reuniões no app ou no teclado, que abre em tela grande.'),
     },
     {
       icon: 'ia',
-      title: 'Respostas com IA',
-      text: 'Copie a mensagem do cliente e toque em IA: o KEYCON sugere a resposta.',
+      title: t('Respostas com IA'),
+      text: t('Copie a mensagem do cliente e toque em IA: o KEYCON sugere a resposta.'),
     },
     {
       icon: 'respostas',
-      title: 'Para o dia a dia',
-      text: 'Corretor, sugestões de palavras e maiúscula automática, sem trocar de teclado.',
+      title: t('Para o dia a dia'),
+      text: t('Corretor, sugestões de palavras e maiúscula automática, sem trocar de teclado.'),
     },
   ];
 }
@@ -75,11 +81,11 @@ export function TutorialScreen({ segment, onClose }: Props) {
     <View style={styles.root} testID="tutorial">
       <View style={styles.top}>
         <Text style={styles.counter}>
-          {index + 1} de {slides.length}
+          {t('{v} de {length}', { v: index + 1, length: slides.length })}
         </Text>
         {!last && (
           <Pressable accessibilityRole="button" hitSlop={12} onPress={onClose}>
-            <Text style={styles.skip}>Pular</Text>
+            <Text style={styles.skip}>{t('Pular')}</Text>
           </Pressable>
         )}
       </View>
@@ -99,13 +105,13 @@ export function TutorialScreen({ segment, onClose }: Props) {
       <View style={styles.actions}>
         {index > 0 && (
           <View style={styles.flex}>
-            <Button label="Voltar" variant="secondary" onPress={() => setIndex(i => i - 1)} />
+            <Button label={t('Voltar')} variant="secondary" onPress={() => setIndex(i => i - 1)} />
           </View>
         )}
         <View style={styles.flex}>
           <Button
             testID="tutorial-next"
-            label={last ? 'Começar' : 'Próximo'}
+            label={last ? t('Começar') : t('Próximo')}
             onPress={() => (last ? onClose() : setIndex(i => i + 1))}
           />
         </View>

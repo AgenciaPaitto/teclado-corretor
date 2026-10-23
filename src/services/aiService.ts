@@ -16,6 +16,7 @@ import Clipboard from '@react-native-clipboard/clipboard';
 import type { AISuggestion, ProductFolder, SegmentId, SellerProfile, SuggestionTone } from '../types';
 import { getSegment } from '../segments/segments';
 import { Repo } from '../storage/storage';
+import { getSellingLanguage, localeOf, t, tSell } from '../i18n';
 import { attributeLines, formatPrice } from '../utils/formatters';
 
 // ---------------------------------------------------------------------------
@@ -58,7 +59,8 @@ export interface CopilotRequest {
   /** Ramo do negócio: o backend escolhe a orientação da IA por ele. */
   segment: SegmentId;
   products: ProductContext[];
-  locale: 'pt-BR';
+  /** Idioma em que a IA responde ao cliente (o de venda): "pt-BR", "en-US" ou "es". */
+  locale: string;
   maxSuggestions: number;
 }
 
@@ -105,7 +107,7 @@ export async function readClipboardMessage(): Promise<string> {
   if (!text) {
     throw new AIServiceError(
       'EMPTY_CLIPBOARD',
-      'Copie a mensagem do cliente no WhatsApp (toque longo → Copiar) e tente novamente.',
+      t('Copie a mensagem do cliente no WhatsApp (toque longo → Copiar) e tente novamente.'),
     );
   }
   return text;
@@ -133,7 +135,8 @@ export function selectRelevantProducts(
 
   const scored = folders.flatMap(f =>
     f.products.map(p => {
-      const details = attributeLines(p, segment);
+      // No idioma de venda: é o que a IA repete para o cliente
+      const details = attributeLines(p, segment, getSellingLanguage());
       const haystack = normalize(
         `${f.name} ${f.description ?? ''} ${p.title} ${p.shortDescription} ${details.join(' ')}`,
       );
@@ -142,7 +145,7 @@ export function selectRelevantProducts(
         id: p.id,
         folder: f.name,
         title: p.title,
-        price: formatPrice(p, segment),
+        price: formatPrice(p, segment, getSellingLanguage()),
         description: p.shortDescription,
         details,
         url: p.datasheetUrl,
@@ -179,18 +182,18 @@ async function postJSON<TReq, TRes>(path: string, body: TReq, token?: string): P
     });
 
     if (res.status === 401 || res.status === 403) {
-      throw new AIServiceError('UNAUTHORIZED', 'Sessão expirada. Abra o app e faça login novamente.');
+      throw new AIServiceError('UNAUTHORIZED', t('Sessão expirada. Abra o app e faça login novamente.'));
     }
     if (!res.ok) {
-      throw new AIServiceError('NETWORK', `Falha no servidor (HTTP ${res.status}).`);
+      throw new AIServiceError('NETWORK', t('Falha no servidor (HTTP {status}).', { status: res.status }));
     }
     return (await res.json()) as TRes;
   } catch (err) {
     if (err instanceof AIServiceError) throw err;
     if ((err as Error)?.name === 'AbortError') {
-      throw new AIServiceError('TIMEOUT', 'A IA demorou para responder. Tente novamente.');
+      throw new AIServiceError('TIMEOUT', t('A IA demorou para responder. Tente novamente.'));
     }
-    throw new AIServiceError('NETWORK', 'Sem conexão com a internet.');
+    throw new AIServiceError('NETWORK', t('Sem conexão com a internet.'));
   } finally {
     clearTimeout(timer);
   }
@@ -205,7 +208,7 @@ const TONES: SuggestionTone[] = ['cordial', 'objetiva', 'persuasiva'];
 function parseResponse(json: unknown): AISuggestion[] {
   const list = (json as CopilotResponse)?.suggestions;
   if (!Array.isArray(list)) {
-    throw new AIServiceError('BAD_RESPONSE', 'Resposta inesperada da IA.');
+    throw new AIServiceError('BAD_RESPONSE', t('Resposta inesperada da IA.'));
   }
   const valid = list
     .filter(s => s && typeof s.text === 'string' && s.text.trim().length > 0)
@@ -218,7 +221,7 @@ function parseResponse(json: unknown): AISuggestion[] {
     }));
 
   if (valid.length === 0) {
-    throw new AIServiceError('BAD_RESPONSE', 'A IA não retornou sugestões.');
+    throw new AIServiceError('BAD_RESPONSE', t('A IA não retornou sugestões.'));
   }
   return valid;
 }
@@ -229,23 +232,23 @@ function parseResponse(json: unknown): AISuggestion[] {
 
 function mockSuggestions(req: CopilotRequest): CopilotResponse {
   const p = req.products[0];
-  const { item } = getSegment(req.segment).terms;
+  const { item } = getSegment(req.segment, getSellingLanguage()).terms;
   return {
     suggestions: [
       {
         tone: 'cordial',
-        text: `Olá, tudo bem? Sou ${req.seller.name}, da ${req.seller.business}. Posso te enviar algumas opções alinhadas ao que você procura?`,
+        text: tSell('Olá, tudo bem? Sou {name}, da {business}. Posso te enviar algumas opções alinhadas ao que você procura?', { name: req.seller.name, business: req.seller.business }),
       },
       {
         tone: 'objetiva',
         text: p
-          ? `Tenho o "${p.title}" por ${p.price}.${p.url ? ` Veja mais: ${p.url}` : ''}`
-          : 'Pode me dizer o que você procura e a faixa de valor?',
+          ? tSell('Tenho o "{title}" por {price}.{v}', { title: p.title, price: p.price, v: p.url ? ` ${tSell('Veja mais: {url}', { url: p.url })}` : '' })
+          : tSell('Pode me dizer o que você procura e a faixa de valor?'),
         referencedProductIds: p ? [p.id] : [],
       },
       {
         tone: 'persuasiva',
-        text: `Esse ${item} está com bastante procura nesta semana. Quer que eu já veja a melhor condição para você?`,
+        text: tSell('Esse {item} está com bastante procura nesta semana. Quer que eu já veja a melhor condição para você?', { item }),
       },
     ],
   };
@@ -268,7 +271,7 @@ export async function analyzeClipboardMessage(): Promise<AnalysisResult> {
     seller: { name: seller.name, business: seller.business },
     segment: seller.segment,
     products: selectRelevantProducts(clientMessage, Repo.getFolders(), seller.segment),
-    locale: 'pt-BR',
+    locale: localeOf(getSellingLanguage()),
     maxSuggestions: 3,
   };
 

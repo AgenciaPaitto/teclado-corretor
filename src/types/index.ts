@@ -87,6 +87,10 @@ export interface SellerProfile {
   business: string;
   phone: string;
   segment: SegmentId;
+  /** Idioma do app e do teclado (ver src/i18n). */
+  language: 'pt' | 'en' | 'es';
+  /** Onde vende: moeda, formato dos números e idioma das mensagens ao cliente (src/i18n/markets). */
+  market: 'BR' | 'US_EN' | 'US_ES' | 'PT' | 'ES' | 'MX' | 'AR' | 'CO' | 'CL' | 'UK' | 'CA';
 }
 
 export type SuggestionTone = 'cordial' | 'objetiva' | 'persuasiva';
@@ -133,8 +137,36 @@ export interface CRMLead {
   createdAt?: string;
 }
 
-/** 4 botões principais do menu inferior fixo + tela de digitação */
-export type MainSystemTab = 'products' | 'shortcuts' | 'copilot' | 'more' | 'keyboard';
+/** Pasta da seção Arquivos. parentId null = pasta na raiz. */
+export interface FileFolder {
+  id: string;
+  name: string;
+  parentId: string | null;
+  createdAt: string;
+}
+
+/** Foto ou vídeo guardado na seção Arquivos (fora do catálogo). */
+export interface SavedFile {
+  id: string;
+  /** null = solto na raiz, fora de pasta. */
+  folderId: string | null;
+  type: 'image' | 'video';
+  title: string;
+  url: string;
+  /** Caminho no Storage quando o arquivo foi enviado pelo app ou pelo teclado (vazio = link externo). */
+  storagePath?: string;
+  duration?: string;
+  createdAt: string;
+}
+
+/** Seção Arquivos: pastas, subpastas e os arquivos (mesmo dado no app e no teclado). */
+export interface FilesData {
+  folders: FileFolder[];
+  files: SavedFile[];
+}
+
+/** Botões principais do menu do teclado + tela de digitação */
+export type MainSystemTab = 'products' | 'shortcuts' | 'files' | 'copilot' | 'more' | 'keyboard';
 
 export type MoreSubMenu = 'agenda' | 'crm' | 'settings' | 'diagnostics' | null;
 
@@ -144,5 +176,6 @@ export interface KeyboardData {
   shortcuts: ShortcutsData;
   agenda: ScheduleItem[];
   crm: CRMLead[];
+  files: FilesData;
   theme: ThemePreference;
 }

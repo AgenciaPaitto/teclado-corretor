@@ -1,3 +1,4 @@
+import { t } from '../i18n';
 /**
  * AudioRecorder — versão WEB (site de testes): MediaRecorder do navegador.
  * Mesma API do AudioRecorder.ts. O navegador grava em WebM/Opus (ou MP4 no Safari).
@@ -15,12 +16,12 @@ let chunks: Blob[] = [];
 let startedAt = 0;
 
 export async function startRecording(): Promise<void> {
-  if (!canRecord) throw new RecorderError('Este navegador não grava áudio.');
+  if (!canRecord) throw new RecorderError(t('Este navegador não grava áudio.'));
   let stream: any;
   try {
     stream = await g.navigator.mediaDevices.getUserMedia({ audio: true });
   } catch {
-    throw new RecorderError('Sem permissão para usar o microfone.');
+    throw new RecorderError(t('Sem permissão para usar o microfone.'));
   }
   chunks = [];
   recorder = new g.MediaRecorder(stream);
@@ -32,7 +33,7 @@ export async function startRecording(): Promise<void> {
 export function stopRecording(): Promise<LocalMedia> {
   return new Promise((resolve, reject) => {
     if (!recorder) {
-      reject(new RecorderError('Nenhuma gravação em andamento.'));
+      reject(new RecorderError(t('Nenhuma gravação em andamento.')));
       return;
     }
     const current = recorder;

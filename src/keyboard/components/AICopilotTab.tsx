@@ -1,3 +1,4 @@
+import { t } from '../../i18n';
 import React, { useCallback, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 import { AIServiceError, analyzeClipboardMessage } from '../../services/aiService';
@@ -55,15 +56,14 @@ export function AICopilotTab({ onInsert }: Props) {
         ) : (
           <>
             <Icon name="ia" size={18} color={colors.onPrimary} />
-            <Text style={styles.ctaText}>Analisar mensagem copiada</Text>
+            <Text style={styles.ctaText}>{t('Analisar mensagem copiada')}</Text>
           </>
         )}
       </Pressable>
 
       {state.status === 'idle' && (
         <Text style={styles.hint}>
-          Copie a mensagem do cliente e toque no botão acima para sugestões automáticas.
-        </Text>
+          {t('Copie a mensagem do cliente e toque no botão acima para sugestões automáticas.')}</Text>
       )}
 
       {state.status === 'error' && <Text style={styles.error}>{state.message}</Text>}

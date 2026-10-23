@@ -16,6 +16,12 @@ import { SegmentPicker } from '../components/SegmentPicker';
 import { KeyconLogo } from '../../keyboard/components/KeyconLogo';
 import { brand, coralGlass, glassBorder, makeStyles, onCoralText, radius, spacing, touchTarget, typography, useColors } from '../../keyboard/theme';
 import { CoralSheen } from '../components/ui';
+import { getLanguage, setLanguage, t } from '../../i18n';
+import type { Lang } from '../../i18n';
+import { defaultMarketFor, getMarket } from '../../i18n/markets';
+import type { MarketId } from '../../i18n/markets';
+import { useLanguage } from '../../i18n/useLanguage';
+import { LanguagePicker, MarketPicker } from '../components/LanguagePickers';
 
 interface Props {
   onSuccess: () => void;
@@ -32,25 +38,34 @@ export function AuthScreen({ onSuccess }: Props) {
   const [business, setBusiness] = useState('');
   const [phone, setPhone] = useState('');
   const [segment, setSegment] = useState<SegmentId | null>(null);
+  // Idioma: muda a tela na hora. Mercado: segue o idioma até a pessoa escolher outro
+  const language = useLanguage();
+  const [market, setMarket] = useState<MarketId>(() => defaultMarketFor(getLanguage()));
+  const [marketTouched, setMarketTouched] = useState(false);
+
+  const chooseLanguage = (lang: Lang) => {
+    setLanguage(lang);
+    if (!marketTouched) setMarket(defaultMarketFor(lang));
+  };
 
   const handleSubmit = async () => {
     if (!email.trim() || !password) {
-      Alert.alert('Atenção', 'Preencha o e-mail e a senha.');
+      Alert.alert(t('Atenção'), t('Preencha o e-mail e a senha.'));
       return;
     }
 
     if (isRegister && !name.trim()) {
-      Alert.alert('Atenção', 'Preencha seu nome.');
+      Alert.alert(t('Atenção'), t('Preencha seu nome.'));
       return;
     }
 
     if (isRegister && !segment) {
-      Alert.alert('Atenção', 'Escolha o ramo do seu negócio. Se não encontrar o seu, escolha "Outro".');
+      Alert.alert(t('Atenção'), t('Escolha o ramo do seu negócio. Se não encontrar o seu, escolha "Outro".'));
       return;
     }
 
     if (isRegister && password.length < 6) {
-      Alert.alert('Atenção', 'A senha precisa ter pelo menos 6 caracteres.');
+      Alert.alert(t('Atenção'), t('A senha precisa ter pelo menos 6 caracteres.'));
       return;
     }
 
@@ -69,19 +84,21 @@ export function AuthScreen({ onSuccess }: Props) {
         business: business.trim(),
         phone: phone.trim(),
         segment: segment ?? 'general',
+        language,
+        market,
       });
       if (result === 'signed_in') {
         onSuccess();
       } else {
         Alert.alert(
-          'Confirme seu e-mail',
-          `Enviamos um link de confirmação para ${email.trim()}. Abra o e-mail, toque no link e depois entre aqui com seu e-mail e senha.`,
+          t('Confirme seu e-mail'),
+          t('Enviamos um link de confirmação para {email}. Abra o e-mail, toque no link e depois entre aqui com seu e-mail e senha.', { email: email.trim() }),
         );
         setIsRegister(false);
         setPassword('');
       }
     } catch (e) {
-      Alert.alert('Não foi possível continuar', e instanceof AuthError ? e.message : String(e));
+      Alert.alert(t('Não foi possível continuar'), e instanceof AuthError ? e.message : String(e));
     } finally {
       setLoading(false);
     }
@@ -106,13 +123,17 @@ export function AuthScreen({ onSuccess }: Props) {
       </View>
 
       <View style={styles.body}>
+        {/* Idioma do app (vale também para quem só vai entrar) */}
+        <View style={styles.languageRow}>
+          <LanguagePicker value={language} onChange={chooseLanguage} />
+        </View>
+
         <View style={styles.header}>
           <Text style={styles.title}>
-            {isRegister ? 'Crie sua conta' : 'Entre na sua conta'}
+            {isRegister ? t('Crie sua conta') : t('Entre na sua conta')}
           </Text>
           <Text style={styles.subtitle}>
-            Seus produtos, fotos e atalhos ficam sincronizados com o teclado.
-          </Text>
+            {t('Seus produtos, fotos e atalhos ficam sincronizados com o teclado.')}</Text>
         </View>
 
         <View style={styles.tabToggle}>
@@ -120,25 +141,23 @@ export function AuthScreen({ onSuccess }: Props) {
             style={[styles.toggleBtn, !isRegister && styles.toggleBtnActive]}
             onPress={() => setIsRegister(false)}>
             <Text style={[styles.toggleText, !isRegister && styles.toggleTextActive]}>
-              Entrar
-            </Text>
+              {t('Entrar')}</Text>
           </Pressable>
           <Pressable
             style={[styles.toggleBtn, isRegister && styles.toggleBtnActive]}
             onPress={() => setIsRegister(true)}>
             <Text style={[styles.toggleText, isRegister && styles.toggleTextActive]}>
-              Criar conta
-            </Text>
+              {t('Criar conta')}</Text>
           </Pressable>
         </View>
 
         <View style={styles.formCard}>
           {isRegister && (
             <>
-              <Text style={styles.label}>Nome Completo</Text>
+              <Text style={styles.label}>{t('Nome Completo')}</Text>
               <TextInput
                 style={styles.input}
-                placeholder="Ex: Ana Souza"
+                placeholder={t('Ex: Ana Souza')}
                 placeholderTextColor={colors.textMuted}
                 value={name}
                 onChangeText={setName}
@@ -146,10 +165,10 @@ export function AuthScreen({ onSuccess }: Props) {
             </>
           )}
 
-          <Text style={styles.label}>E-mail</Text>
+          <Text style={styles.label}>{t('E-mail')}</Text>
           <TextInput
             style={styles.input}
-            placeholder="seu@email.com.br"
+            placeholder={t('seu@email.com.br')}
             placeholderTextColor={colors.textMuted}
             keyboardType="email-address"
             autoCapitalize="none"
@@ -157,10 +176,10 @@ export function AuthScreen({ onSuccess }: Props) {
             onChangeText={setEmail}
           />
 
-          <Text style={styles.label}>Senha</Text>
+          <Text style={styles.label}>{t('Senha')}</Text>
           <TextInput
             style={styles.input}
-            placeholder={isRegister ? 'Crie uma senha (mínimo 6 caracteres)' : 'Sua senha de acesso'}
+            placeholder={isRegister ? t('Crie uma senha (mínimo 6 caracteres)') : t('Sua senha de acesso')}
             placeholderTextColor={colors.textMuted}
             secureTextEntry
             value={password}
@@ -169,30 +188,40 @@ export function AuthScreen({ onSuccess }: Props) {
 
           {isRegister && (
             <>
-              <Text style={styles.label}>Nome do negócio (opcional)</Text>
+              <Text style={styles.label}>{t('Nome do negócio (opcional)')}</Text>
               <TextInput
                 style={styles.input}
-                placeholder="Ex: Bella Store"
+                placeholder={t('Ex: Bella Store')}
                 placeholderTextColor={colors.textMuted}
                 value={business}
                 onChangeText={setBusiness}
               />
 
-              <Text style={styles.label}>Telefone com WhatsApp</Text>
+              <Text style={styles.label}>{t('Telefone com WhatsApp')}</Text>
               <TextInput
                 style={styles.input}
-                placeholder="Ex: (11) 98888-7777"
+                placeholder={t('Ex: {phone}', { phone: getMarket(market).phoneExample })}
                 placeholderTextColor={colors.textMuted}
                 keyboardType="phone-pad"
                 value={phone}
                 onChangeText={setPhone}
               />
 
-              <Text style={styles.label}>Qual é o seu ramo?</Text>
+              <Text style={styles.label}>{t('Onde você vende?')}</Text>
               <Text style={styles.hint}>
-                O app se adapta ao seu negócio: nomes, campos dos produtos, funil de clientes e a IA.
-                Dá para trocar depois na tela Conta.
+                {t('Define a moeda dos preços e o idioma das mensagens que vão para os seus clientes.')}
               </Text>
+              <MarketPicker
+                value={market}
+                onChange={id => {
+                  setMarket(id);
+                  setMarketTouched(true);
+                }}
+              />
+
+              <Text style={styles.label}>{t('Qual é o seu ramo?')}</Text>
+              <Text style={styles.hint}>
+                {t('O app se adapta ao seu negócio: nomes, campos dos produtos, funil de clientes e a IA. Dá para trocar depois na tela Conta.')}</Text>
               <SegmentPicker value={segment} onChange={setSegment} />
             </>
           )}
@@ -206,7 +235,7 @@ export function AuthScreen({ onSuccess }: Props) {
               <ActivityIndicator color={colors.onPrimary} />
             ) : (
               <Text style={styles.submitBtnText}>
-                {isRegister ? 'Criar conta e entrar' : 'Entrar'}
+                {isRegister ? t('Criar conta e entrar') : t('Entrar')}
               </Text>
             )}
           </Pressable>
@@ -229,6 +258,7 @@ const useStyles = makeStyles(colors => ({
     overflow: 'hidden',
   },
   body: { padding: spacing.lg },
+  languageRow: { marginBottom: spacing.md },
   header: { marginBottom: spacing.lg, marginTop: spacing.sm },
   title: {
     ...typography.h2,

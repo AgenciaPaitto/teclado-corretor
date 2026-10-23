@@ -65,6 +65,14 @@ const ICONS = {
     { d: 'M2 6a2 2 0 0 1 2-2h5l2 2.5h9a2 2 0 0 1 2 2V18a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2z' },
     { d: 'M12 10.5v6M9 13.5h6' },
   ],
+  // Seção Arquivos: fotos empilhadas, editar, excluir e mover para outra pasta
+  galeria: [{ rect: [7, 3, 14, 14, 2.5] }, { circle: [11.5, 7.5, 1.5] }, { d: 'M21 13l-4-4-7 7' }, { d: 'M3 7v12a2 2 0 0 0 2 2h12' }],
+  editar: [{ d: 'M4 20h4L19 9l-4-4L4 16z' }, { d: 'M13.5 6.5l4 4' }],
+  lixeira: [{ d: 'M4 7h16M9 7V4.5h6V7' }, { d: 'M6 7l1 13h10l1-13' }, { d: 'M10 11v5.5M14 11v5.5' }],
+  mover: [
+    { d: 'M2 6a2 2 0 0 1 2-2h5l2 2.5h9a2 2 0 0 1 2 2V18a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2z' },
+    { d: 'M8.5 13.5h7M13 11l2.5 2.5L13 16' },
+  ],
   compartilhar: [
     { circle: [18, 5, 3] },
     { circle: [6, 12, 3] },

@@ -1,3 +1,4 @@
+import { t } from '../../i18n';
 /**
  * Agenda no teclado expandido: calendário do mês, compromissos do dia e
  * cadastro de reunião ou tarefa. Grava no mesmo lugar que a Agenda do app.
@@ -111,7 +112,7 @@ function AgendaCalendar({
 
   return (
     <View style={styles.flex}>
-      <Header title="Agenda" onBack={onClose} actionLabel="Novo" onAction={onNew} />
+      <Header title={t('Agenda')} onBack={onClose} actionLabel={t('Novo')} onAction={onNew} />
       <FlatList
         data={dayItems}
         keyExtractor={i => i.id}
@@ -123,7 +124,7 @@ function AgendaCalendar({
             <Text style={styles.dayTitle}>{formatDayLong(selected)}</Text>
           </View>
         }
-        ListEmptyComponent={<Text style={styles.empty}>Nada marcado neste dia. Toque em "Novo" para agendar.</Text>}
+        ListEmptyComponent={<Text style={styles.empty}>{t('Nada marcado neste dia. Toque em "Novo" para agendar.')}</Text>}
         renderItem={({ item }) => (
           <View style={[styles.item, item.done && styles.itemDone]}>
             <Pressable
@@ -139,15 +140,15 @@ function AgendaCalendar({
                 {item.title}
               </Text>
               <Text style={styles.itemMeta} numberOfLines={1}>
-                {item.kind === 'meeting' ? 'Reunião' : 'Tarefa'}
-                {item.time ? ` · ${item.time}` : ' · dia todo'}
+                {item.kind === 'meeting' ? t('Reunião') : t('Tarefa')}
+                {item.time ? ` · ${item.time}` : t(' · dia todo')}
                 {item.clientName ? ` · ${item.clientName}` : ''}
               </Text>
             </Pressable>
             {item.kind === 'meeting' && !item.done && (
-              <Pressable accessibilityLabel="Enviar confirmação" style={styles.send} onPress={() => onInsert(confirmationMessage(item))}>
+              <Pressable accessibilityLabel={t('Enviar confirmação')} style={styles.send} onPress={() => onInsert(confirmationMessage(item))}>
                 <Icon name="respostas" size={16} color={colors.primaryText} />
-                <Text style={styles.sendText}>Confirmar</Text>
+                <Text style={styles.sendText}>{t('Confirmar')}</Text>
               </Pressable>
             )}
           </View>
@@ -187,7 +188,7 @@ function AgendaForm({
   const [clientId, setClientId] = useState<string>(item?.clientId ?? presetClient?.id ?? '');
   const [confirmDelete, setConfirmDelete] = useState(false);
   const form = useKeyboardForm(AGENDA_FIELDS, {
-    title: item?.title ?? (presetClient ? `Reunião com ${presetClient.clientName}` : ''),
+    title: item?.title ?? (presetClient ? t('Reunião com {clientName}', { clientName: presetClient.clientName }) : ''),
     notes: item?.notes ?? '',
   });
   const title = form.values.title.trim();
@@ -210,12 +211,12 @@ function AgendaForm({
 
   return (
     <View style={styles.flex}>
-      <Header title={item ? 'Editar compromisso' : 'Novo compromisso'} onBack={onCancel} actionLabel="Salvar" onAction={save} disabled={!title} />
+      <Header title={item ? t('Editar compromisso') : t('Novo compromisso')} onBack={onCancel} actionLabel={t('Salvar')} onAction={save} disabled={!title} />
       <ScrollView style={styles.flex} contentContainerStyle={styles.form} keyboardShouldPersistTaps="always">
         <ChoiceRow
           options={[
-            { value: 'meeting' as AgendaKind, label: 'Reunião' },
-            { value: 'task' as AgendaKind, label: 'Tarefa' },
+            { value: 'meeting' as AgendaKind, label: t('Reunião') },
+            { value: 'task' as AgendaKind, label: t('Tarefa') },
           ]}
           value={kind}
           onChange={setKind}
@@ -226,25 +227,25 @@ function AgendaForm({
 
         {/* Dia: setas para trocar sem abrir outro calendário */}
         <View style={styles.dateRow}>
-          <Pressable accessibilityLabel="Dia anterior" hitSlop={8} style={styles.dateNav} onPress={() => setDate(d => addDays(d, -1))}>
+          <Pressable accessibilityLabel={t('Dia anterior')} hitSlop={8} style={styles.dateNav} onPress={() => setDate(d => addDays(d, -1))}>
             <Icon name="voltar" size={18} color={colors.text} />
           </Pressable>
           <Text style={styles.dateText}>{formatDayLong(date)}</Text>
-          <Pressable accessibilityLabel="Próximo dia" hitSlop={8} style={styles.dateNav} onPress={() => setDate(d => addDays(d, 1))}>
+          <Pressable accessibilityLabel={t('Próximo dia')} hitSlop={8} style={styles.dateNav} onPress={() => setDate(d => addDays(d, 1))}>
             <Icon name="avancar" size={18} color={colors.text} />
           </Pressable>
         </View>
 
-        <Text style={styles.section}>Horário</Text>
+        <Text style={styles.section}>{t('Horário')}</Text>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} keyboardShouldPersistTaps="always">
-          <ChoiceRow options={[{ value: '', label: 'Dia todo' }, ...TIME_SLOTS.map(t => ({ value: t, label: t }))]} value={time} onChange={setTime} />
+          <ChoiceRow options={[{ value: '', label: t('Dia todo') }, ...TIME_SLOTS.map(t => ({ value: t, label: t }))]} value={time} onChange={setTime} />
         </ScrollView>
 
         {leads.length > 0 && (
           <>
-            <Text style={styles.section}>Cliente</Text>
+            <Text style={styles.section}>{t('Cliente')}</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} keyboardShouldPersistTaps="always">
-              <ChoiceRow options={[{ value: '', label: 'Nenhum' }, ...leads.map(l => ({ value: l.id, label: l.clientName }))]} value={clientId} onChange={setClientId} />
+              <ChoiceRow options={[{ value: '', label: t('Nenhum') }, ...leads.map(l => ({ value: l.id, label: l.clientName }))]} value={clientId} onChange={setClientId} />
             </ScrollView>
           </>
         )}
@@ -257,7 +258,7 @@ function AgendaForm({
               Repo.deleteAgendaItem(item.id);
               onDeleted();
             }}>
-            <Text style={styles.deleteText}>{confirmDelete ? 'Toque de novo para excluir' : 'Excluir compromisso'}</Text>
+            <Text style={styles.deleteText}>{confirmDelete ? t('Toque de novo para excluir') : t('Excluir compromisso')}</Text>
           </Pressable>
         )}
       </ScrollView>

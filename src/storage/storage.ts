@@ -7,13 +7,18 @@
  */
 import { MMKV } from 'react-native-mmkv';
 import { isSegmentId } from '../segments/segments';
+import { isLang } from '../i18n';
+import { isMarketId } from '../i18n/markets';
 import type {
   AudioShortcut,
   CRMLead,
+  FileFolder,
+  FilesData,
   KeyboardData,
   MediaItem,
   Product,
   ProductFolder,
+  SavedFile,
   ScheduleItem,
   SegmentId,
   SellerProfile,
@@ -31,6 +36,7 @@ const KEYS = {
   shortcuts: 'user.shortcuts',
   agenda: 'user.agenda',
   crm: 'user.crm',
+  files: 'user.files',
   theme: 'user.theme',
   authToken: 'auth.token',
   /** Conta dona dos dados deste aparelho (outra conta entrando = começa do zero). */
@@ -48,13 +54,15 @@ const USER_DATA_KEYS = [
   KEYS.shortcuts,
   KEYS.agenda,
   KEYS.crm,
+  KEYS.files,
   KEYS.tutorialSeen,
   KEYS.stepsDone,
 ];
 
 const DEFAULT_THEME: ThemePreference = 'dark';
-const EMPTY_SELLER: SellerProfile = { name: '', business: '', phone: '', segment: 'general' };
+const EMPTY_SELLER: SellerProfile = { name: '', business: '', phone: '', segment: 'general', language: 'pt', market: 'BR' };
 const EMPTY_SHORTCUTS: ShortcutsData = { texts: [], audios: [] };
+const EMPTY_FILES: FilesData = { folders: [], files: [] };
 
 function getJSON<T>(key: string, fallback: T): T {
   const raw = storage.getString(key);
@@ -84,6 +92,9 @@ function readSeller(): SellerProfile {
     business: s.business ?? s.agency ?? '',
     phone: s.phone ?? '',
     segment: isSegmentId(s.segment) ? s.segment : 'general',
+    // Perfis de antes dos idiomas: português, Brasil
+    language: isLang(s.language) ? s.language : 'pt',
+    market: isMarketId(s.market) ? s.market : 'BR',
   };
 }
 
@@ -127,6 +138,15 @@ export const Repo = {
     return Array.isArray(list) ? list : [];
   },
   setCRM: (c: CRMLead[]) => setJSON(KEYS.crm, c),
+
+  getFiles: (): FilesData => {
+    const data = getJSON<FilesData>(KEYS.files, EMPTY_FILES);
+    return {
+      folders: Array.isArray(data?.folders) ? data.folders.filter(f => f && f.id) : [],
+      files: Array.isArray(data?.files) ? data.files.filter(f => f && f.id && f.url) : [],
+    };
+  },
+  setFiles: (f: FilesData) => setJSON(KEYS.files, f),
 
   getTheme: (): ThemePreference => (storage.getString(KEYS.theme) as ThemePreference) || DEFAULT_THEME,
   setTheme: (t: ThemePreference) => storage.set(KEYS.theme, t),
@@ -178,6 +198,53 @@ export const Repo = {
 
   deleteAgendaItem(id: string): void {
     this.setAgenda(this.getAgenda().filter(a => a.id !== id));
+  },
+
+  // ── Arquivos: o app e o teclado gravam no mesmo lugar ────────────────
+
+  /** Cria ou atualiza a pasta (pelo id). */
+  saveFileFolder(folder: FileFolder): void {
+    const data = this.getFiles();
+    const exists = data.folders.some(f => f.id === folder.id);
+    this.setFiles({ ...data, folders: exists ? data.folders.map(f => (f.id === folder.id ? folder : f)) : [...data.folders, folder] });
+  },
+
+  /**
+   * Exclui a pasta com as subpastas e os arquivos de dentro. Devolve os
+   * arquivos excluídos (para apagar da nuvem os que foram enviados).
+   */
+  deleteFileFolder(folderId: string): SavedFile[] {
+    const data = this.getFiles();
+    const doomed = new Set([folderId]);
+    // Subpastas de qualquer nível
+    let grew = true;
+    while (grew) {
+      grew = false;
+      for (const f of data.folders) {
+        if (f.parentId && doomed.has(f.parentId) && !doomed.has(f.id)) {
+          doomed.add(f.id);
+          grew = true;
+        }
+      }
+    }
+    const removed = data.files.filter(f => f.folderId && doomed.has(f.folderId));
+    this.setFiles({
+      folders: data.folders.filter(f => !doomed.has(f.id)),
+      files: data.files.filter(f => !(f.folderId && doomed.has(f.folderId))),
+    });
+    return removed;
+  },
+
+  /** Cria ou atualiza o arquivo (pelo id): renomear e mover também passam aqui. */
+  saveFile(file: SavedFile): void {
+    const data = this.getFiles();
+    const exists = data.files.some(f => f.id === file.id);
+    this.setFiles({ ...data, files: exists ? data.files.map(f => (f.id === file.id ? file : f)) : [...data.files, file] });
+  },
+
+  deleteFile(id: string): void {
+    const data = this.getFiles();
+    this.setFiles({ ...data, files: data.files.filter(f => f.id !== id) });
   },
 
   addFolder(folder: ProductFolder): void {
@@ -291,6 +358,7 @@ export const Repo = {
       shortcuts: this.getShortcuts(),
       agenda: this.getAgenda(),
       crm: this.getCRM(),
+      files: this.getFiles(),
       theme: this.getTheme(),
     };
   },

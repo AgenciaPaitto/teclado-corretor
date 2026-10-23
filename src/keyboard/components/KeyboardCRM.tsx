@@ -2,6 +2,7 @@
  * CRM no teclado expandido: funil por etapa, clientes, ficha do cliente e
  * cadastro. Tudo grava no mesmo armazenamento do app (Repo).
  */
+import { t } from '../../i18n';
 import React, { useMemo, useState } from 'react';
 import { FlatList, Pressable, ScrollView, Text, View } from 'react-native';
 import { formatDayLong, upcoming } from '../../agenda/agenda';
@@ -115,7 +116,7 @@ function LeadList({
 
   return (
     <View style={styles.flex}>
-      <Header title="Clientes" count={safeLeads.length} onBack={onClose} actionLabel="Novo cliente" onAction={onNew} />
+      <Header title={t('Clientes')} count={safeLeads.length} onBack={onClose} actionLabel={t('Novo cliente')} onAction={onNew} />
 
       {/* Funil: uma "coluna" por etapa, com a quantidade */}
       <ScrollView
@@ -124,9 +125,9 @@ function LeadList({
         style={styles.funnelScroll}
         contentContainerStyle={styles.funnel}
         keyboardShouldPersistTaps="always">
-        <StageTab label="Todos" count={leads.length} active={stage === null} onPress={() => setStage(null)} />
+        <StageTab label={t('Todos')} count={leads.length} active={stage === null} onPress={() => setStage(null)} />
         {stages.map((s, i) => (
-          <StageTab key={s} index={i + 1} label={s} count={counts.get(s) ?? 0} active={stage === s} onPress={() => setStage(s)} />
+          <StageTab key={s} index={i + 1} label={t(s)} count={counts.get(s) ?? 0} active={stage === s} onPress={() => setStage(s)} />
         ))}
       </ScrollView>
 
@@ -139,7 +140,7 @@ function LeadList({
           <View style={styles.empty}>
             <Icon name="clientes" size={32} color={colors.textMuted} />
             <Text style={styles.emptyText}>
-              {leads.length ? 'Nenhum cliente nesta etapa.' : 'Cadastre seu primeiro cliente para acompanhar o funil de vendas.'}
+              {leads.length ? t('Nenhum cliente nesta etapa.') : t('Cadastre seu primeiro cliente para acompanhar o funil de vendas.')}
             </Text>
           </View>
         }
@@ -156,12 +157,12 @@ function LeadList({
                 {item.clientName}
               </Text>
               <Text style={styles.leadMeta} numberOfLines={1}>
-                {item.phone || 'Sem telefone'} · {lastContactLabel(item)}
+                {item.phone || t('Sem telefone')} · {lastContactLabel(item)}
               </Text>
             </View>
             <View style={styles.stagePill}>
               <Text style={styles.stagePillText} numberOfLines={1}>
-                {item.stage}
+                {t(item.stage)}
               </Text>
             </View>
           </Pressable>
@@ -216,44 +217,44 @@ function LeadDetail({
 
   return (
     <View style={styles.flex}>
-      <Header title={lead.clientName} onBack={onBack} actionLabel="Editar" onAction={onEdit} secondary />
+      <Header title={lead.clientName} onBack={onBack} actionLabel={t('Editar')} onAction={onEdit} secondary />
       <ScrollView contentContainerStyle={styles.detail} keyboardShouldPersistTaps="always">
         <View style={styles.detailHead}>
           <View style={[styles.avatar, styles.avatarLarge]}>
             <Text style={[styles.avatarText, styles.avatarTextLarge]}>{initials(lead.clientName)}</Text>
           </View>
           <View style={styles.flex}>
-            <Text style={styles.detailPhone}>{lead.phone || 'Sem telefone'}</Text>
-            <Text style={styles.leadMeta}>Último contato: {lastContactLabel(lead).toLowerCase()}</Text>
+            <Text style={styles.detailPhone}>{lead.phone || t('Sem telefone')}</Text>
+            <Text style={styles.leadMeta}>{t('Último contato: {lastContactLabellead}', { lastContactLabellead: lastContactLabel(lead).toLowerCase() })}</Text>
           </View>
         </View>
 
-        <Text style={styles.section}>Etapa do funil</Text>
+        <Text style={styles.section}>{t('Etapa do funil')}</Text>
         <ChoiceRow
-          options={stages.map(s => ({ value: s, label: s }))}
+          options={stages.map(s => ({ value: s, label: t(s) }))}
           value={lead.stage}
           onChange={stage => onSave({ ...lead, stage })}
         />
 
-        <Text style={styles.section}>Ações</Text>
+        <Text style={styles.section}>{t('Ações')}</Text>
         <View style={styles.actions}>
           <Action
             icon="respostas"
-            label="Enviar mensagem de retorno"
+            label={t('Enviar mensagem de retorno')}
             primary
             onPress={() => {
               touch({});
               onInsert(formatFollowUp(lead.clientName.split(/\s+/)[0], segment.id));
             }}
           />
-          <Action icon="calendario" label="Agendar" onPress={onSchedule} />
-          <Action icon="check" label="Registrar contato" onPress={() => touch({})} />
-          {lead.phone ? <Action icon="adicionar" label="Inserir telefone" onPress={() => onInsert(lead.phone)} /> : null}
+          <Action icon="calendario" label={t('Agendar')} onPress={onSchedule} />
+          <Action icon="check" label={t('Registrar contato')} onPress={() => touch({})} />
+          {lead.phone ? <Action icon="adicionar" label={t('Inserir telefone')} onPress={() => onInsert(lead.phone)} /> : null}
         </View>
 
         {next.length > 0 && (
           <>
-            <Text style={styles.section}>Próximos compromissos</Text>
+            <Text style={styles.section}>{t('Próximos compromissos')}</Text>
             {next.map(a => (
               <View key={a.id} style={styles.agendaRow}>
                 <Icon name="calendario" size={16} />
@@ -268,13 +269,13 @@ function LeadDetail({
 
         {lead.notes ? (
           <>
-            <Text style={styles.section}>Anotações</Text>
+            <Text style={styles.section}>{t('Anotações')}</Text>
             <Text style={styles.notes}>{lead.notes}</Text>
           </>
         ) : null}
 
         <Pressable style={styles.deleteBtn} onPress={() => (confirmDelete ? onDelete() : setConfirmDelete(true))}>
-          <Text style={styles.deleteText}>{confirmDelete ? 'Toque de novo para excluir' : 'Excluir cliente'}</Text>
+          <Text style={styles.deleteText}>{confirmDelete ? t('Toque de novo para excluir') : t('Excluir cliente')}</Text>
         </Pressable>
       </ScrollView>
     </View>
@@ -343,9 +344,9 @@ function LeadForm({
   return (
     <View style={styles.flex}>
       <Header
-        title={lead ? 'Editar cliente' : 'Novo cliente'}
+        title={lead ? t('Editar cliente') : t('Novo cliente')}
         onBack={onCancel}
-        actionLabel="Salvar"
+        actionLabel={t('Salvar')}
         onAction={save}
         disabled={!name}
       />
@@ -353,8 +354,8 @@ function LeadForm({
         {LEAD_FIELDS.map(f => (
           <KeyboardFormField key={f.key} spec={f} value={form.values[f.key] ?? ''} active={form.active === f.key} onPress={() => form.setActive(f.key)} />
         ))}
-        <Text style={styles.section}>Etapa</Text>
-        <ChoiceRow options={segment.crmStages.map(s => ({ value: s, label: s }))} value={stage} onChange={setStage} />
+        <Text style={styles.section}>{t('Etapa')}</Text>
+        <ChoiceRow options={segment.crmStages.map(s => ({ value: s, label: t(s) }))} value={stage} onChange={setStage} />
       </ScrollView>
       <KeyboardFormKeys sink={form.sink} activeKey={form.active} />
     </View>
@@ -384,7 +385,7 @@ export function Header({
   const styles = useStyles();
   return (
     <View style={styles.header}>
-      <Pressable accessibilityRole="button" accessibilityLabel="Voltar" hitSlop={8} style={styles.headerBack} onPress={onBack}>
+      <Pressable accessibilityRole="button" accessibilityLabel={t('Voltar')} hitSlop={8} style={styles.headerBack} onPress={onBack}>
         <Icon name="voltar" size={20} color={colors.textMuted} />
         <Text style={styles.headerTitle} numberOfLines={1}>
           {title}
@@ -399,7 +400,7 @@ export function Header({
           style={[styles.headerAction, !secondary && styles.headerActionPrimary, secondary && styles.headerActionSecondary, disabled && styles.disabled]}
           onPress={onAction}>
           {!secondary && <CoralSheen radius={radius.sm} />}
-          {!secondary && actionLabel !== 'Salvar' && <Icon name="adicionar" size={16} color={colors.onPrimary} />}
+          {!secondary && actionLabel !== t('Salvar') && <Icon name="adicionar" size={16} color={colors.onPrimary} />}
           <Text style={[styles.headerActionText, !secondary && onCoralText, secondary && styles.headerActionTextSecondary]}>
             {actionLabel}
           </Text>

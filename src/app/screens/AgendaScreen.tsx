@@ -13,6 +13,7 @@ import { MonthCalendar, monthOf } from '../../keyboard/components/MonthCalendar'
 import { makeStyles, radius, spacing, touchTarget, typography, useColors } from '../../keyboard/theme';
 import { Button, Card, CardText, CardTitle, Page, ScreenTitle, SubHeader } from '../components/ui';
 import { useStoredList } from '../hooks/useStoredList';
+import { t } from '../../i18n';
 
 interface Props {
   /** Veio da ficha do cliente ("Agendar"): abre o cadastro já com ele. */
@@ -53,14 +54,14 @@ export function AgendaScreen({ presetClientId }: Props) {
   const dayItems = itemsOn(agenda, selected);
   return (
     <Page>
-      <ScreenTitle title="Agenda" subtitle="Reuniões e tarefas, também no teclado." />
+      <ScreenTitle title={t('Agenda')} subtitle={t('Reuniões e tarefas, também no teclado.')} />
       <Card>
         <MonthCalendar view={view} onViewChange={setView} selected={selected} onSelect={setSelected} busy={busy} />
       </Card>
 
       <Card>
         <CardTitle>{formatDayLong(selected)}</CardTitle>
-        {dayItems.length === 0 ? <CardText>Nada marcado neste dia.</CardText> : null}
+        {dayItems.length === 0 ? <CardText>{t('Nada marcado neste dia.')}</CardText> : null}
         {dayItems.map(item => (
           <AgendaRow
             key={item.id}
@@ -72,7 +73,7 @@ export function AgendaScreen({ presetClientId }: Props) {
             onPress={() => setForm({ item })}
           />
         ))}
-        <Button label="Novo compromisso" icon="adicionar" onPress={() => setForm({ item: null })} />
+        <Button label={t('Novo compromisso')} icon="adicionar" onPress={() => setForm({ item: null })} />
       </Card>
     </Page>
   );
@@ -96,8 +97,8 @@ function AgendaRow({ item, onToggle, onPress }: { item: ScheduleItem; onToggle: 
           {item.title}
         </Text>
         <Text style={styles.rowMeta} numberOfLines={1}>
-          {item.kind === 'meeting' ? 'Reunião' : 'Tarefa'}
-          {item.time ? ` · ${item.time}` : ' · dia todo'}
+          {item.kind === 'meeting' ? t('Reunião') : t('Tarefa')}
+          {item.time ? ` · ${item.time}` : t(' · dia todo')}
           {item.clientName ? ` · ${item.clientName}` : ''}
         </Text>
       </Pressable>
@@ -135,7 +136,7 @@ function AgendaForm({
 
   const save = () => {
     if (!title.trim()) {
-      Alert.alert('Atenção', 'Dê um título ao compromisso.');
+      Alert.alert(t('Atenção'), t('Dê um título ao compromisso.'));
       return;
     }
     const client = leads.find(l => l.id === clientId);
@@ -154,60 +155,60 @@ function AgendaForm({
 
   return (
     <Page>
-      <SubHeader title={item ? 'Editar compromisso' : 'Novo compromisso'} onBack={onBack} />
+      <SubHeader title={item ? t('Editar compromisso') : t('Novo compromisso')} onBack={onBack} />
       <Card>
         <ChoiceRow
           onCard
           options={[
-            { value: 'meeting' as AgendaKind, label: 'Reunião' },
-            { value: 'task' as AgendaKind, label: 'Tarefa' },
+            { value: 'meeting' as AgendaKind, label: t('Reunião') },
+            { value: 'task' as AgendaKind, label: t('Tarefa') },
           ]}
           value={kind}
           onChange={setKind}
         />
-        <TextInput style={styles.input} value={title} onChangeText={setTitle} placeholder="Título" placeholderTextColor={colors.textMuted} />
+        <TextInput style={styles.input} value={title} onChangeText={setTitle} placeholder={t('Título')} placeholderTextColor={colors.textMuted} />
         <TextInput
           style={[styles.input, styles.textArea]}
           value={notes}
           onChangeText={setNotes}
-          placeholder="Observação (opcional)"
+          placeholder={t('Observação (opcional)')}
           placeholderTextColor={colors.textMuted}
           multiline
         />
       </Card>
 
       <Card>
-        <CardTitle>Dia e horário</CardTitle>
+        <CardTitle>{t('Dia e horário')}</CardTitle>
         <View style={styles.dateRow}>
-          <Pressable accessibilityLabel="Dia anterior" hitSlop={8} style={styles.dateNav} onPress={() => setDate(d => addDays(d, -1))}>
+          <Pressable accessibilityLabel={t('Dia anterior')} hitSlop={8} style={styles.dateNav} onPress={() => setDate(d => addDays(d, -1))}>
             <Icon name="voltar" size={20} color={colors.text} />
           </Pressable>
           <Text style={styles.dateText}>{formatDayLong(date)}</Text>
-          <Pressable accessibilityLabel="Próximo dia" hitSlop={8} style={styles.dateNav} onPress={() => setDate(d => addDays(d, 1))}>
+          <Pressable accessibilityLabel={t('Próximo dia')} hitSlop={8} style={styles.dateNav} onPress={() => setDate(d => addDays(d, 1))}>
             <Icon name="avancar" size={20} color={colors.text} />
           </Pressable>
         </View>
         <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-          <ChoiceRow onCard options={[{ value: '', label: 'Dia todo' }, ...TIME_SLOTS.map(t => ({ value: t, label: t }))]} value={time} onChange={setTime} />
+          <ChoiceRow onCard options={[{ value: '', label: t('Dia todo') }, ...TIME_SLOTS.map(t => ({ value: t, label: t }))]} value={time} onChange={setTime} />
         </ScrollView>
       </Card>
 
       {leads.length > 0 && (
         <Card>
-          <CardTitle>Cliente</CardTitle>
-          <ChoiceRow onCard options={[{ value: '', label: 'Nenhum' }, ...leads.map(l => ({ value: l.id, label: l.clientName }))]} value={clientId} onChange={setClientId} />
+          <CardTitle>{t('Cliente')}</CardTitle>
+          <ChoiceRow onCard options={[{ value: '', label: t('Nenhum') }, ...leads.map(l => ({ value: l.id, label: l.clientName }))]} value={clientId} onChange={setClientId} />
         </Card>
       )}
 
-      <Button label="Salvar" onPress={save} />
+      <Button label={t('Salvar')} onPress={save} />
       {item && (
         <Button
-          label="Excluir compromisso"
+          label={t('Excluir compromisso')}
           variant="danger"
           onPress={() =>
-            Alert.alert('Excluir compromisso', `Deseja excluir "${item.title}"?`, [
-              { text: 'Cancelar', style: 'cancel' },
-              { text: 'Excluir', style: 'destructive', onPress: () => onDelete(item.id) },
+            Alert.alert(t('Excluir compromisso'), t('Deseja excluir "{title}"?', { title: item.title }), [
+              { text: t('Cancelar'), style: 'cancel' },
+              { text: t('Excluir'), style: 'destructive', onPress: () => onDelete(item.id) },
             ])
           }
         />

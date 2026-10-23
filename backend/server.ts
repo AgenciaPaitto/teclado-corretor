@@ -21,11 +21,19 @@ function auth(req: Request, res: Response, next: NextFunction) {
   next();
 }
 
-const SYSTEM_PROMPT = `Você é um assistente de vendas de um vendedor brasileiro, que pode vender
+/** Idioma das respostas: o de venda do usuário (campo locale do pedido). */
+const LANGUAGE_NAME: Record<string, string> = {
+  'pt-BR': 'português do Brasil',
+  'en-US': 'inglês (English)',
+  es: 'espanhol (español)',
+};
+
+const systemPrompt = (locale: string) => `Você é um assistente de vendas de um vendedor, que pode vender
 qualquer produto ou serviço. Gere respostas CURTAS (máx. 3 frases) para WhatsApp, em
-português do Brasil, com no máximo 1 emoji. Use SOMENTE os produtos fornecidos no
+${LANGUAGE_NAME[locale] ?? LANGUAGE_NAME['pt-BR']}, com no máximo 1 emoji. Use SOMENTE os produtos fornecidos no
 contexto; nunca invente preços, prazos ou características. Gere exatamente 3 sugestões
-com tons: "cordial", "objetiva" e "persuasiva". Se citar um produto com link, inclua o link.`;
+com tons: "cordial", "objetiva" e "persuasiva". Se citar um produto com link, inclua o link.
+Os nomes dos tons no JSON ("cordial", "objetiva", "persuasiva") ficam sempre assim; só o texto muda de idioma.`;
 
 const RESPONSE_SCHEMA = {
   name: 'copilot_suggestions',
@@ -53,7 +61,7 @@ const RESPONSE_SCHEMA = {
 };
 
 app.post('/v1/copilot/suggestions', auth, async (req, res) => {
-  const { clientMessage, seller, products, segment } = req.body ?? {};
+  const { clientMessage, seller, products, segment, locale } = req.body ?? {};
   // Ramo desconhecido ou ausente (versão antiga do app) = geral
   const profile = getSegment(segment);
   if (typeof clientMessage !== 'string' || !clientMessage.trim()) {
@@ -74,7 +82,7 @@ app.post('/v1/copilot/suggestions', auth, async (req, res) => {
         messages: [
           {
             role: 'system',
-            content: `${SYSTEM_PROMPT}\n\nRamo do negócio: ${profile.label}. ${profile.aiGuidelines}`,
+            content: `${systemPrompt(typeof locale === 'string' ? locale : 'pt-BR')}\n\nRamo do negócio: ${profile.label}. ${profile.aiGuidelines}`,
           },
           {
             role: 'user',

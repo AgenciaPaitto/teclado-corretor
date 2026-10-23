@@ -46,7 +46,17 @@
                 android:resource="@xml/method" />
         </service>
 
-        <!-- 3) Arquivos baixados pelo teclado (fotos, videos e audios) entregues a outros apps -->
+        <!-- 3) Galeria e câmera abertas pelo teclado (seção Arquivos). Tarefa própria e
+             invisível: ao terminar, volta a conversa, e não o app -->
+        <activity
+            android:name=".keyboard.MediaPickActivity"
+            android:theme="@style/PickerTheme"
+            android:taskAffinity=""
+            android:excludeFromRecents="true"
+            android:configChanges="orientation|screenSize|screenLayout|keyboardHidden"
+            android:exported="false" />
+
+        <!-- 4) Arquivos baixados pelo teclado (fotos, videos e audios) entregues a outros apps -->
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.keyboardfiles"

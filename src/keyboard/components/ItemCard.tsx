@@ -1,5 +1,5 @@
 import React, { memo } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { Image, Pressable, Text, View } from 'react-native';
 import { glassBorder, makeStyles, radius, spacing, useColors } from '../theme';
 import type { IconName } from './Icon';
 import { IconTile } from './Icon';
@@ -11,6 +11,8 @@ interface Props {
   meta?: string;
   /** Ícone funcional à esquerda, no tile cinza-claro do manual. */
   icon?: IconName;
+  /** Foto do produto em miniatura (substitui o ícone quando presente). */
+  imageUri?: string;
   onPress: () => void;
   onLongPress?: () => void;
 }
@@ -18,7 +20,7 @@ interface Props {
 /**
  * Card de lista do KEYCON: superfície branca/grafite, sem bordas, raio de 12.
  */
-export const ItemCard = memo(({ testID, title, subtitle, meta, icon, onPress, onLongPress }: Props) => {
+export const ItemCard = memo(({ testID, title, subtitle, meta, icon, imageUri, onPress, onLongPress }: Props) => {
   const colors = useColors();
   const styles = useStyles();
   return (
@@ -28,7 +30,11 @@ export const ItemCard = memo(({ testID, title, subtitle, meta, icon, onPress, on
       onLongPress={onLongPress}
       android_ripple={{ color: colors.surfaceActive }}
       style={({ pressed }) => [styles.card, pressed && styles.pressed]}>
-      {icon ? <IconTile name={icon} size={36} /> : null}
+      {imageUri ? (
+        <Image source={{ uri: imageUri }} style={styles.thumbImage} resizeMode="cover" />
+      ) : icon ? (
+        <IconTile name={icon} size={36} />
+      ) : null}
       <View style={styles.body}>
         <Text style={styles.title} numberOfLines={1}>{title}</Text>
         {subtitle ? <Text style={styles.subtitle} numberOfLines={2}>{subtitle}</Text> : null}
@@ -73,5 +79,11 @@ const useStyles = makeStyles(colors => ({
     fontSize: 12,
     fontWeight: '500',
     marginLeft: 6,
+  },
+  thumbImage: {
+    width: 38,
+    height: 38,
+    borderRadius: radius.sm,
+    backgroundColor: colors.surfaceAlt,
   },
 }));

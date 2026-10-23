@@ -1,3 +1,4 @@
+import { t } from '../../i18n';
 import React, { useCallback, useEffect, useState } from 'react';
 import { AppState, Linking, Platform, Pressable, Text, TextInput, View } from 'react-native';
 import { KeyboardBridge } from '../../native/KeyboardBridge';
@@ -88,14 +89,14 @@ export function KeyboardSetupScreen({ onBack }: { onBack: () => void }) {
 
   return (
     <Page>
-      <SubHeader title="Ativar o teclado" onBack={onBack} />
+      <SubHeader title={t('Ativar o teclado')} onBack={onBack} />
 
       <Card>
         <StatusChip
           done={ready}
-          label={ready ? 'Teclado ativo' : enabled ? 'Falta selecionar o KEYCON' : 'Teclado não ativado'}
+          label={ready ? t('Teclado ativo') : enabled ? t('Falta selecionar o KEYCON') : t('Teclado não ativado')}
         />
-        <CardText>Dois passos rápidos para usar o KEYCON no WhatsApp e em qualquer app.</CardText>
+        <CardText>{t('Dois passos rápidos para usar o KEYCON no WhatsApp e em qualquer app.')}</CardText>
       </Card>
 
       <View style={styles.segmented}>
@@ -107,7 +108,7 @@ export function KeyboardSetupScreen({ onBack }: { onBack: () => void }) {
             style={[styles.segment, platform === p && styles.segmentActive]}
             onPress={() => setPlatform(p)}>
             <Text style={[styles.segmentText, platform === p && styles.segmentTextActive]}>
-              {p === 'android' ? 'Android' : 'iPhone'}
+              {p === 'android' ? t('Android') : t('iPhone')}
             </Text>
           </Pressable>
         ))}
@@ -115,29 +116,29 @@ export function KeyboardSetupScreen({ onBack }: { onBack: () => void }) {
 
       {platform === 'android' ? (
         <Card>
-          <Step n={1} title="Habilitar" text="Ligue a chave do KEYCON na lista de teclados." done={enabled === true}>
-            <Button label="Abrir configurações" variant={enabled ? 'secondary' : 'primary'} onPress={openKeyboardSettings} />
+          <Step n={1} title={t('Habilitar')} text={t('Ligue a chave do KEYCON na lista de teclados.')} done={enabled === true}>
+            <Button label={t('Abrir configurações')} variant={enabled ? 'secondary' : 'primary'} onPress={openKeyboardSettings} />
           </Step>
-          <Step n={2} title="Selecionar" text="Escolha o KEYCON como teclado atual." done={selected === true}>
+          <Step n={2} title={t('Selecionar')} text={t('Escolha o KEYCON como teclado atual.')} done={selected === true}>
             <Button
-              label="Escolher teclado"
+              label={t('Escolher teclado')}
               variant={enabled && !selected ? 'primary' : 'secondary'}
               onPress={() => KeyboardBridge.openInputMethodPicker()}
             />
           </Step>
-          <Step n={3} title="No dia a dia" text="Troque de teclado pelo ícone de teclado na barra do Android." />
+          <Step n={3} title={t('No dia a dia')} text={t('Troque de teclado pelo ícone de teclado na barra do Android.')} />
         </Card>
       ) : (
         <Card>
-          <Step n={1} title="Adicionar" text="Ajustes › Geral › Teclado › Teclados › Adicionar Novo Teclado › KEYCON." />
-          <Step n={2} title="Acesso Total" text="Toque em KEYCON e ative Permitir Acesso Total (fotos e IA precisam)." />
-          <Step n={3} title="No dia a dia" text="Toque e segure o globo 🌐 no teclado e escolha o KEYCON." />
-          <Button label="Abrir Ajustes" onPress={openKeyboardSettings} />
+          <Step n={1} title={t('Adicionar')} text={t('Ajustes › Geral › Teclado › Teclados › Adicionar Novo Teclado › KEYCON.')} />
+          <Step n={2} title={t('Acesso Total')} text={t('Toque em KEYCON e ative Permitir Acesso Total (fotos e IA precisam).')} />
+          <Step n={3} title={t('No dia a dia')} text={t('Toque e segure o globo 🌐 no teclado e escolha o KEYCON.')} />
+          <Button label={t('Abrir Ajustes')} onPress={openKeyboardSettings} />
         </Card>
       )}
 
       {/* Sem como checar no iPhone/web: o usuário confirma */}
-      {enabled === null && !confirmed && <Button label="Já ativei o teclado" variant="secondary" icon="check" onPress={confirm} />}
+      {enabled === null && !confirmed && <Button label={t('Já ativei o teclado')} variant="secondary" icon="check" onPress={confirm} />}
     </Page>
   );
 }
@@ -149,14 +150,14 @@ export function KeyboardTestScreen({ onBack }: { onBack: () => void }) {
   const [text, setText] = useState('');
   return (
     <Page>
-      <SubHeader title="Testar o teclado" onBack={onBack} />
+      <SubHeader title={t('Testar o teclado')} onBack={onBack} />
       <Card>
-        <CardTitle>Digite aqui</CardTitle>
-        <CardText>Escolha o KEYCON no teclado e repare nas sugestões acima das teclas.</CardText>
+        <CardTitle>{t('Digite aqui')}</CardTitle>
+        <CardText>{t('Escolha o KEYCON no teclado e repare nas sugestões acima das teclas.')}</CardText>
         <TextInput
           testID="keyboard-test-input"
           style={styles.testInput}
-          placeholder="Toque para abrir o teclado"
+          placeholder={t('Toque para abrir o teclado')}
           placeholderTextColor={colors.textMuted}
           value={text}
           onChangeText={t => {
@@ -165,7 +166,7 @@ export function KeyboardTestScreen({ onBack }: { onBack: () => void }) {
           }}
           multiline
         />
-        {text ? <Button label="Limpar" variant="secondary" onPress={() => setText('')} /> : null}
+        {text ? <Button label={t('Limpar')} variant="secondary" onPress={() => setText('')} /> : null}
       </Card>
     </Page>
   );

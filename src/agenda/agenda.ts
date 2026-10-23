@@ -1,15 +1,37 @@
 /**
- * Datas da agenda (app e teclado). Nomes de mês e dia escritos à mão: o
- * Intl do Hermes no Android não garante pt-BR.
+ * Datas da agenda (app e teclado). Nomes de mês e dia escritos à mão, por
+ * idioma: o Intl do Hermes no Android não garante os idiomas.
  */
+import { getLanguage, getSellingLanguage, tIn } from '../i18n';
+import type { Lang } from '../i18n';
+import { currentMarketInfo } from '../i18n/markets';
 import type { ScheduleItem } from '../types';
 
-export const MONTHS = [
-  'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
-  'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro',
-];
-export const WEEKDAYS_SHORT = ['D', 'S', 'T', 'Q', 'Q', 'S', 'S'];
-const WEEKDAYS = ['domingo', 'segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado'];
+const MONTH_NAMES: Record<Lang, string[]> = {
+  pt: ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'],
+  en: ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'],
+  es: ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'],
+};
+const WEEKDAY_INITIALS: Record<Lang, string[]> = {
+  pt: ['D', 'S', 'T', 'Q', 'Q', 'S', 'S'],
+  en: ['S', 'M', 'T', 'W', 'T', 'F', 'S'],
+  es: ['D', 'L', 'M', 'X', 'J', 'V', 'S'],
+};
+const WEEKDAY_NAMES: Record<Lang, string[]> = {
+  pt: ['domingo', 'segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado'],
+  en: ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'],
+  es: ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'],
+};
+
+/** "Outubro" / "October" / "Octubre" (0 = janeiro). */
+export function monthName(month: number, lang: Lang = getLanguage()): string {
+  return MONTH_NAMES[lang][month];
+}
+
+/** Iniciais dos dias, de domingo a sábado, para o cabeçalho do calendário. */
+export function weekdayInitials(lang: Lang = getLanguage()): string[] {
+  return WEEKDAY_INITIALS[lang];
+}
 
 const pad = (n: number) => String(n).padStart(2, '0');
 
@@ -46,19 +68,23 @@ export function monthGrid(year: number, month: number): Array<Array<string | nul
   return weeks;
 }
 
-/** "Hoje", "Amanhã" ou "quinta, 24 de outubro". */
-export function formatDayLong(iso: string): string {
-  if (iso === todayISO()) return 'Hoje';
-  if (iso === addDays(todayISO(), 1)) return 'Amanhã';
-  if (iso === addDays(todayISO(), -1)) return 'Ontem';
+/** "Hoje", "Amanhã" ou "quinta, 24 de outubro" / "Thursday, October 24". */
+export function formatDayLong(iso: string, lang: Lang = getLanguage()): string {
+  if (iso === todayISO()) return tIn(lang, 'Hoje');
+  if (iso === addDays(todayISO(), 1)) return tIn(lang, 'Amanhã');
+  if (iso === addDays(todayISO(), -1)) return tIn(lang, 'Ontem');
   const d = parseISODate(iso);
-  return `${WEEKDAYS[d.getDay()]}, ${d.getDate()} de ${MONTHS[d.getMonth()].toLowerCase()}`;
+  const weekday = WEEKDAY_NAMES[lang][d.getDay()];
+  const month = MONTH_NAMES[lang][d.getMonth()];
+  return lang === 'en' ? `${weekday}, ${month} ${d.getDate()}` : `${weekday}, ${d.getDate()} de ${month.toLowerCase()}`;
 }
 
-/** "24/10" (curto, para mensagens). */
+/** "24/10" (curto, para mensagens); nos EUA, mês antes do dia ("10/24"). */
 export function formatDayShort(iso: string): string {
   const d = parseISODate(iso);
-  return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}`;
+  const day = pad(d.getDate());
+  const month = pad(d.getMonth() + 1);
+  return currentMarketInfo().id.startsWith('US_') ? `${month}/${day}` : `${day}/${month}`;
 }
 
 /** Horários sugeridos: 07:00 a 21:30, de meia em meia hora. */
@@ -79,12 +105,17 @@ export function upcoming(items: ScheduleItem[], limit = 3): ScheduleItem[] {
   return items.filter(i => !i.done && i.date >= today).slice(0, limit);
 }
 
-/** Mensagem de confirmação da reunião para inserir na conversa. */
+/** Mensagem de confirmação da reunião para inserir na conversa (no idioma de venda). */
 export function confirmationMessage(item: ScheduleItem): string {
+  const lang = getSellingLanguage();
   const who = item.clientName ? `, ${item.clientName.split(/\s+/)[0]}` : '';
-  const when = `${formatDayLong(item.date).toLowerCase()}${item.date !== todayISO() ? ` (${formatDayShort(item.date)})` : ''}`;
-  const at = item.time ? ` às ${item.time}` : '';
-  return `Olá${who}! Passando para confirmar: ${item.title}, ${when}${at}. Tudo certo?`;
+  const day = formatDayLong(item.date, lang);
+  // Em inglês o dia da semana fica com maiúscula ("Thursday")
+  const when = `${lang === 'en' ? day.replace(/^(Today|Tomorrow|Yesterday)$/, w => w.toLowerCase()) : day.toLowerCase()}${
+    item.date !== todayISO() ? ` (${formatDayShort(item.date)})` : ''
+  }`;
+  const at = item.time ? tIn(lang, ' às {time}', { time: item.time }) : '';
+  return tIn(lang, 'Olá{who}! Passando para confirmar: {title}, {when}{at}. Tudo certo?', { who, title: item.title, when, at });
 }
 
 export function newAgendaId(): string {
