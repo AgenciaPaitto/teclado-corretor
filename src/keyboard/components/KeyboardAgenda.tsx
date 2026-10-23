@@ -33,7 +33,7 @@ interface Props {
   presetClient?: CRMLead | null;
 }
 
-export function KeyboardAgenda({ agenda, leads, onInsert, onClose, onChanged, presetClient }: Props) {
+export function KeyboardAgenda({ agenda = [], leads = [], onInsert, onClose, onChanged, presetClient }: Props) {
   const [selected, setSelected] = useState(todayISO());
   const [view, setView] = useState(() => monthOf(todayISO()));
   const [form, setForm] = useState<{ item: ScheduleItem | null } | null>(() => (presetClient ? { item: null } : null));
@@ -43,7 +43,7 @@ export function KeyboardAgenda({ agenda, leads, onInsert, onClose, onChanged, pr
       <AgendaForm
         item={form.item}
         date={form.item?.date ?? selected}
-        leads={leads}
+        leads={leads || []}
         presetClient={form.item ? null : presetClient ?? null}
         onCancel={() => setForm(null)}
         onDeleted={() => {
@@ -63,7 +63,7 @@ export function KeyboardAgenda({ agenda, leads, onInsert, onClose, onChanged, pr
 
   return (
     <AgendaCalendar
-      agenda={agenda}
+      agenda={agenda || []}
       selected={selected}
       onSelect={setSelected}
       view={view}
@@ -81,7 +81,7 @@ export function KeyboardAgenda({ agenda, leads, onInsert, onClose, onChanged, pr
 }
 
 function AgendaCalendar({
-  agenda,
+  agenda = [],
   selected,
   onSelect,
   view,
@@ -105,8 +105,9 @@ function AgendaCalendar({
 }) {
   const colors = useColors();
   const styles = useStyles();
-  const busy = useMemo(() => busyDays(agenda), [agenda]);
-  const dayItems = itemsOn(agenda, selected);
+  const safeAgenda = agenda || [];
+  const busy = useMemo(() => busyDays(safeAgenda), [safeAgenda]);
+  const dayItems = itemsOn(safeAgenda, selected);
 
   return (
     <View style={styles.flex}>

@@ -30,11 +30,13 @@ interface Props {
 
 type View_ = { name: 'list' } | { name: 'detail'; id: string } | { name: 'form'; id: string | null };
 
-export function KeyboardCRM({ segment, leads, agenda, onInsert, onClose, onChanged, onSchedule }: Props) {
+export function KeyboardCRM({ segment, leads = [], agenda = [], onInsert, onClose, onChanged, onSchedule }: Props) {
   const [view, setView] = useState<View_>({ name: 'list' });
+  const safeLeads = leads || [];
+  const safeAgenda = agenda || [];
 
   if (view.name === 'form') {
-    const editing = view.id ? leads.find(l => l.id === view.id) ?? null : null;
+    const editing = view.id ? safeLeads.find(l => l.id === view.id) ?? null : null;
     return (
       <LeadForm
         segment={segment}
@@ -50,14 +52,14 @@ export function KeyboardCRM({ segment, leads, agenda, onInsert, onClose, onChang
   }
 
   if (view.name === 'detail') {
-    const lead = leads.find(l => l.id === view.id);
+    const lead = safeLeads.find(l => l.id === view.id);
     if (lead) {
       return (
         <LeadDetail
           segment={segment}
           lead={lead}
-          stages={stagesFor(segment, leads)}
-          agenda={agenda.filter(a => a.clientId === lead.id)}
+          stages={stagesFor(segment, safeLeads)}
+          agenda={safeAgenda.filter(a => a.clientId === lead.id)}
           onBack={() => setView({ name: 'list' })}
           onEdit={() => setView({ name: 'form', id: lead.id })}
           onSave={l => {
@@ -79,7 +81,7 @@ export function KeyboardCRM({ segment, leads, agenda, onInsert, onClose, onChang
   return (
     <LeadList
       segment={segment}
-      leads={leads}
+      leads={safeLeads}
       onClose={onClose}
       onOpen={id => setView({ name: 'detail', id })}
       onNew={() => setView({ name: 'form', id: null })}
@@ -91,7 +93,7 @@ export function KeyboardCRM({ segment, leads, agenda, onInsert, onClose, onChang
 
 function LeadList({
   segment,
-  leads,
+  leads = [],
   onClose,
   onOpen,
   onNew,
@@ -104,14 +106,15 @@ function LeadList({
 }) {
   const colors = useColors();
   const styles = useStyles();
+  const safeLeads = leads || [];
   const [stage, setStage] = useState<string | null>(null);
-  const stages = stagesFor(segment, leads);
-  const counts = countByStage(leads);
-  const shown = useMemo(() => sortLeads(stage ? leads.filter(l => l.stage === stage) : leads), [leads, stage]);
+  const stages = stagesFor(segment, safeLeads);
+  const counts = countByStage(safeLeads);
+  const shown = useMemo(() => sortLeads(stage ? safeLeads.filter(l => l.stage === stage) : safeLeads), [safeLeads, stage]);
 
   return (
     <View style={styles.flex}>
-      <Header title="Clientes" count={leads.length} onBack={onClose} actionLabel="Novo cliente" onAction={onNew} />
+      <Header title="Clientes" count={safeLeads.length} onBack={onClose} actionLabel="Novo cliente" onAction={onNew} />
 
       {/* Funil: uma "coluna" por etapa, com a quantidade */}
       <ScrollView

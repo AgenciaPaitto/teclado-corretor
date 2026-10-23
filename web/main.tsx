@@ -14,6 +14,11 @@ import { View } from 'react-native';
 import App from '../src/app/App';
 import CorretorKeyboard from '../src/keyboard/CorretorKeyboard';
 import { WebKeyboardHost } from '../src/native/KeyboardBridge.web';
+import { Repo } from '../src/storage/storage';
+
+if (!Repo.isLoggedIn()) {
+  Repo.setAuthToken('test-web-token');
+}
 
 type Screen = 'app' | 'chat';
 
@@ -143,7 +148,7 @@ function Chat({ visible }: { visible: boolean }) {
 }
 
 function TestSite() {
-  const [screen, setScreen] = useState<Screen>('app');
+  const [screen, setScreen] = useState<Screen>('chat');
 
   useEffect(() => {
     WebKeyboardHost.onOpenApp(() => setScreen('app'));
@@ -151,6 +156,7 @@ function TestSite() {
 
   // Ao abrir a conversa o teclado "aparece": recarrega catálogo, atalhos e login
   useEffect(() => {
+    Repo.setAuthToken('test-web-token');
     if (screen === 'chat') WebKeyboardHost.show();
     else WebKeyboardHost.hide();
   }, [screen]);
@@ -173,11 +179,13 @@ function TestSite() {
       </header>
 
       <div className="phone">
-        <div className="screen" style={{ display: screen === 'app' ? 'flex' : 'none' }}>
-          <View style={{ flex: 1 }}>
-            <App />
-          </View>
-        </div>
+        {screen === 'app' && (
+          <div className="screen">
+            <View style={{ flex: 1 }}>
+              <App />
+            </View>
+          </div>
+        )}
         <Chat visible={screen === 'chat'} />
       </div>
 

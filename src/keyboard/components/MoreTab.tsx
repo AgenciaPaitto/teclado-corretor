@@ -32,7 +32,7 @@ interface Props {
 /**
  * Aba "Mais" — Agenda e CRM (em tela grande), Configurações e Diagnóstico.
  */
-export function MoreTab({ agenda, crm, segment, theme, onThemeChange, onInsert, onExpandedChange, onDataChanged }: Props) {
+export function MoreTab({ agenda = [], crm = [], segment, theme, onThemeChange, onInsert, onExpandedChange, onDataChanged }: Props) {
   const colors = useColors();
   const styles = useStyles();
 
@@ -62,6 +62,8 @@ export function MoreTab({ agenda, crm, segment, theme, onThemeChange, onInsert, 
 
   // Se nenhum submenu estiver aberto, exibe as opções do segundo menu
   if (!selectedSubMenu) {
+    const safeAgenda = agenda || [];
+    const safeCrm = crm || [];
     return (
       <ScrollView contentContainerStyle={styles.menuContainer} keyboardShouldPersistTaps="always">
         <Pressable
@@ -73,7 +75,7 @@ export function MoreTab({ agenda, crm, segment, theme, onThemeChange, onInsert, 
             <Text style={styles.menuTitle}>Agenda</Text>
             <Text style={styles.menuSubtitle}>Calendário de reuniões e tarefas</Text>
           </View>
-          <Text style={styles.menuMeta}>{upcoming(agenda, Infinity).length} próximos</Text>
+          <Text style={styles.menuMeta}>{upcoming(safeAgenda, Infinity).length} próximos</Text>
         </Pressable>
 
         <Pressable
@@ -85,7 +87,7 @@ export function MoreTab({ agenda, crm, segment, theme, onThemeChange, onInsert, 
             <Text style={styles.menuTitle}>CRM</Text>
             <Text style={styles.menuSubtitle}>Clientes e funil de vendas</Text>
           </View>
-          <Text style={styles.menuMeta}>{crm.length} clientes</Text>
+          <Text style={styles.menuMeta}>{safeCrm.length} clientes</Text>
         </Pressable>
 
         <Pressable

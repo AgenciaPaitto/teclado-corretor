@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { AppState, Linking, Platform, Pressable, Text, TextInput, View } from 'react-native';
 import { KeyboardBridge } from '../../native/KeyboardBridge';
 import { Repo } from '../../storage/storage';
-import { makeStyles, radius, spacing, typography, useColors } from '../../keyboard/theme';
+import { glassBorder, makeStyles, radius, spacing, typography, useColors } from '../../keyboard/theme';
 import { Button, Card, CardText, CardTitle, Page, StatusChip, SubHeader } from '../components/ui';
 import { MANUAL_STEPS } from '../onboarding/steps';
 
@@ -177,6 +177,7 @@ const useStyles = makeStyles(colors => ({
     gap: spacing.xs,
     padding: spacing.xs,
     backgroundColor: colors.surface,
+    ...glassBorder(colors),
     borderRadius: radius.md,
   },
   segment: { flex: 1, minHeight: 40, alignItems: 'center', justifyContent: 'center', borderRadius: radius.sm },

@@ -66,6 +66,23 @@ export interface Palette {
   blue: string;
   tile: string;
   tileAi: string;
+  // ── Liquid Glass (guia "KEYCON Liquid Glass") ──
+  /** true = paleta de vidro do app (superfícies translúcidas sobre a aurora). */
+  glass: boolean;
+  /** Fundo opaco por trás da aurora. */
+  canvas: string;
+  auroraCoral: string;
+  auroraPeach: string;
+  auroraDusk: string;
+  auroraMist: string;
+  /** Contorno de 1px do vidro. */
+  glassStroke: string;
+  /** Brilho da borda de cima (luz vindo de cima). */
+  glassEdge: string;
+  /** Vidro leve (dock). */
+  glassFillThin: string;
+  /** Vidro de leitura (listas, formulários). */
+  glassFillStrong: string;
 }
 
 export const darkColors: Palette = {
@@ -89,7 +106,8 @@ export const darkColors: Palette = {
   primaryStrong: '#E2654D',
   primaryText: brand.coral,
   primarySoft: 'rgba(241, 120, 96, 0.16)',
-  onPrimary: '#FFFFFF',
+  // Grafite sobre coral (5,3:1); branco dava só 2,8:1
+  onPrimary: brand.graphite,
   info: '#3B82F6',
   success: '#22C55E',
   successStrong: '#16A34A',
@@ -106,6 +124,16 @@ export const darkColors: Palette = {
   blue: '#2876EF',
   tile: '#2F3441',
   tileAi: 'rgba(138, 92, 246, 0.18)',
+  glass: false,
+  canvas: '#14161D',
+  auroraCoral: '#F17860',
+  auroraPeach: '#B9573F',
+  auroraDusk: '#3B4A6B',
+  auroraMist: '#2A3040',
+  glassStroke: 'rgba(255, 255, 255, 0.10)',
+  glassEdge: 'rgba(255, 255, 255, 0.22)',
+  glassFillThin: 'rgba(36, 40, 51, 0.42)',
+  glassFillStrong: 'rgba(36, 40, 51, 0.72)',
 };
 
 export const lightColors: Palette = {
@@ -129,7 +157,8 @@ export const lightColors: Palette = {
   primaryStrong: '#E2654D',
   primaryText: '#B44A35',
   primarySoft: 'rgba(241, 120, 96, 0.12)',
-  onPrimary: '#FFFFFF',
+  // Grafite sobre coral (5,3:1); branco dava só 2,8:1
+  onPrimary: brand.graphite,
   info: '#2563EB',
   success: '#16A34A',
   successStrong: '#16A34A',
@@ -146,6 +175,16 @@ export const lightColors: Palette = {
   blue: '#2876EF',
   tile: brand.cloud,
   tileAi: '#F1ECFE',
+  glass: false,
+  canvas: '#EEF0F4',
+  auroraCoral: '#F59A84',
+  auroraPeach: '#FAD0BD',
+  auroraDusk: '#AFBDDB',
+  auroraMist: '#E3E8F1',
+  glassStroke: 'rgba(36, 40, 51, 0.10)',
+  glassEdge: 'rgba(255, 255, 255, 0.95)',
+  glassFillThin: 'rgba(255, 255, 255, 0.42)',
+  glassFillStrong: 'rgba(255, 255, 255, 0.78)',
 };
 
 /** Raios: 10–16 para botões e cards; 18–24 para painéis. Teclas ficam em 8. */
@@ -199,26 +238,75 @@ function withInter<T extends Record<string, any>>(styles: T): T {
   return out as T;
 }
 
+/**
+ * Paletas de vidro do app: as mesmas chaves, com as superfícies translúcidas
+ * sobre a aurora (ver Aurora.tsx). Telas que usam `surface`/`surfaceAlt`
+ * viram vidro sem mudar nada nelas. O teclado continua com as paletas sólidas.
+ */
+export const darkGlassColors: Palette = {
+  ...darkColors,
+  glass: true,
+  bg: 'transparent',
+  // 66%: ink-muted ainda passa 4,5:1 mesmo com a mancha coral atrás
+  surface: 'rgba(36, 40, 51, 0.66)',
+  surfaceAlt: 'rgba(255, 255, 255, 0.07)',
+  surfaceActive: 'rgba(255, 255, 255, 0.12)',
+  divider: 'rgba(255, 255, 255, 0.10)',
+  text: '#F5F6F8',
+  textSecondary: '#D5D9E2',
+  textMuted: '#B9BFCC',
+  primaryText: '#FFB4A3',
+  primarySoft: 'rgba(241, 120, 96, 0.22)',
+  tile: 'rgba(255, 255, 255, 0.08)',
+};
+
+export const lightGlassColors: Palette = {
+  ...lightColors,
+  glass: true,
+  bg: 'transparent',
+  surface: 'rgba(255, 255, 255, 0.55)',
+  surfaceAlt: 'rgba(36, 40, 51, 0.06)',
+  surfaceActive: 'rgba(36, 40, 51, 0.10)',
+  divider: 'rgba(36, 40, 51, 0.10)',
+  text: '#1B1E26',
+  textSecondary: '#3E4452',
+  textMuted: '#4A5160',
+  primaryText: '#9C3B29',
+  primarySoft: 'rgba(241, 120, 96, 0.16)',
+  tile: 'rgba(255, 255, 255, 0.6)',
+};
+
+/** Borda do vidro: contorno fino com a luz no lado de cima. Vazio fora do vidro. */
+export function glassBorder(colors: Palette) {
+  if (!colors.glass) return {};
+  return { borderWidth: 1, borderColor: colors.glassStroke, borderTopColor: colors.glassEdge };
+}
+
 const ThemeContext = createContext<Palette>(darkColors);
 
 /** Resolve a preferência salva ('system' segue o modo claro/escuro do aparelho). */
 export function resolvePalette(
   preference: ThemePreference,
   systemScheme: string | null | undefined,
+  glass = false,
 ): Palette {
   const mode = preference === 'system' ? (systemScheme === 'light' ? 'light' : 'dark') : preference;
+  if (glass) return mode === 'light' ? lightGlassColors : darkGlassColors;
   return mode === 'light' ? lightColors : darkColors;
 }
 
 export function ThemeProvider({
   preference,
+  glass = false,
   children,
 }: {
   preference: ThemePreference;
+  /** Paleta de vidro (Liquid Glass): só no app. */
+  glass?: boolean;
   children: React.ReactNode;
 }) {
   const systemScheme = useColorScheme();
-  const palette = resolvePalette(preference, systemScheme);
+  const palette = resolvePalette(preference, systemScheme, glass);
   return React.createElement(ThemeContext.Provider, { value: palette }, children);
 }
 

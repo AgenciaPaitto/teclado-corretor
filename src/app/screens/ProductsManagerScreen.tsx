@@ -13,7 +13,7 @@ import type { SegmentField, SegmentProfile } from '../../segments/segments';
 import { Repo } from '../../storage/storage';
 import type { MediaItem, Product, ProductAttribute, ProductFolder } from '../../types';
 import { attributeLines, formatBRL, formatPrice, normalizeUrl, parseBRL } from '../../utils/formatters';
-import { makeStyles, radius, spacing, touchTarget, typography, useColors } from '../../keyboard/theme';
+import { glassBorder, makeStyles, radius, spacing, touchTarget, typography, useColors } from '../../keyboard/theme';
 import { Icon, IconTile } from '../../keyboard/components/Icon';
 import { EmptyState } from '../components/ui';
 
@@ -712,6 +712,7 @@ const useStyles = makeStyles(colors => ({
   backBtnText: { color: colors.textMuted, fontSize: 14, fontWeight: '600' },
   card: {
     backgroundColor: colors.surface,
+    ...glassBorder(colors),
     padding: spacing.lg,
     borderRadius: radius.xl,
     marginBottom: spacing.lg,
@@ -797,6 +798,7 @@ const useStyles = makeStyles(colors => ({
   list: { paddingHorizontal: spacing.lg, paddingVertical: spacing.sm, gap: spacing.sm },
   itemCard: {
     backgroundColor: colors.surface,
+    ...glassBorder(colors),
     padding: spacing.md,
     borderRadius: radius.lg,
     flexDirection: 'row',
@@ -809,6 +811,7 @@ const useStyles = makeStyles(colors => ({
   itemMeta: { fontSize: 12, color: colors.textMuted, fontWeight: '500' },
   newFolderBox: {
     backgroundColor: colors.surface,
+    ...glassBorder(colors),
     padding: spacing.lg,
     marginHorizontal: spacing.lg,
     marginBottom: spacing.md,
@@ -817,6 +820,7 @@ const useStyles = makeStyles(colors => ({
   },
   formContainer: {
     backgroundColor: colors.surface,
+    ...glassBorder(colors),
     padding: spacing.lg,
     marginHorizontal: spacing.lg,
     marginBottom: spacing.md,

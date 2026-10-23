@@ -11,7 +11,7 @@ import { Repo } from '../../storage/storage';
 import type { CRMLead } from '../../types';
 import { Icon } from '../../keyboard/components/Icon';
 import { ChoiceRow } from '../../keyboard/components/KeyboardForm';
-import { makeStyles, radius, spacing, touchTarget, typography, useColors } from '../../keyboard/theme';
+import { glassBorder, makeStyles, radius, spacing, touchTarget, typography, useColors } from '../../keyboard/theme';
 import { Button, Card, CardText, CardTitle, EmptyState, Page, ScreenTitle, SubHeader } from '../components/ui';
 import { useStoredList } from '../hooks/useStoredList';
 
@@ -309,6 +309,7 @@ const useStyles = makeStyles(colors => ({
   addBtnText: { color: colors.onPrimary, ...typography.button },
   search: {
     backgroundColor: colors.surface,
+    ...glassBorder(colors),
     color: colors.text,
     borderRadius: radius.md,
     paddingHorizontal: spacing.md,
@@ -322,6 +323,7 @@ const useStyles = makeStyles(colors => ({
     padding: spacing.md,
     borderRadius: radius.lg,
     backgroundColor: colors.surface,
+    ...glassBorder(colors),
     borderWidth: 1.5,
     borderColor: 'transparent',
   },
@@ -335,6 +337,7 @@ const useStyles = makeStyles(colors => ({
     alignItems: 'center',
     gap: spacing.md,
     backgroundColor: colors.surface,
+    ...glassBorder(colors),
     borderRadius: radius.lg,
     padding: spacing.md,
   },

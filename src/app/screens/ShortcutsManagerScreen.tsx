@@ -11,7 +11,7 @@ import {
 import { Repo } from '../../storage/storage';
 import type { AudioShortcut, ShortcutsData, TextShortcut } from '../../types';
 import { normalizeUrl } from '../../utils/formatters';
-import { makeStyles, radius, spacing, touchTarget, typography, useColors } from '../../keyboard/theme';
+import { glassBorder, makeStyles, radius, spacing, touchTarget, typography, useColors } from '../../keyboard/theme';
 import { Icon, IconTile } from '../../keyboard/components/Icon';
 import { EmptyState } from '../components/ui';
 
@@ -380,6 +380,7 @@ const useStyles = makeStyles(colors => ({
     padding: spacing.xs,
     marginHorizontal: spacing.lg,
     backgroundColor: colors.surface,
+    ...glassBorder(colors),
     borderRadius: radius.md,
   },
   toggleBtn: {
@@ -404,6 +405,7 @@ const useStyles = makeStyles(colors => ({
   list: { padding: spacing.lg, gap: spacing.sm },
   itemCard: {
     backgroundColor: colors.surface,
+    ...glassBorder(colors),
     padding: spacing.lg,
     borderRadius: radius.lg,
   },
@@ -443,6 +445,7 @@ const useStyles = makeStyles(colors => ({
   urlText: { fontSize: 12, color: colors.textMuted, marginTop: 4 },
   formContainer: {
     backgroundColor: colors.surface,
+    ...glassBorder(colors),
     padding: spacing.lg,
     marginHorizontal: spacing.lg,
     marginTop: spacing.md,

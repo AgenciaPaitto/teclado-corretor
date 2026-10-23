@@ -299,9 +299,12 @@ class CustomKeyboardService : InputMethodService() {
      */
     override fun onStartInputView(info: EditorInfo?, restarting: Boolean) {
         super.onStartInputView(info, restarting)
-        targetPackage = info?.packageName
-        // Campo novo (outra conversa, outro app): o teclado abre no tamanho normal
-        if (!restarting) expanded = false
+        val newPackage = info?.packageName
+        // Se mudou de app (outro pacote), volta ao tamanho normal
+        if (targetPackage != null && newPackage != null && targetPackage != newPackage) {
+            expanded = false
+        }
+        targetPackage = newPackage
 
         // Ajusta a altura do teclado à orientação atual. A JANELA do IME fica em
         // WRAP_CONTENT: nos Android recentes ela também desenha a barra de navegação

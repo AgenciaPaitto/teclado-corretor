@@ -10,8 +10,8 @@ export function newLeadId(): string {
 }
 
 /** "Ana Souza" → "AS". */
-export function initials(name: string): string {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
+export function initials(name?: string): string {
+  const parts = (name || '').trim().split(/\s+/).filter(Boolean);
   if (!parts.length) return '?';
   return (parts[0][0] + (parts.length > 1 ? parts[parts.length - 1][0] : '')).toUpperCase();
 }
@@ -28,14 +28,16 @@ export function lastContactLabel(lead: CRMLead): string {
 }
 
 /** Etapas do ramo + as que algum cliente antigo ainda usa (de outro ramo). */
-export function stagesFor(segment: SegmentProfile, leads: CRMLead[]): string[] {
-  const extra = leads.map(l => l.stage).filter(s => s && !segment.crmStages.includes(s));
+export function stagesFor(segment: SegmentProfile, leads: CRMLead[] = []): string[] {
+  const extra = (leads || []).map(l => l.stage).filter(s => s && !segment.crmStages.includes(s));
   return [...segment.crmStages, ...Array.from(new Set(extra))];
 }
 
-export function countByStage(leads: CRMLead[]): Map<string, number> {
+export function countByStage(leads: CRMLead[] = []): Map<string, number> {
   const out = new Map<string, number>();
-  for (const l of leads) out.set(l.stage, (out.get(l.stage) ?? 0) + 1);
+  for (const l of (leads || [])) {
+    if (l?.stage) out.set(l.stage, (out.get(l.stage) ?? 0) + 1);
+  }
   return out;
 }
 

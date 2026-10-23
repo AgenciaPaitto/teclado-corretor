@@ -108,13 +108,8 @@ function CorretorKeyboardContent({ data, loggedIn, onThemeChange, onDataChanged 
     KeyboardBridge.setExpanded(expanded).catch(() => {});
   }, []);
 
-  useEffect(
-    () =>
-      KeyboardBridge.onKeyboardShow(e => {
-        if (!e.restarting) setMoreVisit(v => v + 1);
-      }),
-    [],
-  );
+  // Ao fechar o teclado, a aba Mais volta ao menu inicial para o próximo uso
+  useEffect(() => KeyboardBridge.onKeyboardHide(() => setMoreVisit(v => v + 1)), []);
 
   useEffect(() => {
     KeyboardBridge.notifyReady();

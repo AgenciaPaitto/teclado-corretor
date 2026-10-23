@@ -60,7 +60,8 @@ function getJSON<T>(key: string, fallback: T): T {
   const raw = storage.getString(key);
   if (!raw) return fallback;
   try {
-    return JSON.parse(raw) as T;
+    const parsed = JSON.parse(raw);
+    return (parsed ?? fallback) as T;
   } catch {
     return fallback;
   }
@@ -92,24 +93,39 @@ export const Repo = {
 
   getSegment: (): SegmentId => readSeller().segment,
 
-  getFolders: (): ProductFolder[] =>
-    getJSON<StoredFolder[]>(KEYS.folders, []).map(({ neighborhood, ...f }) => ({
+  getFolders: (): ProductFolder[] => {
+    const list = getJSON<StoredFolder[]>(KEYS.folders, []);
+    if (!Array.isArray(list)) return [];
+    return list.map(({ neighborhood, ...f }) => ({
       ...f,
       description: f.description ?? neighborhood,
-    })),
+    }));
+  },
   setFolders: (f: ProductFolder[]) => setJSON(KEYS.folders, f),
 
-  getShortcuts: (): ShortcutsData => getJSON(KEYS.shortcuts, EMPTY_SHORTCUTS),
+  getShortcuts: (): ShortcutsData => {
+    const sc = getJSON<ShortcutsData>(KEYS.shortcuts, EMPTY_SHORTCUTS);
+    return {
+      texts: Array.isArray(sc?.texts) ? sc.texts : [],
+      audios: Array.isArray(sc?.audios) ? sc.audios : [],
+    };
+  },
   setShortcuts: (s: ShortcutsData) => setJSON(KEYS.shortcuts, s),
 
   /** Compromissos válidos, em ordem de dia e hora (sem hora = antes, o dia todo). */
-  getAgenda: (): ScheduleItem[] =>
-    getJSON<ScheduleItem[]>(KEYS.agenda, [])
+  getAgenda: (): ScheduleItem[] => {
+    const list = getJSON<ScheduleItem[]>(KEYS.agenda, []);
+    if (!Array.isArray(list)) return [];
+    return list
       .filter(a => a && typeof a.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(a.date))
-      .sort((a, b) => `${a.date} ${a.time ?? ''}`.localeCompare(`${b.date} ${b.time ?? ''}`)),
+      .sort((a, b) => `${a.date} ${a.time ?? ''}`.localeCompare(`${b.date} ${b.time ?? ''}`));
+  },
   setAgenda: (a: ScheduleItem[]) => setJSON(KEYS.agenda, a),
 
-  getCRM: (): CRMLead[] => getJSON(KEYS.crm, []),
+  getCRM: (): CRMLead[] => {
+    const list = getJSON<CRMLead[]>(KEYS.crm, []);
+    return Array.isArray(list) ? list : [];
+  },
   setCRM: (c: CRMLead[]) => setJSON(KEYS.crm, c),
 
   getTheme: (): ThemePreference => (storage.getString(KEYS.theme) as ThemePreference) || DEFAULT_THEME,

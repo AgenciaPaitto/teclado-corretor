@@ -9,7 +9,20 @@ import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-nati
 import type { StyleProp, ViewStyle } from 'react-native';
 import { Icon, IconTile } from '../../keyboard/components/Icon';
 import type { IconName } from '../../keyboard/components/Icon';
-import { makeStyles, radius, spacing, touchTarget, typography, useColors } from '../../keyboard/theme';
+import { glassBorder, makeStyles, radius, spacing, touchTarget, typography, useColors } from '../../keyboard/theme';
+import type { Palette } from '../../keyboard/theme';
+
+/** Vidro do card: raio maior, contorno com luz em cima e sombra em duas alturas (só iOS/web). */
+const GLASS_RADIUS = 24;
+function glassShadow(colors: Palette) {
+  if (!colors.glass) return {};
+  return {
+    shadowColor: '#000',
+    shadowOpacity: colors.scheme === 'dark' ? 0.3 : 0.08,
+    shadowRadius: 20,
+    shadowOffset: { width: 0, height: 8 },
+  };
+}
 
 /** Página rolável com a margem padrão. */
 export function Page({ children }: { children: ReactNode }) {
@@ -146,6 +159,7 @@ export function Button({ label, onPress, variant = 'primary', icon, loading, dis
         pressed && variant !== 'primary' && styles.pressed,
         (disabled || loading) && styles.disabled,
       ]}>
+      {variant === 'primary' && colors.glass ? <View pointerEvents="none" style={styles.buttonSheen} /> : null}
       {loading ? (
         <ActivityIndicator color={fg} />
       ) : (
@@ -227,16 +241,19 @@ const useStyles = makeStyles(colors => ({
   subHeaderTitle: { ...typography.title, color: colors.text },
   card: {
     backgroundColor: colors.surface,
-    borderRadius: radius.xl,
-    padding: spacing.lg,
+    borderRadius: colors.glass ? GLASS_RADIUS : radius.xl,
+    padding: colors.glass ? 20 : spacing.lg,
     gap: spacing.md,
+    ...glassBorder(colors),
+    ...glassShadow(colors),
   },
   cardTitle: { ...typography.title, color: colors.text },
   cardText: { fontSize: 14, lineHeight: 20, color: colors.textSecondary },
   menuGroup: {
     backgroundColor: colors.surface,
-    borderRadius: radius.xl,
+    borderRadius: colors.glass ? GLASS_RADIUS : radius.xl,
     overflow: 'hidden',
+    ...glassBorder(colors),
   },
   menuDivider: { height: 1, backgroundColor: colors.divider, marginLeft: spacing.lg + 40 + spacing.md },
   menuRow: {
@@ -258,12 +275,27 @@ const useStyles = makeStyles(colors => ({
     justifyContent: 'center',
     gap: spacing.sm,
     minHeight: touchTarget + 4,
-    paddingHorizontal: spacing.lg,
-    borderRadius: radius.md,
+    paddingHorizontal: spacing.xl,
+    // Vidro: botões em pílula
+    borderRadius: colors.glass ? radius.pill : radius.md,
+    overflow: 'hidden',
   },
-  buttonPrimary: { backgroundColor: colors.primary },
+  // Coral sólido (nunca translúcido: o texto grafite precisa de 5,3:1)
+  buttonPrimary: {
+    backgroundColor: colors.primary,
+    ...(colors.glass ? { borderWidth: 1, borderColor: 'rgba(36, 40, 51, 0.12)', borderTopColor: 'rgba(255, 255, 255, 0.55)' } : {}),
+  },
   buttonPrimaryPressed: { backgroundColor: colors.primaryStrong },
-  buttonSecondary: { backgroundColor: colors.surfaceAlt },
+  buttonSecondary: { backgroundColor: colors.surfaceAlt, ...glassBorder(colors) },
+  /** Brilho de vidro na metade de cima do botão principal. */
+  buttonSheen: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: '50%',
+    backgroundColor: 'rgba(255, 255, 255, 0.18)',
+  },
   buttonDanger: { backgroundColor: colors.dangerBg },
   buttonText: { ...typography.button },
   disabled: { opacity: 0.5 },

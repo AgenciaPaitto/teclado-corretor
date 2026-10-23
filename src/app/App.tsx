@@ -22,7 +22,8 @@ import type { SellerProfile, ThemePreference } from '../types';
 import { Icon } from '../keyboard/components/Icon';
 import type { IconName } from '../keyboard/components/Icon';
 import { KeyconLogo } from '../keyboard/components/KeyconLogo';
-import { makeStyles, radius, spacing, ThemeProvider, useColors } from '../keyboard/theme';
+import { glassBorder, makeStyles, radius, spacing, ThemeProvider, useColors } from '../keyboard/theme';
+import { Aurora } from './components/Aurora';
 import { AuthScreen } from './screens/AuthScreen';
 import { HomeScreen } from './screens/HomeScreen';
 import type { AppTarget } from './screens/HomeScreen';
@@ -49,7 +50,8 @@ const NAV_ITEMS: Array<{ key: AppTab; label: string; icon: IconName }> = [
 export default function App() {
   const [theme, setTheme] = useState<ThemePreference>(() => Repo.getTheme());
   return (
-    <ThemeProvider preference={theme}>
+    // Liquid Glass: o app usa a paleta de vidro sobre a aurora
+    <ThemeProvider preference={theme} glass>
       <AppShell onThemeChange={setTheme} />
     </ThemeProvider>
   );
@@ -96,7 +98,8 @@ function AppShell({ onThemeChange }: { onThemeChange: (theme: ThemePreference) =
   if (!isAuthenticated) {
     return (
       <SafeAreaView style={styles.root}>
-        <StatusBar barStyle={barStyle} backgroundColor={colors.bg} />
+        <Aurora />
+        <StatusBar barStyle={barStyle} backgroundColor={colors.canvas} />
         <AuthScreen
           onSuccess={() => {
             setSeller(Repo.getSeller());
@@ -124,7 +127,8 @@ function AppShell({ onThemeChange }: { onThemeChange: (theme: ThemePreference) =
   if (showTutorial) {
     return (
       <SafeAreaView style={styles.root}>
-        <StatusBar barStyle={barStyle} backgroundColor={colors.bg} />
+        <Aurora />
+        <StatusBar barStyle={barStyle} backgroundColor={colors.canvas} />
         <TutorialScreen
           segment={segment}
           onClose={() => {
@@ -138,7 +142,8 @@ function AppShell({ onThemeChange }: { onThemeChange: (theme: ThemePreference) =
 
   return (
     <SafeAreaView style={styles.root}>
-      <StatusBar barStyle={barStyle} backgroundColor={colors.surface} />
+      <Aurora />
+      <StatusBar barStyle={barStyle} backgroundColor={colors.canvas} />
 
       {/* Cabeçalho: logotipo KEYCON + atalho para a conta */}
       <View style={styles.topHeader}>
@@ -182,7 +187,7 @@ function AppShell({ onThemeChange }: { onThemeChange: (theme: ThemePreference) =
         )}
       </View>
 
-      {/* Menu Inferior de Navegação do App Container */}
+      {/* Dock: menu inferior flutuante em vidro leve (o ativo em laranja leve) */}
       <View style={styles.navBar}>
         {NAV_ITEMS.map(item => {
           const active = currentTab === item.key;
@@ -191,9 +196,9 @@ function AppShell({ onThemeChange }: { onThemeChange: (theme: ThemePreference) =
               key={item.key}
               accessibilityRole="tab"
               accessibilityState={{ selected: active }}
-              style={styles.navBtn}
+              style={[styles.navBtn, active && styles.navBtnActive]}
               onPress={() => openTab(item.key)}>
-              <Icon name={item.icon} size={22} color={active ? colors.primary : colors.textMuted} />
+              <Icon name={item.icon} size={22} color={active ? colors.primaryText : colors.textSecondary} />
               <Text style={[styles.navLabel, active && styles.navLabelActive]}>
                 {item.key === 'products' ? segment.terms.catalog : item.label}
               </Text>
@@ -217,7 +222,7 @@ function initials(name: string): string {
 const useStyles = makeStyles(colors => ({
   root: {
     flex: 1,
-    backgroundColor: colors.bg,
+    backgroundColor: colors.canvas,
   },
   topHeader: {
     flexDirection: 'row',
@@ -226,9 +231,8 @@ const useStyles = makeStyles(colors => ({
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.sm,
     minHeight: 56,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.divider,
-    backgroundColor: colors.surface,
+    // Cabeçalho sobre a aurora, sem faixa: o logotipo flutua
+    backgroundColor: 'transparent',
   },
   avatar: {
     width: 40,
@@ -248,12 +252,18 @@ const useStyles = makeStyles(colors => ({
   },
   navBar: {
     flexDirection: 'row',
-    backgroundColor: colors.surface,
-    borderTopWidth: 1,
-    borderTopColor: colors.divider,
-    paddingTop: 6,
-    paddingBottom: spacing.sm,
-    paddingHorizontal: spacing.sm,
+    gap: spacing.xs,
+    marginHorizontal: spacing.lg,
+    marginBottom: spacing.sm,
+    padding: spacing.sm,
+    borderRadius: 32,
+    backgroundColor: colors.glassFillStrong,
+    ...glassBorder(colors),
+    // Sombra do dock (iOS/web); no Android a elevação marcaria o vidro translúcido
+    shadowColor: '#000',
+    shadowOpacity: colors.scheme === 'dark' ? 0.4 : 0.12,
+    shadowRadius: 24,
+    shadowOffset: { width: 0, height: 8 },
   },
   navBtn: {
     flex: 1,
@@ -261,10 +271,14 @@ const useStyles = makeStyles(colors => ({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 3,
+    borderRadius: radius.pill,
+  },
+  navBtnActive: {
+    backgroundColor: colors.primarySoft,
   },
   navLabel: {
     fontSize: 12,
-    color: colors.textMuted,
+    color: colors.textSecondary,
     fontWeight: '500',
   },
   navLabelActive: {

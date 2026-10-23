@@ -14,7 +14,7 @@ import { AuthError, signIn, signUp } from '../../services/auth';
 import type { SegmentId } from '../../types';
 import { SegmentPicker } from '../components/SegmentPicker';
 import { KeyconLogo } from '../../keyboard/components/KeyconLogo';
-import { brand, makeStyles, radius, spacing, touchTarget, typography, useColors } from '../../keyboard/theme';
+import { glassBorder, brand, makeStyles, radius, spacing, touchTarget, typography, useColors } from '../../keyboard/theme';
 
 interface Props {
   onSuccess: () => void;
@@ -243,6 +243,7 @@ const useStyles = makeStyles(colors => ({
     padding: spacing.xs,
     marginBottom: spacing.lg,
     backgroundColor: colors.surface,
+    ...glassBorder(colors),
     borderRadius: radius.md,
   },
   toggleBtn: {
@@ -266,6 +267,7 @@ const useStyles = makeStyles(colors => ({
   },
   formCard: {
     backgroundColor: colors.surface,
+    ...glassBorder(colors),
     padding: spacing.lg,
     borderRadius: radius.xl,
     gap: spacing.sm,
@@ -294,7 +296,8 @@ const useStyles = makeStyles(colors => ({
     backgroundColor: colors.primary,
     minHeight: touchTarget + 4,
     justifyContent: 'center',
-    borderRadius: radius.md,
+    // Liquid Glass: botão principal em pílula
+    borderRadius: colors.glass ? radius.pill : radius.md,
     alignItems: 'center',
     marginTop: spacing.md,
   },
